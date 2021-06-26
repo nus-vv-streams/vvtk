@@ -693,6 +693,7 @@ version = "0.1.0"
 dependencies = [
  "kd-tree",
  "kiss3d",
+ "lab",
  "nalgebra",
  "ply-rs",
  "rand",
@@ -811,6 +812,12 @@ dependencies = [
  "wasm-bindgen",
  "web-sys",
 ]
+
+[[package]]
+name = "lab"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4951f42286540a90992685527c4a7940d63d3ae1a750d057ae7c60ef0ccab24"
 
 [[package]]
 name = "lazy_static"
