@@ -11,10 +11,6 @@ impl Color {
             data: data
         }
     }
-
-    pub fn get(self) -> Vec<Point3<f32>> {
-        self.data.into_iter().map(|point_color| point_color.get_point3()).collect()
-    }
 }
 
 #[derive(Debug)]
@@ -58,7 +54,7 @@ impl PointColor {
        Point3::new(self.red as f32 /256.0, self.green as f32 /256.0, self.blue as f32 /256.0)
     }
 
-    pub fn get_average(self, another_point: PointColor) -> PointColor {
+    pub fn get_average(&self, another_point: &PointColor) -> PointColor {
         let lab_of_self = self.to_lab();
         let lab_of_another = another_point.to_lab();
         let lab_of_average = Lab { l: (lab_of_self.l + lab_of_another.l)/2.0,
@@ -68,11 +64,6 @@ impl PointColor {
         PointColor::new_with_array(lab_of_average.to_rgb())
         
     }
-
-        // PointColor::new((self.red + another_point.red)/2
-        //                 ,(self.green + another_point.green)/2
-        //                 ,(self.blue + another_point.blue)/2)
-    
 
     pub fn get_color_delta(&self, another_point: &PointColor) -> f32 {
         let lab_of_self = self.to_lab();

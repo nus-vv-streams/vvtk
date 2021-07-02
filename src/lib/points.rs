@@ -32,16 +32,16 @@ impl Points {
         self.data.len()
     }
 
-    pub fn get_data(&self) -> Vec<Point> {
-        self.data.clone()
+    pub fn get_data(self) -> Vec<Point> {
+        self.data
     }
 
-    pub fn get_colors(&self) -> Color {
-        Color::new(self.data.clone().into_iter().map(|point| point.point_color).collect())
+    pub fn get_colors(self) -> Color {
+        Color::new(self.data.into_iter().map(|point| point.point_color).collect())
     }
 
-    pub fn get_coords(&self) -> Coordinate {
-        Coordinate::new(self.data.clone().into_iter().map(|point| point.point_coord).collect())
+    pub fn get_coords(self) -> Coordinate {
+        Coordinate::new(self.data.into_iter().map(|point| point.point_coord).collect())
     }
 
     pub fn render(&self) {
@@ -51,11 +51,11 @@ impl Points {
         }
     }
 
-    pub fn to_kdtree(&self) -> KdTree<Point>{
+    pub fn to_kdtree(self) -> KdTree<Point>{
         KdTree::build_by_ordered_float(self.get_data())
     }
 
-    pub fn average_points_recovery(&self, points: &Points) -> Points {
+    pub fn average_points_recovery(self, points: Points) -> Points {
         let kd_tree = points.to_kdtree();
 
         Points::of(self.get_data().into_iter()
@@ -63,7 +63,7 @@ impl Points {
             .collect())
     }
 
-    pub fn closest_with_ratio_average_points_recovery(&self, points: &Points, ratio: f32) -> Points{
+    pub fn closest_with_ratio_average_points_recovery(self, points: Points, ratio: f32) -> Points{
         let kd_tree = points.to_kdtree();
 
         Points::of(self.get_data().into_iter()
@@ -103,12 +103,12 @@ impl Point {
         }
     }
 
-    pub fn get_coord(self) -> PointCoordinate {
-        self.point_coord
+    pub fn get_coord(&self) -> &PointCoordinate {
+        &self.point_coord
     }
 
-    pub fn get_color(self) -> PointColor {
-        self.point_color
+    pub fn get_color(&self) -> &PointColor {
+        &self.point_color
     }
 
     pub fn get_nearest(&self, kd_tree: &KdTree<Point>) -> Point {
@@ -120,8 +120,8 @@ impl Point {
     }
 
     pub fn get_average(&self, another_point: &Point) -> Point {
-        Point::new(self.clone().get_coord().get_average(another_point.clone().get_coord()), 
-                    self.clone().get_color().get_average(another_point.clone().get_color()))
+        Point::new(self.clone().get_coord().get_average(another_point.get_coord()), 
+                    self.clone().get_color().get_average(another_point.get_color()))
     }
 
     fn get_coord_delta(&self, another_point: &Point) -> f32 {

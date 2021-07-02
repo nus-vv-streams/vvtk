@@ -33,7 +33,7 @@ impl Renderer {
 
     pub fn render_frame(&mut self, data: &Points){
         for point in &data.data {
-            self.window.draw_point(&point.clone().get_coord().get_point3(), &point.clone().get_color().get_point3());
+            self.window.draw_point(&point.get_coord().get_point3(), &point.get_color().get_point3());
         }
     }
 

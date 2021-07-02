@@ -14,14 +14,10 @@ impl Coordinate {
             data: data
         }
     }
-
-    pub fn get(self) -> Vec<Point3<f32>> {
-        self.data.into_iter().map(|coord| coord.get_point3()).collect()
-    }
 }
 
 impl ColorRecovery for Coordinate {
-    fn nearest_point_recovery(self, points: &Points) -> Points {
+    fn nearest_point_recovery(self, points: Points) -> Points {
         let kd_tree = points.to_kdtree();
 
         Points::of(self.data.into_iter()
@@ -55,15 +51,15 @@ impl PointCoordinate {
         }
     }
 
-    pub fn get_point3(self) -> Point3<f32> {
+    pub fn get_point3(&self) -> Point3<f32> {
        Point3::new(self.x, self.y, self.z)
     }
 
-    pub fn set_color(&self, point_color: PointColor) -> Point {
-        Point::new(self.clone(), point_color)
+    pub fn set_color(&self, point_color: &PointColor) -> Point {
+        Point::new(self.clone(), point_color.clone())
     }
 
-    pub fn get_average(self, another_point: PointCoordinate) -> PointCoordinate {
+    pub fn get_average(&self, another_point: &PointCoordinate) -> PointCoordinate {
         PointCoordinate::new((self.x + another_point.x)/2.0 
                             ,(self.y + another_point.y)/2.0
                             ,(self.z + another_point.z)/2.0)

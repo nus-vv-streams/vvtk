@@ -1,5 +1,8 @@
 /target
-/out
+/plySource
 /write
+/kiss3d
+
+!/plySource/README.md
 
 .DS_Store

@@ -69,7 +69,7 @@ impl PlyFile {
             let mut points = Vec::new();
 
             for entry in data.get_data() {
-                let coord = entry.clone().get_coord();
+                let coord = entry.get_coord();
                 let color = entry.get_color();
 
                 let mut point = DefaultElement::new();
