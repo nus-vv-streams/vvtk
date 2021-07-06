@@ -44,6 +44,17 @@ impl Points {
         Coordinate::new(self.data.into_iter().map(|point| point.point_coord).collect())
     }
 
+    pub fn get_both(self) -> (Coordinate, Color) {
+        let mut coords = Vec::new();
+        let mut colors = Vec::new();
+        for point in self.data {
+            coords.push(point.point_coord);
+            colors.push(point.point_color);
+        }
+
+        (Coordinate::new(coords), Color::new(colors))
+    }
+
     pub fn render(&self) {
         let mut renderer = renderer::Renderer::new();
         while renderer.rendering() {
@@ -84,8 +95,8 @@ impl IntoIterator for Points {
 #[derive(Debug)]
 #[derive(Clone)]
 pub struct Point {
-    point_coord: PointCoordinate,
-    point_color: PointColor
+    pub point_coord: PointCoordinate,
+    pub point_color: PointColor
 }
 
 impl Point {
