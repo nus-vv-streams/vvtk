@@ -5,26 +5,35 @@ use std::iter::Iterator;
 use crate::color::{ Color, PointColor };
 use crate::coordinate::{ Coordinate, PointCoordinate };
 use crate::renderer;
+use nalgebra::Point3;
 
 #[derive(Clone)]
 pub struct Points {
-    pub data: Vec<Point>
+    pub data: Vec<Point>,
+    pub delta_pos_vector: Vec<Point3<f32>>,
+    pub delta_colours: Vec<Point3<f32>>
 }
 
 impl Points {
     pub fn new() -> Self {
         Points {
-            data: Vec::new()
+            data: Vec::new(),
+            delta_pos_vector: Vec::new(),
+            delta_colours: Vec::new()
         }
     }
 
     pub fn add(&mut self, elem: Point) {
         self.data.push(elem);
     }
-
+    
     pub fn of(data: Vec<Point>) -> Self {
+        
         Points {
-            data: data
+            data: data,
+            delta_pos_vector: Vec::new(),
+            delta_colours: Vec::new()
+
         }
     }
 
@@ -57,18 +66,66 @@ impl Points {
 
     pub fn average_points_recovery(self, points: Points) -> Points {
         let kd_tree = points.to_kdtree();
-
-        Points::of(self.get_data().into_iter()
+        let x = self.clone();
+        
+        let point_data = Points::of(x.get_data().into_iter()
             .map(|point| point.get_average(&point.get_nearest(&kd_tree)))
-            .collect())
+            .collect());      
+        
+        
+        self.frame_delta(point_data.clone());
+        point_data
     }
 
     pub fn closest_with_ratio_average_points_recovery(self, points: Points, ratio: f32) -> Points{
         let kd_tree = points.to_kdtree();
+        let x = self.clone();
 
-        Points::of(self.get_data().into_iter()
+        let point_data = Points::of(x.get_data().into_iter()
                     .map(|point| point.get_average_closest_from_kdtree(&kd_tree, ratio))
-                    .collect())
+                    .collect());
+
+        self.frame_delta(point_data.clone());
+        point_data
+    }
+
+    //accepts argument of points in case this function is called in main before any interpolation function is called i.e. will be used to calculate a simple delta
+    // this function is also called in each of the interpolation functions, taking in the vector of closest points i.e. fn can be used in 2 ways
+    pub fn frame_delta(mut self, prev: Points)
+    {
+        let next_coordinates_obj = self.clone().get_coords();
+        let next_coordinates = next_coordinates_obj.getPointCoorVec();
+
+        let next_colours_obj = self.clone().get_colors();
+        let next_colours = next_colours_obj.getPointColVec();
+
+        let prev_coordinates_obj = prev.clone().get_coords();
+        let prev_coordinates = prev_coordinates_obj.getPointCoorVec();
+
+        let prev_colours_obj = prev.get_colors();
+        let prev_colours = prev_colours_obj.getPointColVec();
+
+        for (pos, _e) in prev_coordinates.iter().enumerate()
+        {
+            let (x, y, z) = (next_coordinates[pos].x - prev_coordinates[pos].x, next_coordinates[pos].y - prev_coordinates[pos].y, next_coordinates[pos].z - prev_coordinates[pos].z);
+            self.delta_pos_vector.push(Point3::new(x, y, z));
+        }
+
+        for (pos, _e) in prev_colours.iter().enumerate()
+        {
+            let (x, y, z) = (next_colours[pos].red as f32 - prev_colours[pos].red as f32, next_colours[pos].green as f32 - prev_colours[pos].green as f32, next_colours[pos].blue as f32 - prev_colours[pos].blue as f32);
+            self.delta_colours.push(Point3::new(x , y , z ));
+        }
+    }
+
+    pub fn get_delta_pos_vector(&self) ->  Vec<Point3<f32>>
+    {
+        self.delta_pos_vector.clone()
+    }
+
+    pub fn get_delta_colours(&self) ->  Vec<Point3<f32>>
+    {
+        self.delta_colours.clone()
     }
 }
 

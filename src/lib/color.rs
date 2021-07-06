@@ -11,6 +11,10 @@ impl Color {
             data: data
         }
     }
+
+    pub fn getPointColVec(&self) -> &Vec<PointColor> {
+        &self.data//self.data.into_iter().map(|coord| coord.get_point3()).collect()
+    }
 }
 
 #[derive(Debug)]
