@@ -25,6 +25,14 @@ pub struct PointColor {
     pub blue: u8
 }
 
+impl PartialEq for PointColor {
+    fn eq(&self, other: &Self) -> bool {
+        self.red == other.red &&
+        self.green == other.green &&
+        self.blue == other.blue
+    }
+}
+
 impl PointColor {
     pub fn new_default() -> Self {
         PointColor {

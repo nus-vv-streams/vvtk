@@ -1,6 +1,7 @@
 extern crate ply_rs;
 use ply_rs::parser;
-use ply_rs::ply::{ Ply, DefaultElement, Encoding, ElementDef, PropertyDef, PropertyType, ScalarType, Property, Addable };
+// use ply_rs::ply::{ Ply, DefaultElement, Encoding, ElementDef, PropertyDef, PropertyType, ScalarType, Property, Addable };
+use ply_rs::ply::{ Ply, DefaultElement, Encoding, ElementDef, PropertyDef, PropertyType, ScalarType, Property, Addable, PropertyAccess };
 use ply_rs::writer::{ Writer };
 
 use std::fs::File;
@@ -8,12 +9,17 @@ use std::path::Path;
 use std::io::prelude::*;
 
 use crate::points::{ Points, Point };
+// use crate::color::{ Color, PointColor };
+// use crate::color_rgb::{ ColorRGB, PointColorRGB };
+// use crate::coordinate::{ Coordinate, PointCoordinate };
+
 
 #[derive(Debug)]
 pub struct PlyFile {
     file: File
 }
 
+    
 impl PlyFile {
     pub fn new(path: &str) -> Self {
         PlyFile {
@@ -27,6 +33,7 @@ impl PlyFile {
         }
     }
 
+    
     pub fn read(&self) -> Points {
         let mut f = std::io::BufReader::new(&self.file);
     
@@ -37,6 +44,11 @@ impl PlyFile {
         let mut points_list = Vec::new();
         for (_ignore_key, element) in &header.elements {
             points_list = point_parser.read_payload_for_element(&mut f, &element, &header).unwrap();
+        }
+
+        for idx in 0..points_list.len()
+        {
+            points_list[idx].set_index(idx);
         }
 
         Points::of(points_list)

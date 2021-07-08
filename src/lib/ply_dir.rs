@@ -51,4 +51,12 @@ impl PlyDir {
             renderer.render_frame(&frame);
         }
     }
+
+    // pub fn write_to_ble(self, new_dir: &str) {
+    //     std::fs::create_dir(new_dir).unwrap();
+
+    //     for entry in self.paths {
+    //         PlyFile::write_to_ble(entry, new_dir).unwrap();
+    //     }
+    // }
 }

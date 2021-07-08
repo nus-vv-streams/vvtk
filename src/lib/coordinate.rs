@@ -16,7 +16,7 @@ impl Coordinate {
     }
 
     pub fn getPointCoorVec(&self) -> &Vec<PointCoordinate> {
-        &self.data//self.data.into_iter().map(|coord| coord.get_point3()).collect()
+        &self.data
     }
 }
 
@@ -25,7 +25,7 @@ impl ColorRecovery for Coordinate {
         let kd_tree = points.to_kdtree();
 
         Points::of(self.data.into_iter()
-                    .map(|coord| coord.set_color(coord.get_nearest(&kd_tree).get_color()))
+                    .map(|coord| coord.set_color(coord.get_nearest(&kd_tree).get_color(), 0)) //SET TO 0 SINCE FUNCTION SEEMS UNUSED
                     .collect())
     }
 }
@@ -38,12 +38,20 @@ pub struct PointCoordinate {
     pub z: f32
 }
 
+impl PartialEq for PointCoordinate {
+    fn eq(&self, other: &Self) -> bool {
+        self.x == other.x &&
+        self.y == other.y &&
+        self.z == other.z
+    }
+}
+
 impl PointCoordinate {
     pub fn new_default() -> Self {
         PointCoordinate {
             x: 0.0,
             y: 0.0,
-            z: 0.0,
+            z: 0.0
         }
     }
 
@@ -51,7 +59,7 @@ impl PointCoordinate {
         PointCoordinate {
             x: x,
             y: y,
-            z: z,
+            z: z
         }
     }
 
@@ -59,8 +67,8 @@ impl PointCoordinate {
        Point3::new(self.x, self.y, self.z)
     }
 
-    pub fn set_color(&self, point_color: &PointColor) -> Point {
-        Point::new(self.clone(), point_color.clone())
+    pub fn set_color(&self, point_color: &PointColor, index: usize) -> Point {
+        Point::new(self.clone(), point_color.clone(), 0, index)
     }
 
     pub fn get_average(&self, another_point: &PointCoordinate) -> PointCoordinate {
