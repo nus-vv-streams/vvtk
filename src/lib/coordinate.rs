@@ -15,7 +15,7 @@ impl Coordinate {
         }
     }
 
-    pub fn getPointCoorVec(&self) -> &Vec<PointCoordinate> {
+    pub fn get_point_coor_vec(&self) -> &Vec<PointCoordinate> {
         &self.data
     }
 }

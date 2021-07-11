@@ -565,12 +565,11 @@ checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 
 [[package]]
 name = "glow"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "072136d2c3783f3a92f131acb227bc806d3886278e2a4dc1e9990ec89ef9e70b"
+version = "0.10.0"
+source = "git+https://github.com/nus-mmsys/glow?branch=main#28a8fd0a8863680ee0881fb184898563c87e2a21"
 dependencies = [
  "js-sys",
- "slotmap 0.4.0",
+ "slotmap",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -793,8 +792,7 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 [[package]]
 name = "kiss3d"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8f1afefbe1b070145fe53936da0ccd33b6b7301409fece09771b81f71bd2708"
+source = "git+https://github.com/nus-mmsys/kiss3d#dc5367b6a3b5db8104e820f86db6bc342d16fb78"
 dependencies = [
  "bitflags",
  "either",
@@ -1030,7 +1028,7 @@ dependencies = [
  "petgraph",
  "simba",
  "slab",
- "slotmap 1.0.3",
+ "slotmap",
  "smallvec",
 ]
 
@@ -1675,12 +1673,6 @@ name = "slab"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f173ac3d1a7e3b28003f40de0b5ce7fe2710f9b9dc3fc38664cebee46b3b6527"
-
-[[package]]
-name = "slotmap"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c46a3482db8f247956e464d783693ece164ca056e6e67563ee5505bdb86452cd"
 
 [[package]]
 name = "slotmap"

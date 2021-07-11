@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 ply-rs = "0.1.3"
-kiss3d = "0.31.0"
+kiss3d = { git = "https://github.com/nus-mmsys/kiss3d", version = "0.31.0" }
 nalgebra = "0.26.2"
 kd-tree = "0.3.0"
 typenum = "1.13.0"

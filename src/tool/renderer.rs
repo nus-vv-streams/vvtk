@@ -4,8 +4,6 @@ use kiss3d::light::Light;
 use kiss3d::window::Window;
 
 use crate::points::{ Points };
-
-use std::time::{Duration, Instant};
 use std::path::Path;
 
 pub struct Renderer {

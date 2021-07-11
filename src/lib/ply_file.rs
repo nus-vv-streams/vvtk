@@ -1,11 +1,10 @@
 extern crate ply_rs;
 use ply_rs::parser;
 // use ply_rs::ply::{ Ply, DefaultElement, Encoding, ElementDef, PropertyDef, PropertyType, ScalarType, Property, Addable };
-use ply_rs::ply::{ Ply, DefaultElement, Encoding, ElementDef, PropertyDef, PropertyType, ScalarType, Property, Addable, PropertyAccess };
+use ply_rs::ply::{ Ply, DefaultElement, Encoding, ElementDef, PropertyDef, PropertyType, ScalarType, Property, Addable };
 use ply_rs::writer::{ Writer };
 
 use std::fs::File;
-use std::path::Path;
 use std::io::prelude::*;
 
 use crate::points::{ Points, Point };

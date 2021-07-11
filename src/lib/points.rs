@@ -147,16 +147,16 @@ impl Points {
 
         let (next_coordinates_obj, next_colours_obj)  = self.clone().get_coords_cols();
 
-        let next_coordinates = next_coordinates_obj.getPointCoorVec();        
-        let next_colours = next_colours_obj.getPointColVec();
+        let next_coordinates = next_coordinates_obj.get_point_coor_vec();        
+        let next_colours = next_colours_obj.get_point_col_vec();
 
         // let prev_coordinates_obj = prev.clone().get_coords();
         // let prev_colours_obj = prev.get_colors();
 
         let (prev_coordinates_obj, prev_colours_obj)  = prev.get_coords_cols();
 
-        let prev_coordinates = prev_coordinates_obj.getPointCoorVec();        
-        let prev_colours = prev_colours_obj.getPointColVec();
+        let prev_coordinates = prev_coordinates_obj.get_point_coor_vec();        
+        let prev_colours = prev_colours_obj.get_point_col_vec();
 
         for (pos, _e) in prev_coordinates.iter().enumerate()
         {
