@@ -5,6 +5,7 @@ use std::iter::Iterator;
 use crate::color::{ Color, PointColor };
 use crate::coordinate::{ Coordinate, PointCoordinate };
 use crate::renderer;
+use crate::sep::SepPoints;
 use nalgebra::Point3;
 use std::any::type_name;
 use std::cmp::Ordering;
@@ -36,7 +37,6 @@ impl Points {
     }
     
     pub fn of(data: Vec<Point>) -> Self {
-        
         Points {
             data: data,
             delta_pos_vector: Vec::new(),
@@ -46,12 +46,16 @@ impl Points {
         }
     }
 
-    pub fn count(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.data.len()
     }
 
     pub fn get_data(self) -> Vec<Point> {
         self.data
+    }
+
+    pub fn get_clone_data(&self) -> Vec<Point> {
+        self.data.clone()
     }
 
     pub fn get_colors(self) -> Color {
@@ -199,6 +203,23 @@ impl Points {
     {
         self.delta_colours.clone()
     }
+
+    pub fn seperate<F: Fn(&Points) -> U, U: Fn(&Point) -> bool>(&self, method: F) -> SepPoints {
+        let mut first_half = Points::new();
+        let mut second_half = Points::new();
+    
+        let filter = method(&self);
+    
+        for point in &self.data {
+            if filter(point) {
+                first_half.add(point.clone())
+            } else {
+                second_half.add(point.clone())
+            }
+        };
+    
+        SepPoints::of(first_half, second_half)
+    }
 }
 
 impl IntoIterator for Points {
@@ -213,8 +234,8 @@ impl IntoIterator for Points {
 #[derive(Debug)]
 #[derive(Clone)]
 pub struct Point {
-    point_coord: PointCoordinate,
-    point_color: PointColor,
+    pub point_coord: PointCoordinate,
+    pub point_color: PointColor,
     mapping: u16,
     index: usize
 }

@@ -2,53 +2,20 @@
 mod tool;
 mod lib;
 mod traits;
+mod sep;
+mod sep_method;
 
 use tool::renderer;
 use lib::{ color, coordinate, points, ply_file, ply_dir };
+use sep_method::sep_by_y_coord;
 
 #[allow(unused_imports)]
 use ply_dir::PlyDir;
 
-fn main() 
-{
+fn main() {
+    let path = "/Users/hungkhoaitay/Documents/Hasagi/Ooi/in-summer-we-render/plySource/longdress/longdress/Ply";
     //frames are declared as mut since the delta is stored internally  
 
-    let mut data_1051 = ply_file::PlyFile::new("plySource/longdress_vox10_1051.ply").read();
-
-    let data_1053 = ply_file::PlyFile::new("plySource/longdress_vox10_1053.ply").read();
-
-    println!("{}", "read frame 1053");
-
-    // let c = data_1051.closest_with_ratio_average_points_recovery(&data_1061, 1.0);
-
-//    let (mut a, reference) = data_1051.average_points_recovery(data_1053); //data_1053.clone().average_points_recovery(data_1051.clone());
-    
-    let (a, reference) = data_1051.closest_with_ratio_average_points_recovery(data_1053, 0.70, 0.29, 0.01); //sum must equal 1
-
-    // let mut b = data_1051.average_points_recovery(data_1053);
-    // b.render();
-
-    // a.render();
-    // a.data.append(&mut b.data);
-
-   a.render();
-
-   reference.render();
-
-    ////////////////////////////////////
-
-    // let mut delta_pos: Vec<Point3<f32>> = vec![];
-    // let mut delta_col : Vec<Point3<f32>> = vec![];
-    // delta_pos = data_1051.get_delta_pos_vector();
-    // delta_col = data_1051.get_delta_colours();
-    
-    // for i in delta_pos.iter()
-    // {
-    //     println!("delta_coor: x pos : {}, y pos : {}, z pos: {}", i.x, i.y, i.z);
-    // }
-
-    // for i in delta_col.iter()
-    // {
-    //     println!("delta_col: x col : {}, y col : {}, z col: {}", i.x, i.y, i.z);
-    // }
+    let data_1051 = ply_file::PlyFile::new(&(path.to_owned() + "/longdress_vox10_1223.ply")).read();
+    data_1051.seperate(sep_by_y_coord).render();
 }
