@@ -17,7 +17,7 @@ impl Renderer {
         let at = Point3::new(300.0f32, 800.0, 200.0);
         let mut window = Window::new("In Summer We Render");
         window.set_light(Light::StickToCamera);
-        window.set_point_size(10.0);
+        window.set_point_size(1.0);
         
         Renderer {
             first_person: ArcBall::new_with_frustrum(std::f32::consts::PI / 4.0, 0.1, 4000.0, eye, at),

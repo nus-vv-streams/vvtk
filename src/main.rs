@@ -23,7 +23,7 @@ fn main()
 
 //    let (mut a, reference) = data_1051.average_points_recovery(data_1053); //data_1053.clone().average_points_recovery(data_1051.clone());
     
-    let (a, reference) = data_1051.closest_with_ratio_average_points_recovery(data_1053, 0.7, 0.1, 0.2); //sum must equal 1
+    let (a, reference) = data_1051.closest_with_ratio_average_points_recovery(data_1053, 0.70, 0.29, 0.01); //sum must equal 1
 
     // let mut b = data_1051.average_points_recovery(data_1053);
     // b.render();

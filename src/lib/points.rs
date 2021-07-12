@@ -84,14 +84,33 @@ impl Points {
         KdTree::build_by_ordered_float(self.get_data())
     }
 
-    pub fn mark_mapped_points(&mut self)
+    pub fn mark_mapped_points(&mut self, kd_tree: KdTree<Point>)
     {
         let mut mapped_points = 0;
-        for point in self.reference_frame.iter_mut()
+        let mut all_unmapped: bool = true;
+
+        for point in self.reference_frame.clone().iter_mut()
         {
             if point.mapping == 0
             {
-                point.point_color = PointColor::new(0, 255, 0);
+                let mut neighbours = point.get_nearests(&kd_tree, 3).data;
+                for neighbour in neighbours.iter_mut()
+                {
+                    if self.reference_frame[neighbour.get_index()].mapping != 0
+                    {
+                        all_unmapped = false;
+                    }
+                }
+
+                if all_unmapped
+                {
+                    for neighbour in neighbours.iter_mut()
+                    {
+                        self.reference_frame[neighbour.get_index()].point_color = PointColor::new(0, 255, 0);
+                    }
+                }
+                
+                all_unmapped = true;
             }
             else
             {
@@ -115,7 +134,7 @@ impl Points {
         
         self.frame_delta(point_data.clone());
         
-        self.mark_mapped_points();
+        self.mark_mapped_points(kd_tree);
 
         (point_data, Points::of(self.reference_frame.clone()))
     }
@@ -133,7 +152,7 @@ impl Points {
         self.frame_delta(point_data.clone());
         // point_data
 
-        self.mark_mapped_points();
+        self.mark_mapped_points(kd_tree);
 
         (point_data, Points::of(self.reference_frame.clone()))
     }
@@ -292,8 +311,14 @@ impl Point {
 
     ///penalization 
     fn get_difference(&self, another_point: &Point, penalize_coor: f32, penalize_col:f32, another_point_mapping: u16, penalize_mapped: f32) -> f32 {
-        self.get_coord_delta(another_point) * penalize_coor  +
-        self.get_color_delta(another_point) * penalize_col + 
+        let max_coor: f32 = 3.0 * 512.0 * 512.0;
+        let scale_coor = max_coor.sqrt();
+
+        let max_col: f32 = (100.0 * 100.0) + 2.0 * (256.0 * 256.0);
+        let scale_col = max_col.sqrt();
+
+        self.get_coord_delta(another_point) * penalize_coor / scale_coor  +
+        self.get_color_delta(another_point) * penalize_col / scale_col + 
         another_point_mapping as f32 * penalize_mapped
 
     }
