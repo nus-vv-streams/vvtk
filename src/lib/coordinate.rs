@@ -68,7 +68,7 @@ impl PointCoordinate {
     }
 
     pub fn set_color(&self, point_color: &PointColor, index: usize) -> Point {
-        Point::new(self.clone(), point_color.clone(), 0, index)
+        Point::new(self.clone(), point_color.clone(), 0, index, 0.0, 1.0, false)
     }
 
     pub fn get_average(&self, another_point: &PointCoordinate) -> PointCoordinate {

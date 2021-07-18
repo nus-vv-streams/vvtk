@@ -17,7 +17,7 @@ impl Renderer {
         let at = Point3::new(300.0f32, 800.0, 200.0);
         let mut window = Window::new("In Summer We Render");
         window.set_light(Light::StickToCamera);
-        window.set_point_size(4.0); // <-- change here
+        window.set_point_size(1.0); // <-- change here
         
         Renderer {
             first_person: ArcBall::new_with_frustrum(std::f32::consts::PI / 4.0, 0.1, 4000.0, eye, at),
@@ -35,7 +35,7 @@ impl Renderer {
 
     pub fn render_frame(&mut self, data: &Points){
         for point in &data.data {
-            self.window.draw_point(&point.get_coord().get_point3(), &point.get_color().get_point3());
+            self.window.draw_point_with_size(&point.get_coord().get_point3(), &point.get_color().get_point3(), point.point_size);
         }
     }
 
