@@ -4,14 +4,15 @@ use std::iter::Iterator;
 
 use crate::color::{ Color, PointColor };
 use crate::coordinate::{ Coordinate, PointCoordinate };
-use crate::renderer;
+use crate::sep::SepPoints;
+use crate::renderer::Renderer;
 
+#[allow(unused_imports)]
 use std::time::{Duration, Instant};
 
 // use kiss3d::point_renderer;
 // use kiss3d::camera::{ArcBall};
 
-use crate::sep::SepPoints;
 use nalgebra::Point3;
 use std::any::type_name;
 use std::cmp::Ordering;
@@ -86,20 +87,26 @@ impl Points {
     }
 
     pub fn render(&self) {
-        let mut renderer = renderer::Renderer::new();
+        let mut renderer = Renderer::new();
         while renderer.rendering() {
             renderer.render_frame(&self);
         }
-        // let mut renderer = point_renderer::PointRenderer::new();
-        // for point in &self.data {
-        //     renderer.draw_point_with_size(point.get_coord().get_point3(), point.get_color().get_point3(), point.point_size);
-        // }
-        // let eye = Point3::new(0.0f32, 500.0, 2500.0);
-        // let at = Point3::new(300.0f32, 800.0, 200.0);
-        // let camera = ArcBall::new_with_frustrum(std::f32::consts::PI / 4.0, 0.1, 4000.0, eye, at);
-        // renderer.render();
-
     }
+
+    pub fn render_with_method<F: Fn(&mut Renderer, &Point)>(&self, method: F) {
+        let mut renderer = Renderer::new();
+        while renderer.rendering() {
+            renderer.render_frame_with_method(&self, &method)
+        }
+    }
+
+    pub fn take_sreenshoot_to_path(&self, path: &str) {
+        let mut renderer = Renderer::new();
+        while renderer.rendering() {
+            renderer.render_frame(&self);
+        }
+        renderer.screenshoot_to_path(path);
+    }     
 
     pub fn to_kdtree(self) -> KdTree<Point>{
         KdTree::build_by_ordered_float(self.get_data())

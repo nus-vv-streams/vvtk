@@ -3,12 +3,12 @@ use kiss3d::camera::{ArcBall};
 use kiss3d::light::Light;
 use kiss3d::window::Window;
 
-use crate::points::{ Points };
+use crate::points::{ Points, Point };
 use std::path::Path;
 
 pub struct Renderer {
     first_person: ArcBall,
-    window: Window
+    pub (crate) window: Window
 }
 
 impl Renderer {
@@ -39,6 +39,12 @@ impl Renderer {
         }
     }
 
+    pub fn render_frame_with_method<F: Fn(&mut Renderer, &Point)>(&mut self, data: &Points, method: F){
+        for point in &data.data {
+            method(self, point);
+        }
+    }
+
     pub fn render_in_green(&mut self, data: &Points){
         for point in &data.data {
             self.window.draw_point(&point.get_coord().get_point3(), &Point3::new(0.0, 1.0, 0.0));
@@ -57,11 +63,7 @@ impl Renderer {
         }
     }
 
-    pub fn screenshoot(&mut self) {
-        self.screenshoot_to_path("screenshot.png");
-    }
-
-    pub fn screenshoot_to_path(&mut self, path: &str) {
+    pub (crate) fn screenshoot_to_path(&mut self, path: &str) {
         let img = self.window.snap_image();
         let img_path = Path::new(path);
         img.save(img_path).unwrap();
