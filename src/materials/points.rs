@@ -102,9 +102,11 @@ impl Points {
 
     pub fn take_sreenshoot_to_path(&self, path: &str) {
         let mut renderer = Renderer::new();
-        while renderer.rendering() {
-            renderer.render_frame(&self);
-        }
+        renderer.rendering();
+        renderer.render_frame(&self);
+        renderer.rendering();
+        renderer.render_frame(&self);
+        renderer.rendering();
         renderer.screenshoot_to_path(path);
     }     
 

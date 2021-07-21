@@ -45,18 +45,6 @@ impl Renderer {
         }
     }
 
-    pub fn render_in_green(&mut self, data: &Points){
-        for point in &data.data {
-            self.window.draw_point(&point.get_coord().get_point3(), &Point3::new(0.0, 1.0, 0.0));
-        }
-    }
-
-    pub fn render_in_red(&mut self, data: &Points){
-        for point in &data.data {
-            self.window.draw_point(&point.get_coord().get_point3(), &Point3::new(1.0, 0.0, 0.0));
-        }
-    }
-
     pub fn render_image(&mut self, data: &Points) {
         while self.rendering() {
             self.render_frame(data);

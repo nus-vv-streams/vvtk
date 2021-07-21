@@ -1,16 +1,7 @@
-#![allow(dead_code)]
-mod tool;
-mod traits;
-mod materials;
-pub mod methods;
+extern crate iswr;
 
-use tool::{ renderer };
-#[allow(unused_imports)]
-use methods::{ sep_method, render_met };
-use materials::{ color, coordinate, points, ply_file, ply_dir, sep };
-
-#[allow(unused_imports)]
-use ply_dir::PlyDir;
+use iswr::materials::{ ply_file };
+use iswr::methods::{ sep_method, render_met };
 
 fn main() {
     let path = "plySource/binary_ply";
