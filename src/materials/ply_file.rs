@@ -34,13 +34,11 @@ impl PlyFile {
 
     pub fn create(path: &str) -> Result<Self, &str> {
         let new_path = Path::new(path);
-        if new_path.is_file() {
-            Ok(PlyFile {
-                file: File::create(new_path).unwrap()
-            })
-        } else {
-            Err("It is not a file")
-        }
+
+        Ok(PlyFile {
+            file: File::create(new_path).unwrap()
+        })
+        
     }
 
     

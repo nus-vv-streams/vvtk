@@ -1,7 +1,7 @@
 [package]
-name = "in-summer-we-render"
+name = "main"
 version = "0.1.0"
-authors = ["Hungkhoaitay <e0550385@u.nus.edu>"]
+authors = ["Hungkhoaitay <e0550385@u.nus.edu>", "giterator <e055220@u.nus.edu>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -18,9 +18,8 @@ kd-tree = "0.3.0"
 typenum = "1.13.0"
 rand = "0.8.3"
 lab = "0.10.0"
+clap = "2.33.3"
 
-[[bin]]
-name = "test"
 
 [[bin]]
 name = "ply_to_binary"
@@ -33,3 +32,6 @@ name = "ply_view"
 
 [[bin]]
 name = "ply_to_png"
+
+[[bin]]
+name = "ply_interpolate"
