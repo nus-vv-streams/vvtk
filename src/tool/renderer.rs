@@ -21,7 +21,7 @@ impl Renderer {
         
         Renderer {
             first_person: ArcBall::new_with_frustrum(std::f32::consts::PI / 4.0, 0.1, 4000.0, eye, at),
-            window: window,
+            window,
         }
     }
 

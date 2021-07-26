@@ -1,6 +1,6 @@
 use nalgebra::Point3;
 
-use crate::points::{ Points, Point };
+use crate::points::{ Point };
 use crate::tool::renderer::Renderer;
 
 pub fn all_green(renderer: &mut Renderer, point: &Point) {

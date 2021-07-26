@@ -8,7 +8,7 @@ pub struct Color {
 impl Color {
     pub fn new(data: Vec<PointColor>) -> Self {
         Color {
-            data: data
+            data
         }
     }
 
@@ -44,9 +44,9 @@ impl PointColor {
 
     pub fn new(red: u8, green: u8, blue: u8) -> Self {
         PointColor {
-            red: red,
-            green: green,
-            blue: blue,
+            red,
+            green,
+            blue,
         }
     }
 

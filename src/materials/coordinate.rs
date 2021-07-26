@@ -11,7 +11,7 @@ pub struct Coordinate {
 impl Coordinate {
     pub fn new(data: Vec<PointCoordinate>) -> Self {
         Coordinate {
-            data: data
+            data
         }
     }
 
@@ -57,9 +57,9 @@ impl PointCoordinate {
 
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         PointCoordinate {
-            x: x,
-            y: y,
-            z: z
+            x,
+            y,
+            z
         }
     }
 

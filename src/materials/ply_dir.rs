@@ -30,7 +30,7 @@ impl PlyDir {
         let paths = Arc::new(self.paths);
         
         let (tx, rx) = channel();
-        let (paths_clone, tx) = (paths.clone(), tx.clone());
+        let (paths_clone, tx) = (paths, tx);
         
         std::thread::spawn(move || {
             let mut index: usize = 0;

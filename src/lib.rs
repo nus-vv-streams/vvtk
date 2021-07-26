@@ -16,7 +16,7 @@ use ply_dir::PlyDir;
 
 use std::env;
 // use std::error::Error;
-use std::path::{ PathBuf };
+// use std::path::{ PathBuf };
 
 fn main() {
     // let path = "/Users/hungkhoaitay/Documents/Hasagi/Ooi/in-summer-we-render/plySource/longdress/longdress/Ply";
@@ -42,7 +42,7 @@ impl Config {
     pub fn new(args: &[String]) -> Result<Config, &str> {
         let len = args.len();
         if len > 3 {
-            return Err("too many arguments");
+            Err("too many arguments")
         } else if len == 3 {
             let filename1 = args[1].clone();
             let filename2 = args[2].clone();
@@ -51,7 +51,7 @@ impl Config {
         } else if len == 2 {
             Config::new_with_one_arg(args)
         } else {
-            return Err("no arguments");
+            Err("no arguments")
         }
     }
 

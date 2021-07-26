@@ -47,7 +47,7 @@ impl Points {
     
     pub fn of(data: Vec<Point>) -> Self {
         Points {
-            data: data,
+            data,
             delta_pos_vector: Vec::new(),
             delta_colours: Vec::new(),
             reference_frame: Vec::new()
@@ -111,7 +111,7 @@ impl Points {
     }     
 
     pub fn to_kdtree(self) -> KdTree<Point>{
-        KdTree::build_by_ordered_float(self.get_data())
+        KdTree::build_by_ordered_float(self.data)
     }
 
     pub fn mark_unmapped_points(&mut self, kd_tree: KdTree<Point>)
@@ -151,7 +151,7 @@ impl Points {
         println!("mapped points: {}; total points: {}", mapped_points, self.reference_frame.len());
     }
 
-    pub fn mark_points_near_cracks(&mut self, point_data: Points) -> (Points, Points){
+    pub fn mark_points_near_cracks(&mut self, point_data: &Points) -> Points{
         let mut marked_interpolated_frame = point_data.clone();
 
         let mut points_near_cracks = 0;
@@ -166,7 +166,7 @@ impl Points {
         }
 
         println!("number of points near cracks: {}", points_near_cracks);
-        return (point_data, marked_interpolated_frame)
+        marked_interpolated_frame
     }
 
 
@@ -207,39 +207,39 @@ impl Points {
     //     (point_data, Points::of(self.reference_frame.clone()))
     // }
 
-    pub fn closest_with_ratio_average_points_recovery(&mut self, next_points: &Points, penalize_coor: f32, penalize_col: f32, penalize_mapped: f32, radius: f32, options_for_nearest: usize) -> (Points, Points, Points){
+    pub fn closest_with_ratio_average_points_recovery(&mut self, next_points: &Points, penalize_coor: f32, penalize_col: f32, penalize_mapped: f32, radius: f32, options_for_nearest: usize,
+        show_unmapped_points: bool, resize_near_cracks: bool, mark_enlarged: bool, compute_frame_delta: bool) -> (Points, Points, Points){
         
         //start time
-        // let now = Instant::now();
-        self.reference_frame = next_points.data.clone();       
-        
+        let now = Instant::now();
+        // if show_unmapped_points {self.reference_frame = next_points.data.clone(); }
+        self.reference_frame = next_points.data.clone();
+
         let kd_tree = next_points.clone().to_kdtree();
         let x = self.data.clone();
 
         // println!("cloning time: {}", now.elapsed().as_secs());
 
-        // let now = Instant::now();
+        
         let mut point_data = Points::of(x.into_iter()
                     .map(|point| point.get_average_closest_from_kdtree(&next_points, &kd_tree, penalize_coor, penalize_col, &mut self.reference_frame, penalize_mapped, radius, options_for_nearest))
                     .collect());
 
-        // println!("interpolation time: {}", now.elapsed().as_secs());
+        println!("interpolation time: {}", now.elapsed().as_secs());
 
 
-        self.frame_delta(point_data.clone());
+        if compute_frame_delta {self.frame_delta(point_data.clone());}
 
-        self.mark_unmapped_points(kd_tree);
+        if show_unmapped_points {self.mark_unmapped_points(kd_tree);}
 
         /////////////
         //point_data.render(); //original interpolated frame
         /////////////
     
-        // let now = Instant::now();
-        point_data.adjust_point_sizes(radius);
-        // println!("time to adjust point sizes: {}", now.elapsed().as_secs());
-        //end time 
+        if resize_near_cracks {point_data.adjust_point_sizes(radius);}
 
-        let (point_data, marked_interpolated_frame) = self.mark_points_near_cracks(point_data);
+        let marked_interpolated_frame = Points::new();
+        if resize_near_cracks && mark_enlarged{ let marked_interpolated_frame = self.mark_points_near_cracks(&point_data);}
 
         (point_data, Points::of(self.reference_frame.clone()), marked_interpolated_frame)
     }
@@ -339,13 +339,13 @@ impl PartialEq for Point {
 impl Point {
     pub fn new(point_coord: PointCoordinate, point_color: PointColor, mapping: u16, index: usize, point_density: f32, point_size: f32, near_crack: bool) -> Self {
         Point {
-            point_coord: point_coord,
-            point_color: point_color,
-            mapping: mapping,
-            index: index,
-            point_density: point_density, 
-            point_size: point_size,
-            near_crack: near_crack
+            point_coord,
+            point_color,
+            mapping,
+            index,
+            point_density, 
+            point_size,
+            near_crack
         }
     }
 
@@ -366,7 +366,7 @@ impl Point {
             return Some(Ordering::Greater);
         }
 
-        return Some(Ordering::Equal);
+        Some(Ordering::Equal)
     }
 
     fn new_default() -> Self {
@@ -397,22 +397,23 @@ impl Point {
         self.index
     }
 
-    pub fn get_nearest(&self, kd_tree: &KdTree<Point>, reference_frame: &mut Vec<Point>) -> Point {
-        let mut nearest_point = kd_tree.nearest(self).unwrap().item.clone();
-        reference_frame[nearest_point.get_index()].mapping += 1;
+    //deprecated
+    // pub fn get_nearest(&self, kd_tree: &KdTree<Point>, reference_frame: &mut Vec<Point>) -> Point {
+    //     let mut nearest_point = kd_tree.nearest(self).unwrap().item.clone();
+    //     reference_frame[nearest_point.get_index()].mapping += 1;
 
-        nearest_point
-    }
+    //     nearest_point
+    // }
 
     //penalization
     //update count in kdtree point
     pub fn get_nearests(&self, kd_tree: &KdTree<Point>, quantity: usize) -> Vec<usize> {
-        kd_tree.nearests(self, quantity).into_iter().map(|found| found.item.index.clone()).collect()
+        kd_tree.nearests(self, quantity).into_iter().map(|found| found.item.index).collect()
     }
 
     pub fn get_average(&self, another_point: &Point) -> Point {
-        Point::new(self.clone().get_coord().get_average(another_point.get_coord()), 
-                    self.clone().get_color().get_average(another_point.get_color()), 
+        Point::new(self.point_coord.get_average(&another_point.point_coord), 
+                    self.point_color.get_average(&another_point.point_color), 
                     0, 
                     another_point.index, 
                     another_point.point_density, //(self.point_density + another_point.point_density) / 2.0)
@@ -422,14 +423,15 @@ impl Point {
     }
 
     fn get_coord_delta(&self, another_point: &Point) -> f32 {
-        self.clone().get_coord().get_coord_delta(&another_point.clone().get_coord())
+        self.point_coord.get_coord_delta(&another_point.point_coord)
     }
 
     fn get_color_delta(&self, another_point: &Point) -> f32 {
-        self.clone().get_color().get_color_delta(&another_point.clone().get_color())
+        self.point_color.get_color_delta(&another_point.point_color)
     }
 
     ///penalization 
+    // #[inline(always)]
     fn get_difference(&self, another_point: &Point, penalize_coor: f32, penalize_col:f32, another_point_mapping: u16, penalize_mapped: f32) -> f32 {
         let max_coor: f32 = 3.0 * 512.0 * 512.0;
         let scale_coor = max_coor.sqrt();
