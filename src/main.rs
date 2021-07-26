@@ -8,6 +8,7 @@ use tool::{ renderer };
 #[allow(unused_imports)]
 use methods::{ sep_method, render_met };
 use materials::{ color, coordinate, points, ply_file, ply_dir, sep };
+use std::io::{self, Write};
 
 #[allow(unused_imports)]
 use ply_dir::PlyDir;
@@ -24,6 +25,7 @@ fn main() {
     // reference.render(); //reference frame with unmapped points marked as green
     // marked_interpolated_frame.render(); //interpolated frame with points surrounding cracks marked as red
 
-    let data_1051 = ply_file::PlyFile::new(&(path.to_owned() + "/longdress_vox10_1051.ply")).unwrap().read();
-    data_1051.seperate(sep_method::sep_by_y_coord).render_with_method(render_met::pt_size_2, render_met::all_red);
+    let points = ply_file::PlyFile::new(&(path.to_owned() + "/longdress_vox10_1051.ply")).unwrap().read();
+    ply_file::PlyFile::create("path").unwrap().writen_as_ascii(points).unwrap();
+    // io::stdout().write_all(points).unwrap();
 }
