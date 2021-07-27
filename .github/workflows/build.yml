@@ -1,4 +1,4 @@
-name: Lint
+name: Build
 
 on:
   push:
@@ -13,8 +13,9 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-
+    env:
+    - RUSTFLAGS: "--deny warnings"
     steps:
     - uses: actions/checkout@v2
-    - name: Linting with clippy
-      run: cargo clippy
+    - name: Build
+      run: cargo build --all-targets --all-features
