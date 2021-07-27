@@ -11,10 +11,9 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     env:
-    - RUSTFLAGS: "--deny warnings"
+      RUSTFLAGS: --deny warnings
     steps:
     - uses: actions/checkout@v2
     - name: Build
