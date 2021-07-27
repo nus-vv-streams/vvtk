@@ -1,4 +1,4 @@
-name: Rust
+name: Format
 
 on:
   push:
@@ -16,7 +16,5 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Build
-      run: cargo build --verbose
-    - name: Check style
+    - name: Check format
       run: cargo fmt -- --check
