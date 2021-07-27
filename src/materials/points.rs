@@ -123,10 +123,10 @@ impl Points {
         {
             if point.mapping == 0
             {
-                let mut neighbours = point.get_nearests(&kd_tree, 3).data;
-                for neighbour in neighbours.iter_mut()
+                let k_nearest_indices = point.get_nearests(&kd_tree, 3);
+                for idx in &k_nearest_indices
                 {
-                    if self.reference_frame[neighbour.get_index()].mapping != 0
+                    if self.reference_frame[*idx].mapping != 0
                     {
                         all_unmapped = false;
                     }
@@ -134,9 +134,9 @@ impl Points {
 
                 if all_unmapped
                 {
-                    for neighbour in neighbours.iter_mut()
+                    for idx in k_nearest_indices
                     {
-                        self.reference_frame[neighbour.get_index()].point_color = PointColor::new(0, 255, 0);
+                        self.reference_frame[idx].point_color = PointColor::new(0, 255, 0);
                     }
                 }
                 
@@ -154,16 +154,21 @@ impl Points {
     pub fn mark_points_near_cracks(&mut self, point_data: Points) -> (Points, Points){
         let mut marked_interpolated_frame = point_data.clone();
 
+        let mut points_near_cracks = 0;
+
         for idx in 0..point_data.data.len(){
             marked_interpolated_frame.data[idx].point_size = 1.0;
             if point_data.data[idx].near_crack{
                 //self.reference_frame[point.get_index()].point_color = PointColor::new(255, 0, 0);
                 marked_interpolated_frame.data[idx].point_color = PointColor::new(255, 0, 0);
+                points_near_cracks += 1;
             }
         }
 
+        println!("number of points near cracks: {}", points_near_cracks);
         return (point_data, marked_interpolated_frame)
     }
+
 
     //changing point size based on surrounding point density
     pub fn adjust_point_sizes(&mut self, radius: f32){
@@ -183,40 +188,52 @@ impl Points {
         }
     }
 
-    pub fn average_points_recovery(&mut self, points: Points) -> (Points, Points) {
-        self.reference_frame = points.clone().get_data();
+    //deprecated interoolation method. closest_with_ratio_average_points_recovery can achieve this by setting opitons for nearest to 1
+    // pub fn average_points_recovery(&mut self, points: Points) -> (Points, Points) {
+    //     self.reference_frame = points.clone().get_data();
 
-        let kd_tree = points.to_kdtree();
-        let x = self.clone();
+    //     let kd_tree = points.to_kdtree();
+    //     let x = self.clone();
         
-        let point_data = Points::of(x.get_data().into_iter()
-            .map(|point| point.get_average(&point.get_nearest(&kd_tree, &mut self.reference_frame)))
-            .collect());      
+    //     let point_data = Points::of(x.get_data().into_iter()
+    //         .map(|point| point.get_average(&point.get_nearest(&kd_tree, &mut self.reference_frame)))
+    //         .collect());      
         
         
-        self.frame_delta(point_data.clone());
+    //     self.frame_delta(point_data.clone());
         
-        self.mark_unmapped_points(kd_tree);
+    //     self.mark_unmapped_points(kd_tree);
 
-        (point_data, Points::of(self.reference_frame.clone()))
-    }
+    //     (point_data, Points::of(self.reference_frame.clone()))
+    // }
 
-    pub fn closest_with_ratio_average_points_recovery(&mut self, points: Points, penalize_coor: f32, penalize_col: f32, penalize_mapped: f32, radius: f32) -> (Points, Points, Points){
-        self.reference_frame = points.clone().get_data();
+    pub fn closest_with_ratio_average_points_recovery(&mut self, next_points: &Points, penalize_coor: f32, penalize_col: f32, penalize_mapped: f32, radius: f32, options_for_nearest: usize) -> (Points, Points, Points){
         
         //start time
         // let now = Instant::now();
-        let kd_tree = points.to_kdtree();
-        let x = self.clone();
+        self.reference_frame = next_points.data.clone();       
+        
+        let kd_tree = next_points.clone().to_kdtree();
+        let x = self.data.clone();
 
-        let mut point_data = Points::of(x.get_data().into_iter()
-                    .map(|point| point.get_average_closest_from_kdtree(&kd_tree, penalize_coor, penalize_col, &mut self.reference_frame, penalize_mapped, radius))
+        // println!("cloning time: {}", now.elapsed().as_secs());
+
+        // let now = Instant::now();
+        let mut point_data = Points::of(x.into_iter()
+                    .map(|point| point.get_average_closest_from_kdtree(&next_points, &kd_tree, penalize_coor, penalize_col, &mut self.reference_frame, penalize_mapped, radius, options_for_nearest))
                     .collect());
+
+        // println!("interpolation time: {}", now.elapsed().as_secs());
+
 
         self.frame_delta(point_data.clone());
 
         self.mark_unmapped_points(kd_tree);
 
+        /////////////
+        //point_data.render(); //original interpolated frame
+        /////////////
+    
         // let now = Instant::now();
         point_data.adjust_point_sizes(radius);
         // println!("time to adjust point sizes: {}", now.elapsed().as_secs());
@@ -226,6 +243,7 @@ impl Points {
 
         (point_data, Points::of(self.reference_frame.clone()), marked_interpolated_frame)
     }
+
 
     //accepts argument of points in case this function is called in main before any interpolation function is called i.e. will be used to calculate a simple delta
     // this function is also called in each of the interpolation functions, taking in the vector of closest points i.e. fn can be used in 2 ways
@@ -388,8 +406,8 @@ impl Point {
 
     //penalization
     //update count in kdtree point
-    pub fn get_nearests(&self, kd_tree: &KdTree<Point>, quantity: usize) -> Points {
-        Points::of(kd_tree.nearests(self, quantity).into_iter().map(|found| found.item.clone()).collect())
+    pub fn get_nearests(&self, kd_tree: &KdTree<Point>, quantity: usize) -> Vec<usize> {
+        kd_tree.nearests(self, quantity).into_iter().map(|found| found.item.index.clone()).collect()
     }
 
     pub fn get_average(&self, another_point: &Point) -> Point {
@@ -426,32 +444,32 @@ impl Point {
     }
 
     
-    fn get_closest(&self, points: Points, penalize_coor: f32, penalize_col: f32, reference_frame: &mut Vec<Point>, penalize_mapped: f32, kd_tree: &KdTree<Point>, radius: f32) -> Point {
+    fn get_closest(&self, next_points: &Points, k_nearest_indices: Vec<usize>, penalize_coor: f32, penalize_col: f32, reference_frame: &mut Vec<Point>, penalize_mapped: f32, kd_tree: &KdTree<Point>, radius: f32) -> Point {
         let mut min: f32 = f32::MAX;
-        let mut result: Point = Point::new_default();
+        let mut result: Point; // = Point::new_default();
 
-        for mut point in points.data {
-            let map = reference_frame[point.get_index()].mapping;
-            let cur = self.get_difference(&point, penalize_coor, penalize_col, map, penalize_mapped);
+        let mut result_idx = 0;
+        for idx in k_nearest_indices {
+            let cur = self.get_difference(&next_points.data[idx], penalize_coor, penalize_col, reference_frame[idx].mapping, penalize_mapped);
             if cur < min {
                 min = cur;
-                reference_frame[point.get_index()].mapping += 1;
-                result = point
+                result_idx = idx;
             }
         }
 
+        result = next_points.data[result_idx].clone();
         result.point_density = kd_tree.within_radius(&result, radius).len() as f32 / (radius.powf(2.0) * PI);
-        reference_frame[result.get_index()].mapping += 1;
+        reference_frame[result_idx].mapping += 1;
         result
     }
 
-    fn get_average_closest(&self, points: Points, penalize_coor:f32, penalize_col: f32, reference_frame: &mut Vec<Point>, penalize_mapped: f32, kd_tree: &KdTree<Point>, radius: f32) -> Point {
-        self.get_average(&self.get_closest(points, penalize_coor, penalize_col, reference_frame, penalize_mapped, kd_tree, radius))
+    fn get_average_closest(&self, next_points: &Points, k_nearest_indices: Vec<usize>, penalize_coor:f32, penalize_col: f32, reference_frame: &mut Vec<Point>, penalize_mapped: f32, kd_tree: &KdTree<Point>, radius: f32) -> Point {
+        self.get_average(&self.get_closest(next_points, k_nearest_indices, penalize_coor, penalize_col, reference_frame, penalize_mapped, kd_tree, radius))
     }
 
     
-    fn get_average_closest_from_kdtree(&self, kd_tree: &KdTree<Point>, penalize_coor: f32, penalize_col: f32, reference_frame: &mut Vec<Point>, penalize_mapped: f32, radius: f32) -> Point {
-        self.get_average_closest(self.get_nearests(kd_tree, 400), penalize_coor, penalize_col, reference_frame, penalize_mapped, kd_tree, radius)
+    fn get_average_closest_from_kdtree(&self, next_points: &Points, kd_tree: &KdTree<Point>, penalize_coor: f32, penalize_col: f32, reference_frame: &mut Vec<Point>, penalize_mapped: f32, radius: f32, options_for_nearest: usize) -> Point {
+        self.get_average_closest(next_points, self.get_nearests(kd_tree, options_for_nearest), penalize_coor, penalize_col, reference_frame, penalize_mapped, kd_tree, radius)
     }
 }
 
