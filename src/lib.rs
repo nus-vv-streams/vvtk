@@ -1,26 +1,26 @@
 #![allow(dead_code)]
-pub mod tool;
 pub mod materials;
-pub mod traits;
 pub mod methods;
+pub mod tool;
+pub mod traits;
 
 #[allow(unused_imports)]
-use tool::{ renderer };
+use methods::{render_met, sep_method};
 #[allow(unused_imports)]
-use methods::{ sep_method, render_met };
+use tool::renderer;
 
-use materials::{ color, coordinate, points, ply_file, ply_dir, sep };
+use materials::{color, coordinate, ply_dir, ply_file, points, sep};
 
 #[allow(unused_imports)]
 use ply_dir::PlyDir;
 
 use std::env;
 // use std::error::Error;
-use std::path::{ PathBuf };
+// use std::path::{ PathBuf };
 
 fn main() {
     // let path = "/Users/hungkhoaitay/Documents/Hasagi/Ooi/in-summer-we-render/plySource/longdress/longdress/Ply";
-    // //frames are declared as mut since the delta is stored internally  
+    // //frames are declared as mut since the delta is stored internally
 
     // let data_1051 = ply_file::PlyFile::new(&(path.to_owned() + "/longdress_vox10_1223.ply")).read();
     // data_1051.seperate(sep_by_y_coord).render();
@@ -42,16 +42,19 @@ impl Config {
     pub fn new(args: &[String]) -> Result<Config, &str> {
         let len = args.len();
         if len > 3 {
-            return Err("too many arguments");
+            Err("too many arguments")
         } else if len == 3 {
             let filename1 = args[1].clone();
             let filename2 = args[2].clone();
 
-            Ok(Config { filename1, filename2 })
+            Ok(Config {
+                filename1,
+                filename2,
+            })
         } else if len == 2 {
             Config::new_with_one_arg(args)
         } else {
-            return Err("no arguments");
+            Err("no arguments")
         }
     }
 
@@ -63,11 +66,13 @@ impl Config {
 
         let filename1 = args[1].clone();
 
-        Ok(Config { filename1, filename2: NOTHING.to_string() })
+        Ok(Config {
+            filename1,
+            filename2: NOTHING.to_string(),
+        })
     }
 }
 
 // pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
 //     // --snip--
 // }
-
