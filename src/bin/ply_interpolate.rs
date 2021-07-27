@@ -1,8 +1,8 @@
 extern crate iswr;
 // use std::env;
 extern crate clap;
-use clap::{Arg, App};
-use iswr::materials::{ ply_file, points };
+use clap::{App, Arg};
+use iswr::materials::{ply_file, points};
 use std::io::{self, Write};
 // use std::path::{ PathBuf };
 
@@ -10,7 +10,7 @@ use std::io::{self, Write};
 // the extra '--' after the binary file name is needed
 
 fn main() {
-     let matches = App::new("ply_interpolate")
+    let matches = App::new("ply_interpolate")
      .about("Interpolate frame (t1) between 2 ply files (t0 & t2)")
      .arg(Arg::with_name("prev")
               .short("p")
@@ -98,114 +98,169 @@ fn main() {
               .takes_value(true)
               .multiple(false)
               .help("Output directory for interpolated frame / t2 with unmapped points highlighted"))
-
-              
      .get_matches();
 
+    let prev_frame_dir = matches.value_of("prev").unwrap();
+    let next_frame_dir = matches.value_of("next").unwrap();
 
-     let prev_frame_dir = matches.value_of("prev").unwrap();
-     let next_frame_dir = matches.value_of("next").unwrap();   
+    let method = matches
+        .value_of("method")
+        .unwrap_or("closest_with_ratio_average_points_recovery");
 
-     let method = matches.value_of("method").unwrap_or("closest_with_ratio_average_points_recovery");
+    let show_unmapped_points = matches.is_present("unmapped");
+    let mark_enlarged = matches.is_present("mark_enlarged");
+    let compute_frame_delta = matches.is_present("frame_delta");
+    let resize_near_cracks = matches.is_present("resize");
+    let two_way_interpolation = matches.is_present("two_way");
 
-     let show_unmapped_points = matches.is_present("unmapped");
-     let mark_enlarged = matches.is_present("mark_enlarged");
-     let compute_frame_delta = matches.is_present("frame_delta");
-     let resize_near_cracks = matches.is_present("resize");
-     let two_way_interpolation = matches.is_present("two_way");
+    let output_dir = matches.value_of("output").unwrap_or("stdout");
 
-     let output_dir = matches.value_of("output").unwrap_or("stdout");
-
-     //  println!("show unmapped points: {}", show_unmapped_points);
+    //  println!("show unmapped points: {}", show_unmapped_points);
     //  println!("interpolation method: {}", method);
-     let coor_delta_weight = matches.value_of("coor_delta").unwrap_or("49.5").parse::<f32>().unwrap();
-     let col_delta_weight = matches.value_of("col_delta").unwrap_or("49.5").parse::<f32>().unwrap();
-     let pre_mapped_weight = matches.value_of("pre_mapped").unwrap_or("1").parse::<f32>().unwrap();
-     let radius = matches.value_of("radius").unwrap_or("0.7").parse::<f32>().unwrap();
-     let options_for_nearest = matches.value_of("nearest_points").unwrap_or("400").parse::<usize>().unwrap();
+    let coor_delta_weight = matches
+        .value_of("coor_delta")
+        .unwrap_or("49.5")
+        .parse::<f32>()
+        .unwrap();
+    let col_delta_weight = matches
+        .value_of("col_delta")
+        .unwrap_or("49.5")
+        .parse::<f32>()
+        .unwrap();
+    let pre_mapped_weight = matches
+        .value_of("pre_mapped")
+        .unwrap_or("1")
+        .parse::<f32>()
+        .unwrap();
+    let radius = matches
+        .value_of("radius")
+        .unwrap_or("0.7")
+        .parse::<f32>()
+        .unwrap();
+    let options_for_nearest = matches
+        .value_of("nearest_points")
+        .unwrap_or("400")
+        .parse::<usize>()
+        .unwrap();
 
-    interpolate(prev_frame_dir, next_frame_dir, method, two_way_interpolation, coor_delta_weight, col_delta_weight, pre_mapped_weight, 
-        radius, options_for_nearest, show_unmapped_points, resize_near_cracks, mark_enlarged, compute_frame_delta, output_dir);
-
-     
+    interpolate(
+        prev_frame_dir,
+        next_frame_dir,
+        method,
+        two_way_interpolation,
+        coor_delta_weight,
+        col_delta_weight,
+        pre_mapped_weight,
+        radius,
+        options_for_nearest,
+        show_unmapped_points,
+        resize_near_cracks,
+        mark_enlarged,
+        compute_frame_delta,
+        output_dir,
+    );
 }
 
-fn interpolate(prev_frame_dir: &str, next_frame_dir: &str, method: &str, two_way_interpolation: bool, coor_delta_weight: f32, col_delta_weight: f32, 
-    pre_mapped_weight: f32, radius: f32, options_for_nearest: usize, show_unmapped_points: bool, resize_near_cracks: bool, mark_enlarged: bool, compute_frame_delta: bool, output_dir: &str)
-{
+fn interpolate(
+    prev_frame_dir: &str,
+    next_frame_dir: &str,
+    method: &str,
+    two_way_interpolation: bool,
+    coor_delta_weight: f32,
+    col_delta_weight: f32,
+    pre_mapped_weight: f32,
+    radius: f32,
+    options_for_nearest: usize,
+    show_unmapped_points: bool,
+    resize_near_cracks: bool,
+    mark_enlarged: bool,
+    compute_frame_delta: bool,
+    output_dir: &str,
+) {
     let mut prev = ply_file::PlyFile::new(prev_frame_dir).unwrap().read();
     let mut next = ply_file::PlyFile::new(next_frame_dir).unwrap().read();
     // let mut result = points::Points::new();
     // let reference_unmapped = points::Points::new();
     // let marked_interpolated_frame = points::Points::new();
 
-    
     let mut end_result = points::Points::new();
-    let mut end_reference_unmapped = points::Points::new();; 
+    let mut end_reference_unmapped = points::Points::new();
     let mut end_marked_interpolated_frame = points::Points::new();
 
-    if method == "closest_with_ratio_average_points_recovery"
-    {
-        if two_way_interpolation
-        {
-            let (mut prev_result, reference_unmapped, marked_interpolated_frame) = prev.closest_with_ratio_average_points_recovery(&next, 
-                coor_delta_weight/100.0, col_delta_weight/100.0, pre_mapped_weight/100.0, radius, options_for_nearest, show_unmapped_points, 
-                resize_near_cracks, mark_enlarged, compute_frame_delta); //sum of first 3 must equal 1
+    if method == "closest_with_ratio_average_points_recovery" {
+        if two_way_interpolation {
+            let (mut prev_result, reference_unmapped, marked_interpolated_frame) = prev
+                .closest_with_ratio_average_points_recovery(
+                    &next,
+                    coor_delta_weight / 100.0,
+                    col_delta_weight / 100.0,
+                    pre_mapped_weight / 100.0,
+                    radius,
+                    options_for_nearest,
+                    show_unmapped_points,
+                    resize_near_cracks,
+                    mark_enlarged,
+                    compute_frame_delta,
+                ); //sum of first 3 must equal 1
 
-            let (mut result, reference_unmapped, marked_interpolated_frame) = next.closest_with_ratio_average_points_recovery(&prev, 
-                coor_delta_weight/100.0, col_delta_weight/100.0, pre_mapped_weight/100.0, radius, options_for_nearest, show_unmapped_points, 
-                resize_near_cracks, mark_enlarged, compute_frame_delta); //sum of first 3 must equal 1
+            let (mut result, reference_unmapped, marked_interpolated_frame) = next
+                .closest_with_ratio_average_points_recovery(
+                    &prev,
+                    coor_delta_weight / 100.0,
+                    col_delta_weight / 100.0,
+                    pre_mapped_weight / 100.0,
+                    radius,
+                    options_for_nearest,
+                    show_unmapped_points,
+                    resize_near_cracks,
+                    mark_enlarged,
+                    compute_frame_delta,
+                ); //sum of first 3 must equal 1
 
-                result.data.append(&mut prev_result.data);
-                end_result = result;
-                end_reference_unmapped = reference_unmapped;
-                end_marked_interpolated_frame = marked_interpolated_frame;
- 
+            result.data.append(&mut prev_result.data);
+            end_result = result;
+            end_reference_unmapped = reference_unmapped;
+            end_marked_interpolated_frame = marked_interpolated_frame;
+        } else {
+            let (result, reference_unmapped, marked_interpolated_frame) = prev
+                .closest_with_ratio_average_points_recovery(
+                    &next,
+                    coor_delta_weight / 100.0,
+                    col_delta_weight / 100.0,
+                    pre_mapped_weight / 100.0,
+                    radius,
+                    options_for_nearest,
+                    show_unmapped_points,
+                    resize_near_cracks,
+                    mark_enlarged,
+                    compute_frame_delta,
+                ); //sum of first 3 must equal 1
+
+            end_result = result;
+            end_reference_unmapped = reference_unmapped;
+            end_marked_interpolated_frame = marked_interpolated_frame;
         }
-
-        else
-        {
-            let (result, reference_unmapped, marked_interpolated_frame) = prev.closest_with_ratio_average_points_recovery(&next, 
-                coor_delta_weight/100.0, col_delta_weight/100.0, pre_mapped_weight/100.0, radius, options_for_nearest, 
-                show_unmapped_points, resize_near_cracks, mark_enlarged, compute_frame_delta); //sum of first 3 must equal 1
-                
-                end_result = result;
-                end_reference_unmapped = reference_unmapped;
-                end_marked_interpolated_frame = marked_interpolated_frame;
-            
-        }
-        
     }
 
     let output;
 
     //output block
-    
-    if show_unmapped_points
-    {
+
+    if show_unmapped_points {
         output = end_reference_unmapped;
-    }
-
-    else if mark_enlarged
-    {
+    } else if mark_enlarged {
         output = end_marked_interpolated_frame;
-    }
-
-    else
-    {
+    } else {
         output = end_result;
     }
 
-    if output_dir == "stdout"
-    {
+    if output_dir == "stdout" {
         //TODO: write to standard output using written_to_ascii
         // io::stdout().write_all(ply_to_ascii(*output));
+    } else {
+        iswr::materials::ply_file::PlyFile::create(output_dir)
+            .unwrap()
+            .writen_as_binary(output)
+            .unwrap();
     }
-
-    else
-    {
-        iswr::materials::ply_file::PlyFile::create(output_dir).unwrap().writen_as_binary(output).unwrap();
-    }
-
 }
-

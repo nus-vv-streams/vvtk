@@ -1,23 +1,24 @@
-use std::sync::{ Arc };
-use std::sync::mpsc::channel;
 use std::path::PathBuf;
+use std::sync::mpsc::channel;
+use std::sync::Arc;
 
-use crate::renderer;
 use crate::ply_file::PlyFile;
-
+use crate::renderer;
 
 pub struct PlyDir {
-    paths: Vec<PathBuf>
+    paths: Vec<PathBuf>,
 }
 
 impl PlyDir {
     pub fn new(path: &str) -> Self {
-        let mut entries = std::fs::read_dir(path).unwrap()
+        let mut entries = std::fs::read_dir(path)
+            .unwrap()
             .map(|res| res.map(|e| e.path()))
-            .collect::<Result<Vec<_>, std::io::Error>>().unwrap();
+            .collect::<Result<Vec<_>, std::io::Error>>()
+            .unwrap();
 
         entries.sort();
-        
+
         PlyDir { paths: entries }
     }
 
@@ -28,19 +29,20 @@ impl PlyDir {
     pub fn play(self) {
         let len = self.count();
         let paths = Arc::new(self.paths);
-        
+
         let (tx, rx) = channel();
         let (paths_clone, tx) = (paths, tx);
-        
+
         std::thread::spawn(move || {
             let mut index: usize = 0;
             loop {
                 index += 1;
-                let frame = PlyFile::new(paths_clone[index % len].as_path().to_str().unwrap()).unwrap().read();
+                let frame = PlyFile::new(paths_clone[index % len].as_path().to_str().unwrap())
+                    .unwrap()
+                    .read();
                 tx.send(frame).unwrap();
             }
         });
-
 
         let mut renderer = renderer::Renderer::new();
 

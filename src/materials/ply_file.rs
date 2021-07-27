@@ -1,31 +1,32 @@
 extern crate ply_rs;
 use ply_rs::parser;
 // use ply_rs::ply::{ Ply, DefaultElement, Encoding, ElementDef, PropertyDef, PropertyType, ScalarType, Property, Addable };
-use ply_rs::ply::{ Ply, DefaultElement, Encoding, ElementDef, PropertyDef, PropertyType, ScalarType, Property, Addable };
-use ply_rs::writer::{ Writer };
+use ply_rs::ply::{
+    Addable, DefaultElement, ElementDef, Encoding, Ply, Property, PropertyDef, PropertyType,
+    ScalarType,
+};
+use ply_rs::writer::Writer;
 
 use std::fs::File;
 use std::io::prelude::*;
 
-use crate::points::{ Points, Point };
-use std::path::{ Path };
+use crate::points::{Point, Points};
+use std::path::Path;
 // use crate::color::{ Color, PointColor };
 // use crate::color_rgb::{ ColorRGB, PointColorRGB };
 // use crate::coordinate::{ Coordinate, PointCoordinate };
 
-
 #[derive(Debug)]
 pub struct PlyFile {
-    file: File
+    file: File,
 }
 
-    
 impl PlyFile {
     pub fn new(path: &str) -> Result<Self, &str> {
         let new_path = Path::new(path);
         if new_path.is_file() {
             Ok(PlyFile {
-                file: File::open(new_path).unwrap()
+                file: File::open(new_path).unwrap(),
             })
         } else {
             Err("It is not a file")
@@ -36,26 +37,25 @@ impl PlyFile {
         let new_path = Path::new(path);
 
         Ok(PlyFile {
-            file: File::create(new_path).unwrap()
+            file: File::create(new_path).unwrap(),
         })
-        
     }
 
-    
     pub fn read(&self) -> Points {
         let mut f = std::io::BufReader::new(&self.file);
-    
+
         let point_parser = parser::Parser::<Point>::new();
-    
+
         let header = point_parser.read_header(&mut f).unwrap();
-    
+
         let mut points_list = Vec::new();
         for (_ignore_key, element) in &header.elements {
-            points_list = point_parser.read_payload_for_element(&mut f, &element, &header).unwrap();
+            points_list = point_parser
+                .read_payload_for_element(&mut f, &element, &header)
+                .unwrap();
         }
 
-        for idx in 0..points_list.len()
-        {
+        for idx in 0..points_list.len() {
             points_list[idx].set_index(idx);
         }
 
@@ -112,7 +112,7 @@ impl PlyFile {
 
         let mut file = self.file;
         file.write_all(&buf)?;
-        
+
         Ok(())
     }
 
@@ -166,7 +166,7 @@ impl PlyFile {
 
         let mut file = self.file;
         file.write_all(&buf)?;
-        
+
         Ok(())
     }
 
@@ -175,7 +175,8 @@ impl PlyFile {
     }
 
     pub fn take_sreenshoot(&self) {
-        self.read().take_sreenshoot_to_path("plySource/out/png/screenshoot.png")
+        self.read()
+            .take_sreenshoot_to_path("plySource/out/png/screenshoot.png")
     }
 
     pub fn take_sreenshoot_to_path(&self, path: &str) {
