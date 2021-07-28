@@ -11,6 +11,7 @@ use std::fs::File;
 use std::io::prelude::*;
 
 use crate::points::{Point, Points};
+use nalgebra::Point3;
 use std::path::Path;
 // use crate::color::{ Color, PointColor };
 // use crate::color_rgb::{ ColorRGB, PointColorRGB };
@@ -171,15 +172,19 @@ impl PlyFile {
     }
 
     pub fn render(&self) {
-        self.read().render()
+        self.read().render_with_camera(None, None)
     }
 
-    pub fn take_sreenshoot(&self) {
-        self.read()
-            .take_sreenshoot_to_path("plySource/out/png/screenshoot.png")
+    pub fn render_with_camera(&self, eye: Option<Point3<f32>>, at: Option<Point3<f32>>) {
+        self.read().render_with_camera(eye, at)
     }
 
-    pub fn take_sreenshoot_to_path(&self, path: &str) {
-        self.read().take_sreenshoot_to_path(path)
-    }
+    // pub fn take_sreenshoot(&self) {
+    //     self.read()
+    //         .take_sreenshoot_to_path("plySource/out/png/screenshoot.png")
+    // }
+
+    // pub fn take_sreenshoot_to_path(&self, path: &str) {
+    //     self.read().take_sreenshoot_to_path(path)
+    // }
 }

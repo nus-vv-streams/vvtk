@@ -5,7 +5,6 @@ use std::iter::Iterator;
 use crate::color::{Color, PointColor};
 use crate::coordinate::{Coordinate, PointCoordinate};
 use crate::renderer::Renderer;
-use crate::sep::SepPoints;
 
 #[allow(unused_imports)]
 use std::time::{Duration, Instant};
@@ -106,28 +105,28 @@ impl Points {
     }
 
     pub fn render(&self) {
+        self.render_with_camera(None, None)
+    }
+
+    pub fn render_with_camera(&self, eye: Option<Point3<f32>>, at: Option<Point3<f32>>) {
         let mut renderer = Renderer::new();
-        while renderer.rendering() {
+
+        renderer.config_camera(eye, at);
+
+        while renderer.render() {
             renderer.render_frame(&self);
         }
     }
 
-    pub fn render_with_method<F: Fn(&mut Renderer, &Point)>(&self, method: F) {
-        let mut renderer = Renderer::new();
-        while renderer.rendering() {
-            renderer.render_frame_with_method(&self, &method)
-        }
-    }
-
-    pub fn take_sreenshoot_to_path(&self, path: &str) {
-        let mut renderer = Renderer::new();
-        renderer.rendering();
-        renderer.render_frame(&self);
-        renderer.rendering();
-        renderer.render_frame(&self);
-        renderer.rendering();
-        renderer.screenshoot_to_path(path);
-    }
+    // pub fn take_sreenshoot_to_path(&self, path: &str) {
+    //     let mut renderer = Renderer::new();
+    //     renderer.rendering();
+    //     renderer.render_frame(&self);
+    //     renderer.rendering();
+    //     renderer.render_frame(&self);
+    //     renderer.rendering();
+    //     renderer.screenshoot_to_path(path);
+    // }
 
     pub fn to_kdtree(self) -> KdTree<Point> {
         KdTree::build_by_ordered_float(self.data)
@@ -334,21 +333,22 @@ impl Points {
         self.delta_colours.clone()
     }
 
-    pub fn seperate<F: Fn(&Points) -> U, U: Fn(&Point) -> bool>(&self, method: F) -> SepPoints {
-        let mut first_half = Points::new();
-        let mut second_half = Points::new();
-
-        let filter = method(&self);
-
+    /**
+     * Filter and Change
+     *
+     */
+    pub fn fac<F, U>(&self, filter: F, change: U) -> Points
+    where
+        F: Fn(&Point) -> bool,
+        U: Fn(&Point) -> Point,
+    {
+        let mut res = Points::new();
         for point in &self.data {
             if filter(point) {
-                first_half.add(point.clone())
-            } else {
-                second_half.add(point.clone())
+                res.add(change(point))
             }
         }
-
-        SepPoints::of(first_half, second_half)
+        res
     }
 }
 

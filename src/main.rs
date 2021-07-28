@@ -4,9 +4,9 @@ pub mod methods;
 mod tool;
 mod traits;
 
-use materials::{color, coordinate, ply_dir, ply_file, points, sep};
+use materials::{color, coordinate, ply_dir, ply_file, points};
 #[allow(unused_imports)]
-use methods::{render_met, sep_method};
+use methods::{change, filter};
 use tool::renderer;
 
 #[allow(unused_imports)]

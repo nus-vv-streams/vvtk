@@ -6,7 +6,7 @@ use iswr::materials::{ply_file, points};
 use std::io::{self, Write};
 // use std::path::{ PathBuf };
 
-//example usage: cargo run  --bin ply_interpolate -- --unmapped
+// example usage: cargo run  --bin ply_interpolate -- --unmapped
 // the extra '--' after the binary file name is needed
 
 fn main() {

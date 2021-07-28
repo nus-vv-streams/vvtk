@@ -6,6 +6,9 @@ use nalgebra::Point3;
 use crate::points::{Point, Points};
 use std::path::Path;
 
+const default_eye: Point3<f32> = Point3::new(0.0f32, 500.0, 2500.0);
+const default_at: Point3<f32> = Point3::new(300.0f32, 800.0, 200.0);
+
 pub struct Renderer {
     first_person: ArcBall,
     pub(crate) window: Window,
@@ -13,8 +16,6 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn new() -> Self {
-        let eye = Point3::new(0.0f32, 500.0, 2500.0);
-        let at = Point3::new(300.0f32, 800.0, 200.0);
         let mut window = Window::new("In Summer We Render");
         window.set_light(Light::StickToCamera);
         window.set_point_size(1.0); // <-- change here
@@ -23,9 +24,9 @@ impl Renderer {
             first_person: ArcBall::new_with_frustrum(
                 std::f32::consts::PI / 4.0,
                 0.1,
-                4000.0,
-                eye,
-                at,
+                10000.0,
+                default_eye,
+                default_at,
             ),
             window,
         }
@@ -35,9 +36,26 @@ impl Renderer {
         self.window.set_point_size(point_size)
     }
 
-    pub fn rendering(&mut self) -> bool {
+    pub fn render(&mut self) -> bool {
         self.window.render_with_camera(&mut self.first_person)
     }
+
+    pub fn config_camera(&mut self, eye: Option<Point3<f32>>, at: Option<Point3<f32>>) {
+        self.first_person = ArcBall::new_with_frustrum(
+            std::f32::consts::PI / 4.0,
+            0.1,
+            4000.0,
+            eye.unwrap_or(default_eye),
+            at.unwrap_or(default_at),
+        );
+    }
+
+    // pub fn render_with_camera(&mut self, eye: Point3<f32>, at: Point3<f32>) -> bool {
+    //     self.first_person =
+    //         ArcBall::new_with_frustrum(std::f32::consts::PI / 4.0, 0.1, 4000.0, eye, at);
+
+    //     self.window.render_with_camera(&mut self.first_person)
+    // }
 
     pub fn render_frame(&mut self, data: &Points) {
         for point in &data.data {
@@ -49,18 +67,8 @@ impl Renderer {
         }
     }
 
-    pub fn render_frame_with_method<F: Fn(&mut Renderer, &Point)>(
-        &mut self,
-        data: &Points,
-        method: F,
-    ) {
-        for point in &data.data {
-            method(self, point);
-        }
-    }
-
     pub fn render_image(&mut self, data: &Points) {
-        while self.rendering() {
+        while self.render() {
             self.render_frame(data);
         }
     }

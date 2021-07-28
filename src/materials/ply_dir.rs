@@ -1,3 +1,4 @@
+use nalgebra::Point3;
 use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use std::sync::Arc;
@@ -27,6 +28,10 @@ impl PlyDir {
     }
 
     pub fn play(self) {
+        self.play_with_camera(None, None);
+    }
+
+    pub fn play_with_camera(self, eye: Option<Point3<f32>>, at: Option<Point3<f32>>) {
         let len = self.count();
         let paths = Arc::new(self.paths);
 
@@ -46,9 +51,11 @@ impl PlyDir {
 
         let mut renderer = renderer::Renderer::new();
 
+        renderer.config_camera(eye, at);
+
         let mut frame;
 
-        while renderer.rendering() {
+        while renderer.render() {
             frame = rx.recv().unwrap();
             renderer.render_frame(&frame);
         }
