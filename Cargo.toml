@@ -36,3 +36,6 @@ name = "ply_to_png"
 
 [[bin]]
 name = "ply_interpolate"
+
+[[bin]]
+name = "ply_fat"

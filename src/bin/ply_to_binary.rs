@@ -14,12 +14,12 @@ fn main() {
                 .help("File directory for data"),
         )
         .arg(
-            Arg::with_name("target")
-                .short("t")
-                .long("target")
+            Arg::with_name("output")
+                .short("o")
+                .long("output")
                 .takes_value(true)
                 .multiple(false)
-                .help("File directory for target"),
+                .help("File directory for output"),
         )
         .get_matches();
     let source = matches.value_of("source").unwrap();
@@ -27,18 +27,18 @@ fn main() {
         .unwrap()
         .read();
 
-    let mut defalt_target = PathBuf::from(iswr::OUT_DIR.to_owned());
-    defalt_target.push("binary");
-    defalt_target.push(PathBuf::from(&source).file_name().unwrap());
+    let mut defalt_output = PathBuf::from(iswr::OUT_DIR.to_owned());
+    defalt_output.push("binary");
+    defalt_output.push(PathBuf::from(&source).file_name().unwrap());
 
-    let target = matches
-        .value_of("target")
-        .unwrap_or(defalt_target.to_str().unwrap());
+    let output = matches
+        .value_of("output")
+        .unwrap_or(defalt_output.to_str().unwrap());
 
-    iswr::materials::ply_file::PlyFile::create(target)
+    iswr::materials::ply_file::PlyFile::create(output)
         .unwrap()
         .writen_as_binary(data)
         .unwrap();
 
-    print!("Writing as binary to {:?}", target);
+    print!("Writing as binary to {:?}", output);
 }

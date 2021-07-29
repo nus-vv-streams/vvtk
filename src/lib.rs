@@ -5,7 +5,7 @@ pub mod tool;
 pub mod traits;
 
 #[allow(unused_imports)]
-use methods::{change, filter};
+use methods::{filter, transform};
 #[allow(unused_imports)]
 use tool::renderer;
 

@@ -6,8 +6,8 @@ use nalgebra::Point3;
 use crate::points::{Point, Points};
 use std::path::Path;
 
-const default_eye: Point3<f32> = Point3::new(0.0f32, 500.0, 2500.0);
-const default_at: Point3<f32> = Point3::new(300.0f32, 800.0, 200.0);
+const DEFAULT_EYE: Point3<f32> = Point3::new(0.0f32, 500.0, 2500.0);
+const DEFAULT_AT: Point3<f32> = Point3::new(300.0f32, 800.0, 200.0);
 
 pub struct Renderer {
     first_person: ArcBall,
@@ -25,8 +25,8 @@ impl Renderer {
                 std::f32::consts::PI / 4.0,
                 0.1,
                 10000.0,
-                default_eye,
-                default_at,
+                DEFAULT_EYE,
+                DEFAULT_AT,
             ),
             window,
         }
@@ -45,8 +45,8 @@ impl Renderer {
             std::f32::consts::PI / 4.0,
             0.1,
             4000.0,
-            eye.unwrap_or(default_eye),
-            at.unwrap_or(default_at),
+            eye.unwrap_or(DEFAULT_EYE),
+            at.unwrap_or(DEFAULT_AT),
         );
     }
 

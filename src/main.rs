@@ -6,7 +6,7 @@ mod traits;
 
 use materials::{color, coordinate, ply_dir, ply_file, points};
 #[allow(unused_imports)]
-use methods::{change, filter};
+use methods::{filter, transform};
 use tool::renderer;
 
 #[allow(unused_imports)]

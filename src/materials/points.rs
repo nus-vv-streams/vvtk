@@ -9,14 +9,14 @@ use crate::renderer::Renderer;
 #[allow(unused_imports)]
 use std::time::{Duration, Instant};
 
-// use kiss3d::point_renderer;
-// use kiss3d::camera::{ArcBall};
-
 use nalgebra::Point3;
 use std::any::type_name;
 use std::cmp::Ordering;
 
 use std::f32::consts::PI;
+
+use crate::filter::FilterProducer;
+use crate::transform::TransformProducer;
 
 fn type_of<T>(_: T) -> &'static str {
     type_name::<T>()
@@ -333,19 +333,22 @@ impl Points {
         self.delta_colours.clone()
     }
 
-    /**
-     * Filter and Change
-     *
-     */
-    pub fn fac<F, U>(&self, filter: F, change: U) -> Points
-    where
-        F: Fn(&Point) -> bool,
-        U: Fn(&Point) -> Point,
-    {
+    pub fn fat(
+        &self,
+        filter_producer: &FilterProducer,
+        transform_producer: &TransformProducer,
+        transform_producer_remain: &TransformProducer,
+    ) -> Points {
         let mut res = Points::new();
+        let filter = filter_producer(self);
+        let change = transform_producer(self);
+        let change_remain = transform_producer_remain(self);
+
         for point in &self.data {
             if filter(point) {
                 res.add(change(point))
+            } else {
+                res.add(change_remain(point))
             }
         }
         res
@@ -418,7 +421,7 @@ impl Point {
         Some(Ordering::Equal)
     }
 
-    fn new_default() -> Self {
+    pub fn new_default() -> Self {
         Point {
             point_coord: PointCoordinate::new_default(),
             point_color: PointColor::new_default(),

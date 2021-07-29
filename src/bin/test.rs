@@ -1,7 +1,7 @@
 extern crate iswr;
 
 use iswr::materials::ply_file;
-use iswr::methods::{change, filter};
+use iswr::methods::{filter, transform};
 
 fn main() {
     let path = "plySource/binary_ply";
@@ -18,4 +18,12 @@ fn main() {
     let data_1051 = ply_file::PlyFile::new(&(path.to_owned() + "/longdress_vox10_1051.ply"))
         .unwrap()
         .read();
+
+    data_1051
+        .fat(
+            &filter::upper_half(),
+            &transform::all_green(),
+            &transform::do_nothing(),
+        )
+        .render();
 }
