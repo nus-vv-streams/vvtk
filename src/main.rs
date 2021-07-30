@@ -13,7 +13,9 @@ use tool::renderer;
 use ply_dir::PlyDir;
 
 fn main() {
-    let path = "./plySource";
+    //////////////////
+
+    let path = "/home/pranav/Documents/Github/in-summer-we-render/plySource";
     // //frames are declared as mut since the delta is stored internally
 
     // // let max_coor: f32 = 3.0 * 512.0 * 512.0;
@@ -42,9 +44,9 @@ fn main() {
             false,
         ); //sum of first 3 must equal 1
 
-    a.render(); //complete interpolation and post processing
-                // reference.render(); //reference frame with unmapped points marked as green
-                // marked_interpolated_frame.render(); //interpolated frame with points surrounding cracks marked as red
+    // a.render(); //complete interpolation and post processing
+    // reference.render(); //reference frame with unmapped points marked as green
+    // marked_interpolated_frame.render(); //interpolated frame with points surrounding cracks marked as red
 
     // let data_1051 = ply_file::PlyFile::new(&(path.to_owned() + "/longdress_vox10_1051.ply")).unwrap().read();
     // data_1051.seperate(sep_method::sep_by_y_coord).render_with_method(render_met::pt_size_2, render_met::all_red);

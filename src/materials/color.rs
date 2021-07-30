@@ -71,14 +71,20 @@ impl PointColor {
         };
 
         PointColor::new_with_array(lab_of_average.to_rgb())
+        // PointColor::new((self.red + another_point.red) / 2,
+        // (self.green + another_point.green) / 2,
+        // (self.blue + another_point.blue) / 2)
     }
 
     pub fn get_color_delta(&self, another_point: &PointColor) -> f32 {
-        let lab_of_self = self.to_lab();
-        let lab_of_another = another_point.to_lab();
+        // let lab_of_self = self.to_lab();
+        // let lab_of_another = another_point.to_lab();
 
-        (lab_of_self.l - lab_of_another.l)
-            .hypot(lab_of_self.a - lab_of_another.a)
-            .hypot(lab_of_self.b - lab_of_another.b)
+        // (lab_of_self.l - lab_of_another.l)
+        //     .hypot(lab_of_self.a - lab_of_another.a)
+        //     .hypot(lab_of_self.b - lab_of_another.b)
+        ((self.red - another_point.red) as f32)
+            .hypot((self.green - another_point.green) as f32)
+            .hypot((self.blue - another_point.blue) as f32)
     }
 }

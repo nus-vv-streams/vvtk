@@ -5,6 +5,8 @@ authors = ["Hungkhoaitay <e0550385@u.nus.edu>", "giterator <e055220@u.nus.edu>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[profile.release]
+debug = 1
 
 [lib]
 name = "iswr"
@@ -14,7 +16,7 @@ path = "src/lib.rs"
 ply-rs = "0.1.3"
 kiss3d = { git = "https://github.com/nus-mmsys/kiss3d", version = "0.31.0" }
 nalgebra = "0.26.2"
-kd-tree = "0.3.0"
+kiddo = "0.1.4"
 typenum = "1.13.0"
 rand = "0.8.3"
 lab = "0.10.0"
