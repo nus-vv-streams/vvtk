@@ -1,15 +1,14 @@
 extern crate iswr;
 use clap::{App, Arg};
 use iswr::methods::{filter, transform};
-use std::path::Path;
 
 fn main() {
     let matches = App::new("ply_fat")
         .about("View a ply frame or play a ply video")
         .arg(
-            Arg::with_name("source")
-                .short("s")
-                .long("source")
+            Arg::with_name("input")
+                .short("i")
+                .long("input")
                 .takes_value(true)
                 .multiple(false)
                 .help("File directory for data"),
@@ -48,10 +47,8 @@ fn main() {
         )
         .get_matches();
 
-    let source = matches.value_of("source").unwrap();
-    let data = iswr::materials::ply_file::PlyFile::new(&source)
-        .unwrap()
-        .read();
+    let input = matches.value_of("input");
+    let data = iswr::tool::reader::read(input);
 
     let filter = matches.value_of("filter").unwrap_or(filter::DEFAULT_KEY);
     let transform = matches

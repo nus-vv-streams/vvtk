@@ -6,7 +6,7 @@ pub type FilterProducer = Box<dyn Fn(&Points) -> FilterFn>;
 pub const DEFAULT_KEY: &str = "default";
 
 pub fn do_nothing() -> FilterProducer {
-    Box::new(move |_points: &Points| Box::new(move |point: &Point| false))
+    Box::new(move |_points: &Points| Box::new(move |_point: &Point| false))
 }
 
 pub fn upper_half() -> FilterProducer {

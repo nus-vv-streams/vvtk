@@ -3,7 +3,7 @@ use kiss3d::light::Light;
 use kiss3d::window::Window;
 use nalgebra::Point3;
 
-use crate::points::{Point, Points};
+use crate::points::Points;
 use std::path::Path;
 
 const DEFAULT_EYE: Point3<f32> = Point3::new(0.0f32, 500.0, 2500.0);

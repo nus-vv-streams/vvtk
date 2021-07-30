@@ -20,13 +20,8 @@ rand = "0.8.3"
 lab = "0.10.0"
 clap = "2.33.3"
 
-
-
 [[bin]]
-name = "ply_to_binary"
-
-[[bin]]
-name = "ply_to_ascii"
+name = "ply_to_ply"
 
 [[bin]]
 name = "ply_view"
@@ -39,3 +34,9 @@ name = "ply_interpolate"
 
 [[bin]]
 name = "ply_fat"
+
+[[bin]]
+name = "test"
+
+[[bin]]
+name = "test_input"

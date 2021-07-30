@@ -2,13 +2,15 @@ extern crate iswr;
 use clap::{App, Arg};
 use std::path::Path;
 
+// cargo run --release --bin test | cargo run --release --bin ply_view -- --eye=100,100,100
+
 fn main() {
     let matches = App::new("ply_view")
         .about("View a ply frame or play a ply video")
         .arg(
-            Arg::with_name("source")
-                .short("s")
-                .long("source")
+            Arg::with_name("input")
+                .short("i")
+                .long("input")
                 .takes_value(true)
                 .multiple(false)
                 .help("File directory for data"),
@@ -39,8 +41,6 @@ fn main() {
         .values_of("at")
         .unwrap_or_default()
         .collect::<Vec<_>>();
-    // let eye = nalgebra::Point3::new(eye_vec[0], eye_vec[1], eye_vec[2]);
-    // let at = nalgebra::Point3::new(at_vec[0], at_vec[1], at_vec[2]);
 
     let eye = if eye_vec.len() >= 3 {
         Some(nalgebra::Point3::new(
@@ -64,16 +64,21 @@ fn main() {
         None
     };
 
-    let source = matches.value_of("source").unwrap();
+    let input = matches.value_of("input");
 
-    let new_path = Path::new(&source);
-    if new_path.is_file() {
-        iswr::materials::ply_file::PlyFile::new(&source)
-            .unwrap()
-            .render_with_camera(eye, at);
-    } else if new_path.is_dir() {
-        iswr::materials::ply_dir::PlyDir::new(&source).play_with_camera(eye, at);
-    } else {
-        print!("No such file or dir {}", source)
-    }
+    match input {
+        Some(path) => {
+            let new_path = Path::new(&path);
+            if new_path.is_file() {
+                iswr::tool::reader::read(input).render_with_camera(eye, at);
+            } else if new_path.is_dir() {
+                iswr::materials::ply_dir::PlyDir::new(&path).play_with_camera(eye, at);
+            } else {
+                print!("No such file or dir {}", path)
+            }
+        }
+        None => {
+            iswr::tool::reader::read(input).render_with_camera(eye, at);
+        }
+    };
 }

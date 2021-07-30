@@ -3,8 +3,7 @@ use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use std::sync::Arc;
 
-use crate::ply_file::PlyFile;
-use crate::renderer;
+use crate::{reader, renderer};
 
 pub struct PlyDir {
     paths: Vec<PathBuf>,
@@ -42,9 +41,11 @@ impl PlyDir {
             let mut index: usize = 0;
             loop {
                 index += 1;
-                let frame = PlyFile::new(paths_clone[index % len].as_path().to_str().unwrap())
-                    .unwrap()
-                    .read();
+                // let frame = PlyFile::new(paths_clone[index % len].as_path().to_str().unwrap())
+                //     .unwrap()
+                //     .read();
+
+                let frame = reader::read(paths_clone[index % len].as_path().to_str());
                 tx.send(frame).unwrap();
             }
         });

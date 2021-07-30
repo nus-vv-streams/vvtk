@@ -2,14 +2,14 @@ extern crate iswr;
 // use std::env;
 extern crate clap;
 use clap::{App, Arg};
-use iswr::materials::{ply_file, points};
+use iswr::materials::points;
 use std::io::{self, Write};
 // use std::path::{ PathBuf };
 
 // example usage: cargo run  --bin ply_interpolate -- --unmapped
 // the extra '--' after the binary file name is needed
 
-fn main() {
+fn main() -> std::io::Result<()> {
     let matches = App::new("ply_interpolate")
      .about("Interpolate frame (t1) between 2 ply files (t0 & t2)")
      .arg(Arg::with_name("prev")
@@ -100,8 +100,8 @@ fn main() {
               .help("Output directory for interpolated frame / t2 with unmapped points highlighted"))
      .get_matches();
 
-    let prev_frame_dir = matches.value_of("prev").unwrap();
-    let next_frame_dir = matches.value_of("next").unwrap();
+    let prev_frame_dir = matches.value_of("prev");
+    let next_frame_dir = matches.value_of("next");
 
     let method = matches
         .value_of("method")
@@ -113,7 +113,7 @@ fn main() {
     let resize_near_cracks = matches.is_present("resize");
     let two_way_interpolation = matches.is_present("two_way");
 
-    let output_dir = matches.value_of("output").unwrap_or("stdout");
+    let output_dir = matches.value_of("output");
 
     //  println!("show unmapped points: {}", show_unmapped_points);
     //  println!("interpolation method: {}", method);
@@ -158,12 +158,12 @@ fn main() {
         mark_enlarged,
         compute_frame_delta,
         output_dir,
-    );
+    )
 }
 
 fn interpolate(
-    prev_frame_dir: &str,
-    next_frame_dir: &str,
+    prev_frame_dir: Option<&str>,
+    next_frame_dir: Option<&str>,
     method: &str,
     two_way_interpolation: bool,
     coor_delta_weight: f32,
@@ -175,10 +175,10 @@ fn interpolate(
     resize_near_cracks: bool,
     mark_enlarged: bool,
     compute_frame_delta: bool,
-    output_dir: &str,
-) {
-    let mut prev = ply_file::PlyFile::new(prev_frame_dir).unwrap().read();
-    let mut next = ply_file::PlyFile::new(next_frame_dir).unwrap().read();
+    output_dir: Option<&str>,
+) -> std::io::Result<()> {
+    let mut prev = iswr::tool::reader::read(prev_frame_dir);
+    let mut next = iswr::tool::reader::read(next_frame_dir);
     // let mut result = points::Points::new();
     // let reference_unmapped = points::Points::new();
     // let marked_interpolated_frame = points::Points::new();
@@ -254,13 +254,15 @@ fn interpolate(
         output = end_result;
     }
 
-    if output_dir == "stdout" {
-        //TODO: write to standard output using written_to_ascii
-        // io::stdout().write_all(ply_to_ascii(*output));
-    } else {
-        iswr::materials::ply_file::PlyFile::create(output_dir)
-            .unwrap()
-            .writen_as_binary(output)
-            .unwrap();
-    }
+    output.write(None, output_dir)
+
+    // if output_dir == "stdout" {
+    //     //TODO: write to standard output using written_to_ascii
+    //     // io::stdout().write_all(ply_to_ascii(*output));
+    // } else {
+    //     iswr::materials::ply_file::PlyFile::create(output_dir)
+    //         .unwrap()
+    //         .writen_as_binary(output)
+    //         .unwrap();
+    // }
 }

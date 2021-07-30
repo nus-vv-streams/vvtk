@@ -1,29 +1,40 @@
+#![allow(unused_imports)]
 extern crate iswr;
 
-use iswr::materials::ply_file;
 use iswr::methods::{filter, transform};
 
-fn main() {
+use std::io::{self, BufRead, Read, Write};
+
+fn main() -> io::Result<()> {
     let path = "plySource/binary_ply";
-    // //frames are declared as mut since the delta is stored internally
 
-    // let mut data_1051 = ply_file::PlyFile::new(&(path.to_owned() + "/longdress_vox10_1051.ply")).unwrap().read();
-    // let mut data_1053 = ply_file::PlyFile::new(&(path.to_owned() + "/longdress_vox10_1053.ply")).unwrap().read();
-    // let (a, reference, marked_interpolated_frame) = data_1051.closest_with_ratio_average_points_recovery(data_1053, 0.495, 0.495, 0.01, 0.7); //sum of first 3 must equal 1
+    let data_1051 =
+        iswr::tool::reader::read(Some(&(path.to_owned() + "/longdress_vox10_1051.ply")));
 
-    // a.render(); //comeplete interpolation and post processing
-    // reference.render(); //reference frame with unmapped points marked as green
-    // marked_interpolated_frame.render(); //interpolated frame with points surrounding cracks marked as red
+    // data_1051
+    //     .fat(
+    //         &filter::upper_half(),
+    //         &transform::all_green(),
+    //         &transform::do_nothing(),
+    //     )
+    //     .render();
 
-    let data_1051 = ply_file::PlyFile::new(&(path.to_owned() + "/longdress_vox10_1051.ply"))
-        .unwrap()
-        .read();
+    // iswr::materials::ply_file::PlyFile::writen_as_ascii_to_stdout(data_1051)?;
 
-    data_1051
-        .fat(
-            &filter::upper_half(),
-            &transform::all_green(),
-            &transform::do_nothing(),
-        )
-        .render();
+    // Ok(())
+
+    data_1051.write(Some("ascii"), None)
+
+    // let stdin = io::stdin();
+    // for line in stdin.lock().lines() {
+    //     let line = line.expect("Could not read line from standard in");
+    //     println!("{}", line);
+    // }
+
+    // Ok(())
+
+    // let mut buffer = String::new();
+    // io::stdin().read_to_string(&mut buffer)?;
+    // println!("{}", buffer);
+    // Ok(())
 }
