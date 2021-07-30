@@ -14,6 +14,4 @@ use materials::{color, coordinate, ply_dir, points};
 #[allow(unused_imports)]
 use ply_dir::PlyDir;
 
-fn main() {
-    
-}
+fn main() {}
