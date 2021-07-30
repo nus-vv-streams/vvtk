@@ -1,4 +1,11 @@
-use kd_tree::{KdPoint, KdTree};
+// use kdtree::KdTree;
+// use kdtree::ErrorKind;
+// use kdtree::distance::squared_euclidean;
+
+use kiddo::distance::squared_euclidean;
+use kiddo::ErrorKind;
+use kiddo::KdTree;
+
 use ply_rs::ply;
 use std::iter::Iterator;
 
@@ -15,8 +22,8 @@ use std::cmp::Ordering;
 
 use std::f32::consts::PI;
 
-use crate::filter::FilterProducer;
-use crate::transform::TransformProducer;
+use crate::methods::filter::FilterProducer;
+use crate::methods::transform::TransformProducer;
 
 use ply_rs::ply::{
     Addable, DefaultElement, ElementDef, Encoding, Ply, Property, PropertyDef, PropertyType,
@@ -138,11 +145,23 @@ impl Points {
     //     renderer.screenshoot_to_path(path);
     // }
 
-    pub fn to_kdtree(self) -> KdTree<Point> {
-        KdTree::build_by_ordered_float(self.data)
+    pub fn to_kdtree(self) -> KdTree<f32, usize, 3> {
+        let mut kdtree: KdTree<f32, usize, 3> = KdTree::new();
+        for point in self.data {
+            kdtree.add(
+                &[
+                    point.point_coord.x,
+                    point.point_coord.y,
+                    point.point_coord.z,
+                ],
+                point.index,
+            );
+        }
+        kdtree
+        // KdTree::build_by_ordered_float(self.data)
     }
 
-    pub fn mark_unmapped_points(&mut self, kd_tree: KdTree<Point>) {
+    pub fn mark_unmapped_points(&mut self, kd_tree: &KdTree<f32, usize, 3>) {
         let mut mapped_points = 0;
         let mut all_unmapped: bool = true;
 
@@ -193,21 +212,21 @@ impl Points {
     }
 
     //changing point size based on surrounding point density
-    pub fn adjust_point_sizes(&mut self, radius: f32) {
-        let interpolated_kd_tree = self.clone().to_kdtree();
+    // pub fn adjust_point_sizes(&mut self, radius: f32) {
+    //     let interpolated_kd_tree = self.clone().to_kdtree();
 
-        for idx in 0..self.data.len() {
-            let density = interpolated_kd_tree
-                .within_radius(&self.data[idx], radius)
-                .len() as f32
-                / (radius.powf(2.0) * PI);
+    //     for idx in 0..self.data.len() {
+    //         let density = interpolated_kd_tree
+    //             .within_radius(&self.data[idx], radius)
+    //             .len() as f32
+    //             / (radius.powi(2) * PI);
 
-            if density <= self.data[idx].point_density {
-                self.data[idx].near_crack = true;
-                self.data[idx].point_size = 2.0;
-            }
-        }
-    }
+    //         if density <= self.data[idx].point_density {
+    //             self.data[idx].near_crack = true;
+    //             self.data[idx].point_size = 2.0;
+    //         }
+    //     }
+    // }
 
     //deprecated interoolation method. closest_with_ratio_average_points_recovery can achieve this by setting opitons for nearest to 1
     // pub fn average_points_recovery(&mut self, points: Points) -> (Points, Points) {
@@ -274,7 +293,7 @@ impl Points {
         }
 
         if show_unmapped_points {
-            self.mark_unmapped_points(kd_tree);
+            self.mark_unmapped_points(&kd_tree);
         }
 
         /////////////
@@ -282,7 +301,7 @@ impl Points {
         /////////////
 
         if resize_near_cracks {
-            point_data.adjust_point_sizes(radius);
+            //point_data.adjust_point_sizes(radius);
         }
 
         let marked_interpolated_frame = Points::new();
@@ -492,14 +511,14 @@ impl Point {
     }
 
     pub fn partial_cmp(&self, other: &Point) -> Option<Ordering> {
-        let mut first_dist_from_ori = f32::powf(self.point_coord.x, 2.0)
-            + f32::powf(self.point_coord.y, 2.0)
-            + f32::powf(self.point_coord.z, 2.0);
+        let mut first_dist_from_ori = f32::powi(self.point_coord.x, 2)
+            + f32::powi(self.point_coord.y, 2)
+            + f32::powi(self.point_coord.z, 2);
         first_dist_from_ori = first_dist_from_ori.sqrt();
 
-        let next_dist_from_ori = f32::powf(other.point_coord.x, 2.0)
-            + f32::powf(other.point_coord.y, 2.0)
-            + f32::powf(other.point_coord.z, 2.0);
+        let next_dist_from_ori = f32::powi(other.point_coord.x, 2)
+            + f32::powi(other.point_coord.y, 2)
+            + f32::powi(other.point_coord.z, 2);
 
         if first_dist_from_ori < next_dist_from_ori {
             return Some(Ordering::Less);
@@ -548,11 +567,16 @@ impl Point {
 
     //penalization
     //update count in kdtree point
-    pub fn get_nearests(&self, kd_tree: &KdTree<Point>, quantity: usize) -> Vec<usize> {
+    pub fn get_nearests(&self, kd_tree: &KdTree<f32, usize, 3>, quantity: usize) -> Vec<usize> {
         kd_tree
-            .nearests(self, quantity)
+            .nearest(
+                &[self.point_coord.x, self.point_coord.y, self.point_coord.z],
+                quantity,
+                &squared_euclidean,
+            )
+            .unwrap()
             .into_iter()
-            .map(|found| found.item.index)
+            .map(|found| found.1.clone())
             .collect()
     }
 
@@ -605,7 +629,7 @@ impl Point {
         penalize_col: f32,
         reference_frame: &mut Vec<Point>,
         penalize_mapped: f32,
-        kd_tree: &KdTree<Point>,
+        kd_tree: &KdTree<f32, usize, 3>,
         radius: f32,
     ) -> Point {
         let mut min: f32 = f32::MAX;
@@ -627,8 +651,8 @@ impl Point {
         }
 
         result = next_points.data[result_idx].clone();
-        result.point_density =
-            kd_tree.within_radius(&result, radius).len() as f32 / (radius.powf(2.0) * PI);
+        // result.point_density =
+        //     kd_tree.within_radius(&result, radius).len() as f32 / (radius.powi(2) * PI);
         reference_frame[result_idx].mapping += 1;
         result
     }
@@ -641,7 +665,7 @@ impl Point {
         penalize_col: f32,
         reference_frame: &mut Vec<Point>,
         penalize_mapped: f32,
-        kd_tree: &KdTree<Point>,
+        kd_tree: &KdTree<f32, usize, 3>,
         radius: f32,
     ) -> Point {
         let p = &self.get_closest(
@@ -660,7 +684,7 @@ impl Point {
     fn get_average_closest_from_kdtree(
         &self,
         next_points: &Points,
-        kd_tree: &KdTree<Point>,
+        kd_tree: &KdTree<f32, usize, 3>,
         penalize_coor: f32,
         penalize_col: f32,
         reference_frame: &mut Vec<Point>,
@@ -699,15 +723,15 @@ impl ply::PropertyAccess for Point {
     }
 }
 
-impl KdPoint for Point {
-    type Scalar = f32;
-    type Dim = typenum::U3; // 3 dimensional tree.
-    fn at(&self, k: usize) -> f32 {
-        match k {
-            0 => self.point_coord.x,
-            1 => self.point_coord.y,
-            2 => self.point_coord.z,
-            _ => panic!("Oh no, don't have {}", k),
-        }
-    }
-}
+// impl KdPoint for Point {
+//     type Scalar = f32;
+//     type Dim = typenum::U3; // 3 dimensional tree.
+//     fn at(&self, k: usize) -> f32 {
+//         match k {
+//             0 => self.point_coord.x,
+//             1 => self.point_coord.y,
+//             2 => self.point_coord.z,
+//             _ => panic!("Oh no, don't have {}", k),
+//         }
+//     }
+// }

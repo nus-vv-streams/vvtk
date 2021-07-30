@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use std::sync::Arc;
 
-use crate::{reader, renderer};
+use crate::tool::{reader, renderer};
 
 pub struct PlyDir {
     paths: Vec<PathBuf>,
