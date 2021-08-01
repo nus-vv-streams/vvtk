@@ -255,14 +255,4 @@ fn interpolate(
     }
 
     output.write(None, output_dir)
-
-    // if output_dir == "stdout" {
-    //     //TODO: write to standard output using written_to_ascii
-    //     // io::stdout().write_all(ply_to_ascii(*output));
-    // } else {
-    //     iswr::materials::ply_file::PlyFile::create(output_dir)
-    //         .unwrap()
-    //         .writen_as_binary(output)
-    //         .unwrap();
-    // }
 }

@@ -39,6 +39,23 @@ fn type_of<T>(_: T) -> &'static str {
     type_name::<T>()
 }
 
+pub fn inf_norm(a: &[f32; 3], b: &[f32; 3]) -> f32 {
+    let max: f32;
+    let dx = (a[0] - b[0]).abs();
+    let dy = (a[1] - b[1]).abs();
+    let dz = (a[2] - b[2]).abs();
+    if dx > dy {
+        max = dx;
+    } else {
+        max = dy;
+    }
+    if max > dz {
+        max
+    } else {
+        dz
+    }
+}
+
 #[derive(Clone)]
 pub struct Points {
     pub data: Vec<Point>,
@@ -212,21 +229,34 @@ impl Points {
     }
 
     //changing point size based on surrounding point density
-    // pub fn adjust_point_sizes(&mut self, radius: f32) {
-    //     let interpolated_kd_tree = self.clone().to_kdtree();
+    pub fn adjust_point_sizes(&mut self, radius: f32) {
+        let interpolated_kd_tree = self.clone().to_kdtree();
 
-    //     for idx in 0..self.data.len() {
-    //         let density = interpolated_kd_tree
-    //             .within_radius(&self.data[idx], radius)
-    //             .len() as f32
-    //             / (radius.powi(2) * PI);
+        for idx in 0..self.data.len() {
+            // let density = interpolated_kd_tree
+            //     .within_radius(&self.data[idx], radius)
+            //     .len() as f32
+            //     / (radius.powi(2) * PI);
+            let density = interpolated_kd_tree
+                .within_unsorted(
+                    &[
+                        self.data[idx].point_coord.x,
+                        self.data[idx].point_coord.y,
+                        self.data[idx].point_coord.z,
+                    ],
+                    radius,
+                    &inf_norm,
+                )
+                .unwrap()
+                .len() as f32
+                / (radius.powi(2) * PI);
 
-    //         if density <= self.data[idx].point_density {
-    //             self.data[idx].near_crack = true;
-    //             self.data[idx].point_size = 2.0;
-    //         }
-    //     }
-    // }
+            if density <= self.data[idx].point_density {
+                self.data[idx].near_crack = true;
+                self.data[idx].point_size = 2.0;
+            }
+        }
+    }
 
     //deprecated interoolation method. closest_with_ratio_average_points_recovery can achieve this by setting opitons for nearest to 1
     // pub fn average_points_recovery(&mut self, points: Points) -> (Points, Points) {
@@ -301,7 +331,7 @@ impl Points {
         /////////////
 
         if resize_near_cracks {
-            //point_data.adjust_point_sizes(radius);
+            point_data.adjust_point_sizes(radius);
         }
 
         let marked_interpolated_frame = Points::new();
@@ -568,11 +598,21 @@ impl Point {
     //penalization
     //update count in kdtree point
     pub fn get_nearests(&self, kd_tree: &KdTree<f32, usize, 3>, quantity: usize) -> Vec<usize> {
+        // kd_tree
+        //     .nearest(
+        //         &[self.point_coord.x, self.point_coord.y, self.point_coord.z],
+        //         quantity,
+        //         &squared_euclidean,
+        //     )
+        // .unwrap()
+        // .into_iter()
+        // .map(|found| found.1.clone())
+        // .collect()
         kd_tree
-            .nearest(
+            .within_unsorted(
                 &[self.point_coord.x, self.point_coord.y, self.point_coord.z],
-                quantity,
-                &squared_euclidean,
+                2.0,
+                &inf_norm,
             )
             .unwrap()
             .into_iter()
@@ -668,6 +708,10 @@ impl Point {
         kd_tree: &KdTree<f32, usize, 3>,
         radius: f32,
     ) -> Point {
+        if k_nearest_indices.len() == 0 {
+            return self.clone();
+        }
+
         let p = &self.get_closest(
             next_points,
             k_nearest_indices,
