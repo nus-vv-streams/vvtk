@@ -42,12 +42,9 @@ fn run() -> Result<()> {
         Some(vec) => Some(
             Some(vec.collect::<Vec<_>>())
                 .filter(|vec| vec.len() == 3)
-                .map(|vec| {
-                    process(vec)
-                })
+                .map(|vec| process(vec))
                 .chain_err(|| "Inappropriate number of arguments in eye")?
                 .chain_err(|| "Inappropriate type of arguments, should be float number")?,
-
         ),
         None => None,
     };
@@ -55,12 +52,10 @@ fn run() -> Result<()> {
     let at = match matches.values_of("at") {
         Some(vec) => Some(
             Some(vec.collect::<Vec<_>>())
-            .filter(|vec| vec.len() == 3)
-            .map(|vec| {
-                process(vec)
-            })
-            .chain_err(|| "Inappropriate number of arguments in at")?
-            .chain_err(|| "Inappropriate type of arguments, should be float number")?,
+                .filter(|vec| vec.len() == 3)
+                .map(|vec| process(vec))
+                .chain_err(|| "Inappropriate number of arguments in at")?
+                .chain_err(|| "Inappropriate type of arguments, should be float number")?,
         ),
         None => None,
     };
@@ -90,7 +85,7 @@ fn run() -> Result<()> {
     Ok(())
 }
 
-fn process(vec :Vec<&str>) -> Result<nalgebra::Point3<f32>> {
+fn process(vec: Vec<&str>) -> Result<nalgebra::Point3<f32>> {
     Ok(nalgebra::Point3::new(
         vec[0].parse::<f32>()?,
         vec[1].parse::<f32>()?,

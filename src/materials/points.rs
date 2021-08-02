@@ -2,9 +2,6 @@
 // use kdtree::ErrorKind;
 // use kdtree::distance::squared_euclidean;
 
-use crate::errors;
-use std::io::{Error, ErrorKind};
-
 use kiddo::distance::squared_euclidean;
 // use kiddo::ErrorKind;
 use kiddo::KdTree;
@@ -18,6 +15,7 @@ use std::cmp::Ordering;
 
 use crate::color::{Color, PointColor};
 use crate::coordinate::{Coordinate, PointCoordinate};
+use crate::errors::*;
 use crate::filter::FilterProducer;
 use crate::tool::renderer::Renderer;
 use crate::transform::TransformProducer;
@@ -365,20 +363,12 @@ impl Points {
         filter_producer: Option<&FilterProducer>,
         transform_producer: Option<&TransformProducer>,
         transform_producer_remain: Option<&TransformProducer>,
-    ) -> std::io::Result<Points> {
+    ) -> Result<Points> {
         let mut res = Points::new();
-        let filter = filter_producer
-            .ok_or(Error::new(ErrorKind::NotFound, "Filter method not found"))?(
-            self
-        );
-        let change = transform_producer.ok_or(Error::new(
-            ErrorKind::NotFound,
-            "Transform method not found",
-        ))?(self);
-        let change_remain = transform_producer_remain.ok_or(Error::new(
-            ErrorKind::NotFound,
-            "Transform method for remain not found",
-        ))?(self);
+        let filter = filter_producer.chain_err(|| "Filter method not found")?(self);
+        let change = transform_producer.chain_err(|| "Transform method not found")?(self);
+        let change_remain =
+            transform_producer_remain.chain_err(|| "Transform method for remain not found")?(self);
 
         for point in &self.data {
             if filter(point) {
@@ -401,7 +391,7 @@ impl Points {
         Ok(())
     }
 
-    pub fn write(self, form: Option<&str>, output: Option<&str>) -> std::io::Result<()> {
+    pub fn write(self, form: Option<&str>, output: Option<&str>) -> Result<()> {
         let encoding = match form {
             Some("ascii") => Some(Encoding::Ascii),
             Some("binary") => Some(Encoding::BinaryLittleEndian),
@@ -413,8 +403,7 @@ impl Points {
 
         let mut ply = {
             let mut ply = Ply::<DefaultElement>::new();
-            ply.header.encoding =
-                encoding.ok_or(Error::new(ErrorKind::NotFound, "Ply form not found"))?;
+            ply.header.encoding = encoding.chain_err(|| "Invalid ply encoding form")?;
             ply.header.comments.push("A beautiful comment!".to_string());
 
             let mut point_element = ElementDef::new("vertex".to_string());
