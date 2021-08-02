@@ -41,10 +41,6 @@ impl PlyDir {
             let mut index: usize = 0;
             loop {
                 index += 1;
-                // let frame = PlyFile::new(paths_clone[index % len].as_path().to_str().unwrap())
-                //     .unwrap()
-                //     .read();
-
                 let frame = reader::read(paths_clone[index % len].as_path().to_str());
                 tx.send(frame).unwrap();
             }

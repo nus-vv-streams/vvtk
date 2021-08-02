@@ -1,6 +1,7 @@
 extern crate iswr;
 use clap::{App, Arg};
 use std::path::Path;
+use iswr::{reader, ply_dir::PlyDir};
 
 // cargo run --release --bin test | cargo run --release --bin ply_view -- --eye=100,100,100
 
@@ -70,15 +71,15 @@ fn main() {
         Some(path) => {
             let new_path = Path::new(&path);
             if new_path.is_file() {
-                iswr::tool::reader::read(input).render_with_camera(eye, at);
+                reader::read(input).render_with_camera(eye, at);
             } else if new_path.is_dir() {
-                iswr::materials::ply_dir::PlyDir::new(&path).play_with_camera(eye, at);
+                PlyDir::new(&path).play_with_camera(eye, at);
             } else {
                 print!("No such file or dir {}", path)
             }
         }
         None => {
-            iswr::tool::reader::read(input).render_with_camera(eye, at);
+            iswr::reader::read(input).render_with_camera(eye, at);
         }
     };
 }

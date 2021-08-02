@@ -9,21 +9,16 @@ use kiddo::KdTree;
 use ply_rs::ply;
 use std::iter::Iterator;
 
-use crate::color::{Color, PointColor};
-use crate::coordinate::{Coordinate, PointCoordinate};
-use crate::renderer::Renderer;
-
-#[allow(unused_imports)]
-use std::time::{Duration, Instant};
-
 use nalgebra::Point3;
 use std::any::type_name;
 use std::cmp::Ordering;
 
-use std::f32::consts::PI;
-
-use crate::methods::filter::FilterProducer;
-use crate::methods::transform::TransformProducer;
+use crate::color::{Color, PointColor};
+use crate::coordinate::{Coordinate, PointCoordinate};
+use crate::tool::renderer::Renderer;
+use crate::filter::FilterProducer;
+use crate::transform::TransformProducer;
+use crate::{Instant};
 
 use ply_rs::ply::{
     Addable, DefaultElement, ElementDef, Encoding, Ply, Property, PropertyDef, PropertyType,

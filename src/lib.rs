@@ -1,17 +1,11 @@
-#![allow(dead_code)]
-pub mod materials;
-pub mod methods;
-pub mod tool;
-pub mod traits;
+mod materials;
+mod methods;
+mod tool;
 
-#[allow(unused_imports)]
-use methods::{filter, transform};
-#[allow(unused_imports)]
-use tool::{reader, renderer};
+pub use methods::{filter, transform};
+pub use tool::{reader, renderer};
+pub use materials::{color, coordinate, ply_dir, points};
+pub use ply_dir::PlyDir;
 
-use materials::{color, coordinate, ply_dir, points};
 
-#[allow(unused_imports)]
-use ply_dir::PlyDir;
-
-fn main() {}
+use std::time::{Duration, Instant};

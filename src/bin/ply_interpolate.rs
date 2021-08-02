@@ -2,7 +2,7 @@ extern crate iswr;
 // use std::env;
 extern crate clap;
 use clap::{App, Arg};
-use iswr::materials::points;
+use iswr::{points, reader};
 use std::io::{self, Write};
 // use std::path::{ PathBuf };
 
@@ -177,8 +177,8 @@ fn interpolate(
     compute_frame_delta: bool,
     output_dir: Option<&str>,
 ) -> std::io::Result<()> {
-    let mut prev = iswr::tool::reader::read(prev_frame_dir);
-    let mut next = iswr::tool::reader::read(next_frame_dir);
+    let mut prev = reader::read(prev_frame_dir);
+    let mut next = reader::read(next_frame_dir);
     // let mut result = points::Points::new();
     // let reference_unmapped = points::Points::new();
     // let marked_interpolated_frame = points::Points::new();

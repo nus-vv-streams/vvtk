@@ -50,13 +50,6 @@ impl Renderer {
         );
     }
 
-    // pub fn render_with_camera(&mut self, eye: Point3<f32>, at: Point3<f32>) -> bool {
-    //     self.first_person =
-    //         ArcBall::new_with_frustrum(std::f32::consts::PI / 4.0, 0.1, 4000.0, eye, at);
-
-    //     self.window.render_with_camera(&mut self.first_person)
-    // }
-
     pub fn render_frame(&mut self, data: &Points) {
         for point in &data.data {
             self.window.draw_point_with_size(

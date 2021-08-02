@@ -1,5 +1,6 @@
 extern crate iswr;
 use clap::{App, Arg};
+use iswr::reader;
 
 fn main() -> std::io::Result<()> {
     let matches = App::new("ply_to_ply")
@@ -34,5 +35,5 @@ fn main() -> std::io::Result<()> {
     let form = matches.value_of("form");
     let output = matches.value_of("output");
 
-    iswr::tool::reader::read(input).write(form, output)
+    reader::read(input).write(form, output)
 }

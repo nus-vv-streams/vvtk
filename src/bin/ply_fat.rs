@@ -1,8 +1,17 @@
 extern crate iswr;
+use std::io::Error;
 use clap::{App, Arg};
-use iswr::methods::{filter, transform};
+use iswr::{filter, transform, reader};
 
 fn main() {
+    // if let Err(e) = run() {
+    //     println!("{}", e);
+    // }
+
+    run().unwrap();
+}
+
+fn run() -> Result<(), Error> {
     let matches = App::new("ply_fat")
         .about("View a ply frame or play a ply video")
         .arg(
@@ -15,7 +24,6 @@ fn main() {
         )
         .arg(
             Arg::with_name("filter")
-                .short("f")
                 .long("filter")
                 .takes_value(true)
                 .multiple(false)
@@ -30,12 +38,20 @@ fn main() {
                 .help("Transform method"),
         )
         .arg(
-            Arg::with_name("transform_remain")
+            Arg::with_name("remain")
                 .short("r")
-                .long("transform_remain")
+                .long("remain")
                 .takes_value(true)
                 .multiple(false)
                 .help("Transform method"),
+        )
+        .arg(
+            Arg::with_name("form")
+                .short("f")
+                .long("form")
+                .takes_value(true)
+                .multiple(false)
+                .help("Form of output (ascii/binary)"),
         )
         .arg(
             Arg::with_name("output")
@@ -48,23 +64,33 @@ fn main() {
         .get_matches();
 
     let input = matches.value_of("input");
-    let data = iswr::tool::reader::read(input);
-
     let filter = matches.value_of("filter").unwrap_or(filter::DEFAULT_KEY);
     let transform = matches
         .value_of("transform")
         .unwrap_or(transform::DEFAULT_KEY);
-    let transform_remain = matches
-        .value_of("transform_remain")
+    let remain = matches
+        .value_of("remain")
         .unwrap_or(transform::DEFAULT_KEY);
+    let form = matches.value_of("form");
+    let output = matches.value_of("output");
+    let data = reader::read(input);
 
     let filter_methods = filter::get_collection();
     let transform_methods = transform::get_collection();
 
+    // data.fat(
+    //     filter_methods.get(filter).expect("Filter method not found"),
+    //     transform_methods.get(transform).expect("transform method not found"),
+    //     transform_methods.get(remain).expect("transform method for remain points not found"),
+    // )
+    // .write(form, output)
+
+    println!{"Hasagi {}", filter};
+
     data.fat(
         filter_methods.get(filter).unwrap(),
-        transform_methods.get(transform).unwrap(),
-        transform_methods.get(transform_remain).unwrap(),
+        transform_methods.get(transform).expect("transform method not found"),
+        transform_methods.get(remain).expect("transform method for remain points not found"),
     )
-    .render();
+    .write(form, output)
 }

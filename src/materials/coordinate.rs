@@ -1,6 +1,6 @@
 use crate::color::PointColor;
-use crate::points::{Point, Points};
-use crate::traits::ColorRecovery;
+use crate::points::{Point};
+
 // use kd_tree::{KdPoint, KdTree};
 // use kdtree::KdTree;
 // use kdtree::ErrorKind;
@@ -25,19 +25,6 @@ impl Coordinate {
         &self.data
     }
 }
-
-// impl ColorRecovery for Coordinate {
-//     fn nearest_point_recovery(self, points: Points) -> Points {
-//         let kd_tree = points.to_kdtree();
-
-//         Points::of(
-//             self.data
-//                 .into_iter()
-//                 .map(|coord| coord.set_color(coord.get_nearest(&kd_tree).get_color(), 0)) //SET TO 0 SINCE FUNCTION SEEMS UNUSED
-//                 .collect(),
-//         )
-//     }
-// }
 
 #[derive(Debug, Clone)]
 pub struct PointCoordinate {
@@ -86,31 +73,4 @@ impl PointCoordinate {
             .hypot(self.y - another_point.y)
             .hypot(self.z - another_point.z)
     }
-
-    // pub(crate) fn get_nearest(&self, kd_tree: &KdTree<f32, usize, [f32; 3]>) -> Point {
-    //     kd_tree.nearest(&[self.x, self.y, self.z], 1, &squared_euclidean).unwrap()[0].1.clone()
-    // }
-
-    // pub(crate) fn get_nearests(&self, kd_tree: &KdTree<f32, Point, [f32; 3]>, quantity: usize) -> Points {
-    //     Points::of(
-    //         kd_tree
-    //          .nearest(&[self.x, self.y, self.z], quantity, &squared_euclidean).unwrap()
-    //             .into_iter()
-    //             .map(|found| found.1.clone())
-    //             .collect(),
-    //     )
-    // }
 }
-
-// impl KdPoint for PointCoordinate {
-//     type Scalar = f32;
-//     type Dim = typenum::U3; // 3 dimensional tree.
-//     fn at(&self, k: usize) -> f32 {
-//         match k {
-//             0 => self.x,
-//             1 => self.y,
-//             2 => self.z,
-//             _ => panic!("Oh no, don't have {}", k),
-//         }
-//     }
-// }
