@@ -54,7 +54,7 @@ impl PlyDir {
 
         while renderer.render() {
             frame = rx.recv().unwrap();
-            renderer.render_frame(&frame);
+            renderer.render_frame(&frame.expect("Hasagi"));
         }
     }
 

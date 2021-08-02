@@ -1,17 +1,12 @@
+#[macro_use]
+extern crate error_chain;
 extern crate iswr;
-use std::io::Error;
 use clap::{App, Arg};
-use iswr::{filter, transform, reader};
+use iswr::{errors::*, filter, reader, transform};
 
-fn main() {
-    // if let Err(e) = run() {
-    //     println!("{}", e);
-    // }
+quick_main!(run);
 
-    run().unwrap();
-}
-
-fn run() -> Result<(), Error> {
+fn run() -> Result<()> {
     let matches = App::new("ply_fat")
         .about("View a ply frame or play a ply video")
         .arg(
@@ -27,6 +22,7 @@ fn run() -> Result<(), Error> {
                 .long("filter")
                 .takes_value(true)
                 .multiple(false)
+                .required(true)
                 .help("Filter method"),
         )
         .arg(
@@ -35,6 +31,7 @@ fn run() -> Result<(), Error> {
                 .long("transform")
                 .takes_value(true)
                 .multiple(false)
+                .required(true)
                 .help("Transform method"),
         )
         .arg(
@@ -68,29 +65,21 @@ fn run() -> Result<(), Error> {
     let transform = matches
         .value_of("transform")
         .unwrap_or(transform::DEFAULT_KEY);
-    let remain = matches
-        .value_of("remain")
-        .unwrap_or(transform::DEFAULT_KEY);
+    let remain = matches.value_of("remain").unwrap_or(transform::DEFAULT_KEY);
     let form = matches.value_of("form");
     let output = matches.value_of("output");
-    let data = reader::read(input);
-
+    let data = reader::read(input).chain_err(|| "Problem with the input")?;
     let filter_methods = filter::get_collection();
     let transform_methods = transform::get_collection();
 
-    // data.fat(
-    //     filter_methods.get(filter).expect("Filter method not found"),
-    //     transform_methods.get(transform).expect("transform method not found"),
-    //     transform_methods.get(remain).expect("transform method for remain points not found"),
-    // )
-    // .write(form, output)
-
-    println!{"Hasagi {}", filter};
-
     data.fat(
-        filter_methods.get(filter).unwrap(),
-        transform_methods.get(transform).expect("transform method not found"),
-        transform_methods.get(remain).expect("transform method for remain points not found"),
+        filter_methods.get(filter),
+        transform_methods.get(transform),
+        transform_methods.get(remain),
     )
+    .chain_err(|| "Problem with the Filter & Transform methods")?
     .write(form, output)
+    .chain_err(|| "Problem with the output")?;
+
+    Ok(())
 }

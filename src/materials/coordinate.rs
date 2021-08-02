@@ -1,5 +1,5 @@
 use crate::color::PointColor;
-use crate::points::{Point};
+use crate::points::Point;
 
 // use kd_tree::{KdPoint, KdTree};
 // use kdtree::KdTree;

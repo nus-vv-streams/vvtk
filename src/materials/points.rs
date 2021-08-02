@@ -2,8 +2,11 @@
 // use kdtree::ErrorKind;
 // use kdtree::distance::squared_euclidean;
 
+use crate::errors;
+use std::io::{Error, ErrorKind};
+
 use kiddo::distance::squared_euclidean;
-use kiddo::ErrorKind;
+// use kiddo::ErrorKind;
 use kiddo::KdTree;
 
 use ply_rs::ply;
@@ -15,10 +18,10 @@ use std::cmp::Ordering;
 
 use crate::color::{Color, PointColor};
 use crate::coordinate::{Coordinate, PointCoordinate};
-use crate::tool::renderer::Renderer;
 use crate::filter::FilterProducer;
+use crate::tool::renderer::Renderer;
 use crate::transform::TransformProducer;
-use crate::{Instant};
+use crate::Instant;
 
 use ply_rs::ply::{
     Addable, DefaultElement, ElementDef, Encoding, Ply, Property, PropertyDef, PropertyType,
@@ -359,14 +362,23 @@ impl Points {
 
     pub fn fat(
         &self,
-        filter_producer: &FilterProducer,
-        transform_producer: &TransformProducer,
-        transform_producer_remain: &TransformProducer,
-    ) -> Points {
+        filter_producer: Option<&FilterProducer>,
+        transform_producer: Option<&TransformProducer>,
+        transform_producer_remain: Option<&TransformProducer>,
+    ) -> std::io::Result<Points> {
         let mut res = Points::new();
-        let filter = filter_producer(self);
-        let change = transform_producer(self);
-        let change_remain = transform_producer_remain(self);
+        let filter = filter_producer
+            .ok_or(Error::new(ErrorKind::NotFound, "Filter method not found"))?(
+            self
+        );
+        let change = transform_producer.ok_or(Error::new(
+            ErrorKind::NotFound,
+            "Transform method not found",
+        ))?(self);
+        let change_remain = transform_producer_remain.ok_or(Error::new(
+            ErrorKind::NotFound,
+            "Transform method for remain not found",
+        ))?(self);
 
         for point in &self.data {
             if filter(point) {
@@ -375,7 +387,7 @@ impl Points {
                 res.add(change_remain(point))
             }
         }
-        res
+        Ok(res)
     }
 
     pub fn read(input: Option<&str>) -> std::io::Result<()> {
@@ -391,17 +403,18 @@ impl Points {
 
     pub fn write(self, form: Option<&str>, output: Option<&str>) -> std::io::Result<()> {
         let encoding = match form {
-            Some("ascii") => Encoding::Ascii,
-            Some("binary") => Encoding::BinaryLittleEndian,
-            Some(&_) => Encoding::Ascii,
-            None => Encoding::Ascii,
+            Some("ascii") => Some(Encoding::Ascii),
+            Some("binary") => Some(Encoding::BinaryLittleEndian),
+            Some(&_) => None,
+            None => Some(Encoding::Ascii),
         };
 
         let mut buf = Vec::<u8>::new();
 
         let mut ply = {
             let mut ply = Ply::<DefaultElement>::new();
-            ply.header.encoding = encoding;
+            ply.header.encoding =
+                encoding.ok_or(Error::new(ErrorKind::NotFound, "Ply form not found"))?;
             ply.header.comments.push("A beautiful comment!".to_string());
 
             let mut point_element = ElementDef::new("vertex".to_string());

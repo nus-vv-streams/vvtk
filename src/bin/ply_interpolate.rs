@@ -1,15 +1,18 @@
+#[macro_use]
+extern crate error_chain;
 extern crate iswr;
 // use std::env;
 extern crate clap;
 use clap::{App, Arg};
-use iswr::{points, reader};
+use iswr::{errors::*, points, reader};
 use std::io::{self, Write};
 // use std::path::{ PathBuf };
 
 // example usage: cargo run  --bin ply_interpolate -- --unmapped
 // the extra '--' after the binary file name is needed
+quick_main!(run);
 
-fn main() -> std::io::Result<()> {
+fn run() -> Result<()> {
     let matches = App::new("ply_interpolate")
      .about("Interpolate frame (t1) between 2 ply files (t0 & t2)")
      .arg(Arg::with_name("prev")
@@ -176,9 +179,11 @@ fn interpolate(
     mark_enlarged: bool,
     compute_frame_delta: bool,
     output_dir: Option<&str>,
-) -> std::io::Result<()> {
-    let mut prev = reader::read(prev_frame_dir);
-    let mut next = reader::read(next_frame_dir);
+) -> Result<()> {
+    let mut prev =
+        reader::read(prev_frame_dir).chain_err(|| "Problem with the input of prev frame")?;
+    let mut next =
+        reader::read(next_frame_dir).chain_err(|| "Problem with the input of next frame")?;
     // let mut result = points::Points::new();
     // let reference_unmapped = points::Points::new();
     // let marked_interpolated_frame = points::Points::new();
@@ -254,15 +259,9 @@ fn interpolate(
         output = end_result;
     }
 
-    output.write(None, output_dir)
+    output
+        .write(None, output_dir)
+        .chain_err(|| "Problem with the output")?;
 
-    // if output_dir == "stdout" {
-    //     //TODO: write to standard output using written_to_ascii
-    //     // io::stdout().write_all(ply_to_ascii(*output));
-    // } else {
-    //     iswr::materials::ply_file::PlyFile::create(output_dir)
-    //         .unwrap()
-    //         .writen_as_binary(output)
-    //         .unwrap();
-    // }
+    Ok(())
 }

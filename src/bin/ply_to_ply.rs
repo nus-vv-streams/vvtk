@@ -1,8 +1,12 @@
+#[macro_use]
+extern crate error_chain;
 extern crate iswr;
 use clap::{App, Arg};
-use iswr::reader;
+use iswr::{errors::*, reader};
 
-fn main() -> std::io::Result<()> {
+quick_main!(run);
+
+fn run() -> Result<()> {
     let matches = App::new("ply_to_ply")
         .about("Write data to ply file in ascii form")
         .arg(
@@ -35,5 +39,10 @@ fn main() -> std::io::Result<()> {
     let form = matches.value_of("form");
     let output = matches.value_of("output");
 
-    reader::read(input).write(form, output)
+    reader::read(input)
+        .chain_err(|| "Problem with the input")?
+        .write(form, output)
+        .chain_err(|| "Problem with the output")?;
+
+    Ok(())
 }

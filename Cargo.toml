@@ -21,6 +21,7 @@ typenum = "1.13.0"
 rand = "0.8.3"
 lab = "0.10.0"
 clap = "2.33.3"
+error-chain = "0.12.4"
 
 [[bin]]
 name = "ply_to_ply"
