@@ -4,6 +4,8 @@
 
 use rand::thread_rng;
 use rand::seq::SliceRandom;
+use std::sync::mpsc;
+use std::thread;
 
 //use kiddo::distance::squared_euclidean;
 // use kiddo::ErrorKind;
@@ -54,6 +56,50 @@ pub fn inf_norm(a: &[f32; 3], b: &[f32; 3]) -> f32 {
     } else {
         dz
     }
+}
+
+pub fn parallel_query_nearests(data_copy: &Vec<Point>, kd_tree: &KdTree<f32, usize, 3>, options_for_nearest: usize, parallel_processes: usize) -> Vec<Vec<usize>>{
+    // let mut all_nearests: Vec<Vec<usize>> = Vec::with_capacity(data_copy.len());
+    // for i in 0..data_copy.len(){
+    //     all_nearests.push(data_copy[i].get_nearests(&kd_tree, options_for_nearest));
+    // }
+    // return all_nearests;
+
+    let mut slices = data_copy.chunks((data_copy.len() as f32 / parallel_processes as f32).ceil() as usize); 
+    
+    let first_slice = slices.next().unwrap().to_owned();
+    let second_slice = slices.next().unwrap().to_owned();
+
+    let (tx_0, rx_0): (std::sync::mpsc::Sender<Vec<Vec<usize>>>, std::sync::mpsc::Receiver<Vec<Vec<usize>>>) = mpsc::channel();
+    let kd_0 = kd_tree.clone();
+    let (tx_1, rx_1): (std::sync::mpsc::Sender<Vec<Vec<usize>>>, std::sync::mpsc::Receiver<Vec<Vec<usize>>>) = mpsc::channel();
+    let kd_1 = kd_tree.clone();
+
+    let handle_0 = thread::spawn(move || {        
+        let mut nearests: Vec<Vec<usize>> = Vec::new(); 
+        for i in 0..first_slice.len(){
+            nearests.push(first_slice[i].get_nearests(&kd_0, options_for_nearest));
+        }
+        tx_0.send(nearests).unwrap();
+    });
+
+    
+    let handle_1 = thread::spawn(move || {        
+        let mut nearests: Vec<Vec<usize>> = Vec::new(); 
+        for i in 0..second_slice.len(){
+            nearests.push(second_slice[i].get_nearests(&kd_1, options_for_nearest));
+        }
+        tx_1.send(nearests).unwrap();
+    });
+    ///////////////////////////////////////////////
+    handle_0.join().unwrap();
+    handle_1.join().unwrap();
+
+    let recv_0 = rx_0.recv().unwrap();
+    let recv_1 = rx_1.recv().unwrap();
+
+    recv_0.into_iter().chain(recv_1.into_iter()).collect()
+    //recv_0.append(&mut recv_1)
 }
 
 #[derive(Clone)]
@@ -306,18 +352,31 @@ impl Points {
         let kd_tree = next_points.clone().to_kdtree();
         let data_copy = self.data.clone();
 
+        let all_nearests = parallel_query_nearests(&data_copy, &kd_tree, options_for_nearest, 2);
+        
+
         let mut point_data = Points::of(
             data_copy.into_iter()
                 .map(|point| {
-                    point.get_average_closest_from_kdtree(
+                    // point.get_average_closest_from_kdtree(
+                    //     &next_points,
+                    //     &kd_tree,
+                    //     penalize_coor,
+                    //     penalize_col,
+                    //     &mut self.reference_frame,
+                    //     penalize_mapped,
+                    //     radius,
+                    //     options_for_nearest,
+                    // )
+                    point.get_average_closest(
                         &next_points,
-                        &kd_tree,
+                        &all_nearests[point.index],
                         penalize_coor,
                         penalize_col,
                         &mut self.reference_frame,
                         penalize_mapped,
+                        &kd_tree,
                         radius,
-                        options_for_nearest,
                     )
                 })
                 .collect(),
@@ -672,7 +731,7 @@ impl Point {
     fn get_closest(
         &self,
         next_points: &Points,
-        k_nearest_indices: Vec<usize>,
+        k_nearest_indices: &Vec<usize>,
         penalize_coor: f32,
         penalize_col: f32,
         reference_frame: &mut Vec<Point>,
@@ -686,15 +745,15 @@ impl Point {
         let mut result_idx = 0;
         for idx in k_nearest_indices {
             let cur = self.get_difference(
-                &next_points.data[idx],
+                &next_points.data[*idx],
                 penalize_coor,
                 penalize_col,
-                reference_frame[idx].mapping,
+                reference_frame[*idx].mapping,
                 penalize_mapped,
             );
             if cur < min {
                 min = cur;
-                result_idx = idx;
+                result_idx = *idx;
             }
         }
 
@@ -708,7 +767,7 @@ impl Point {
     fn get_average_closest(
         &self,
         next_points: &Points,
-        k_nearest_indices: Vec<usize>,
+        k_nearest_indices: &Vec<usize>,
         penalize_coor: f32,
         penalize_col: f32,
         reference_frame: &mut Vec<Point>,
@@ -746,7 +805,7 @@ impl Point {
     ) -> Point {
         self.get_average_closest(
             next_points,
-            self.get_nearests(kd_tree, options_for_nearest),
+            &self.get_nearests(kd_tree, options_for_nearest),
             penalize_coor,
             penalize_col,
             reference_frame,
