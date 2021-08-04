@@ -2,7 +2,10 @@
 // use kdtree::ErrorKind;
 // use kdtree::distance::squared_euclidean;
 
-use kiddo::distance::squared_euclidean;
+use rand::thread_rng;
+use rand::seq::SliceRandom;
+
+//use kiddo::distance::squared_euclidean;
 // use kiddo::ErrorKind;
 use kiddo::KdTree;
 
@@ -160,17 +163,27 @@ impl Points {
     // }
 
     pub fn to_kdtree(self) -> KdTree<f32, usize, 3> {
-        let mut kdtree: KdTree<f32, usize, 3> = KdTree::new();
-        for point in self.data {
-            kdtree.add(
-                &[
-                    point.point_coord.x,
-                    point.point_coord.y,
-                    point.point_coord.z,
-                ],
-                point.index,
-            );
-        }
+        let mut kdtree: KdTree<f32, usize, 3> = KdTree::with_capacity(64).unwrap();
+        // for point in self.data {
+        //     kdtree.add(
+        //         &[
+        //             point.point_coord.x,
+        //             point.point_coord.y,
+        //             point.point_coord.z,
+        //         ],
+        //         point.index,
+        //     );
+        // }
+        let mut shuffled_points = self.data;
+        shuffled_points.shuffle(&mut thread_rng());
+        for point in &shuffled_points {
+            kdtree.add(&[
+                            point.point_coord.x,
+                            point.point_coord.y,
+                            point.point_coord.z,
+                        ],
+                        point.index);
+         }
         kdtree
         // KdTree::build_by_ordered_float(self.data)
     }
@@ -288,16 +301,13 @@ impl Points {
     ) -> (Points, Points, Points) {
         //start time
         let now = Instant::now();
-        // if show_unmapped_points {self.reference_frame = next_points.data.clone(); }
         self.reference_frame = next_points.data.clone();
 
         let kd_tree = next_points.clone().to_kdtree();
-        let x = self.data.clone();
-
-        // println!("cloning time: {}", now.elapsed().as_secs());
+        let data_copy = self.data.clone();
 
         let mut point_data = Points::of(
-            x.into_iter()
+            data_copy.into_iter()
                 .map(|point| {
                     point.get_average_closest_from_kdtree(
                         &next_points,
@@ -313,7 +323,7 @@ impl Points {
                 .collect(),
         );
 
-        println!("interpolation time: {}", now.elapsed().as_secs());
+        println!("interpolation time: {}", now.elapsed().as_millis());
 
         if compute_frame_delta {
             self.frame_delta(point_data.clone());
