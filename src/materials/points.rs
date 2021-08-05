@@ -1,14 +1,8 @@
-// use kdtree::KdTree;
-// use kdtree::ErrorKind;
-// use kdtree::distance::squared_euclidean;
-
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use std::sync::mpsc;
 use std::thread;
 
-//use kiddo::distance::squared_euclidean;
-// use kiddo::ErrorKind;
 use kiddo::KdTree;
 
 use ply_rs::ply;
@@ -83,7 +77,6 @@ pub fn run_threads(
     options_for_nearest: usize,
     kd_tree: &KdTree<f32, usize, 3>,
 ) -> Vec<Vec<usize>> {
-    //let vtx: Vec<std::sync::mpsc::Sender<Vec<Vec<usize>>>>;
     let mut vrx: Vec<std::sync::mpsc::Receiver<Vec<Vec<usize>>>> = Vec::new();
     let mut vhandle: Vec<std::thread::JoinHandle<()>> = Vec::new();
 
@@ -104,9 +97,6 @@ pub fn run_threads(
     let mut result: Vec<Vec<usize>> = Vec::new();
 
     for rx in vrx {
-        // let recv = rx.recv().unwrap();
-        // result.into_iter().chain(recv.into_iter()).collect();
-        //result.into_iter().chain(rx.recv().unwrap().into_iter()).collect();
         result.append(&mut rx.recv().unwrap());
     }
 
@@ -118,52 +108,8 @@ pub fn parallel_query_nearests(
     options_for_nearest: usize,
     threads: usize,
 ) -> Vec<Vec<usize>> {
-    // let mut all_nearests: Vec<Vec<usize>> = Vec::with_capacity(data_copy.len());
-    // for i in 0..data_copy.len(){
-    //     all_nearests.push(data_copy[i].get_nearests(&kd_tree, options_for_nearest));
-    // }
-    // return all_nearests;
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////
     let mut slices = data_copy.chunks((data_copy.len() as f32 / threads as f32).ceil() as usize);
 
-    // let first_slice = slices.next().unwrap().to_owned();
-    // let second_slice = slices.next().unwrap().to_owned();
-
-    // let (tx_0, rx_0): (std::sync::mpsc::Sender<Vec<Vec<usize>>>, std::sync::mpsc::Receiver<Vec<Vec<usize>>>) = mpsc::channel();
-    // let kd_0 = kd_tree.clone();
-    // let (tx_1, rx_1): (std::sync::mpsc::Sender<Vec<Vec<usize>>>, std::sync::mpsc::Receiver<Vec<Vec<usize>>>) = mpsc::channel();
-    // let kd_1 = kd_tree.clone();
-
-    // let handle_0 = thread::spawn(move || {
-    //     let mut nearests: Vec<Vec<usize>> = Vec::new();
-    //     for i in 0..first_slice.len(){
-    //         nearests.push(first_slice[i].get_nearests(&kd_0, options_for_nearest));
-    //     }
-    //     tx_0.send(nearests).unwrap();
-    // });
-
-    // let handle_1 = thread::spawn(move || {
-    //     let mut nearests: Vec<Vec<usize>> = Vec::new();
-    //     for i in 0..second_slice.len(){
-    //         nearests.push(second_slice[i].get_nearests(&kd_1, options_for_nearest));
-    //     }
-    //     tx_1.send(nearests).unwrap();
-    // });
-
-    ///////////////////////////////////////////////////////////////////////
-    // let (tx_0, rx_0): (std::sync::mpsc::Sender<Vec<Vec<usize>>>, std::sync::mpsc::Receiver<Vec<Vec<usize>>>) = mpsc::channel();
-    // let handle_0 = setup_run_indiv_thread(tx_0, &mut slices, options_for_nearest, &kd_tree);
-    // let (tx_1, rx_1): (std::sync::mpsc::Sender<Vec<Vec<usize>>>, std::sync::mpsc::Receiver<Vec<Vec<usize>>>) = mpsc::channel();
-    // let handle_1 = setup_run_indiv_thread(tx_1, &mut slices, options_for_nearest, &kd_tree);
-
-    // handle_0.join().unwrap();
-    // handle_1.join().unwrap();
-
-    // let recv_0 = rx_0.recv().unwrap();
-    // let recv_1 = rx_1.recv().unwrap();
-
-    // recv_0.into_iter().chain(recv_1.into_iter()).collect()
     run_threads(threads, &mut slices, options_for_nearest, kd_tree)
 }
 
@@ -419,7 +365,7 @@ impl Points {
         let kd_tree = next_points.clone().to_kdtree();
         let data_copy = self.data.clone();
 
-        let all_nearests = parallel_query_nearests(&data_copy, &kd_tree, options_for_nearest, 6);
+        let all_nearests = parallel_query_nearests(&data_copy, &kd_tree, options_for_nearest, 4);
 
         let mut point_data = Points::of(
             data_copy
