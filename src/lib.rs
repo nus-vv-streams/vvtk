@@ -15,7 +15,7 @@ mod materials;
 mod methods;
 mod tool;
 
-pub use materials::{color, coordinate, ply_dir, points};
+pub use materials::{color, coordinate, ply_dir, points, params};
 pub use methods::{filter, transform};
 pub use ply_dir::PlyDir;
 pub use tool::{reader, renderer};

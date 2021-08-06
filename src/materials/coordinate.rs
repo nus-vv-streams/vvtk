@@ -1,15 +1,6 @@
 use crate::color::PointColor;
 use crate::points::Point;
 
-// use kd_tree::{KdPoint, KdTree};
-// use kdtree::KdTree;
-// use kdtree::ErrorKind;
-// use kdtree::distance::squared_euclidean;
-
-use kiddo::distance::squared_euclidean;
-use kiddo::ErrorKind;
-use kiddo::KdTree;
-
 use nalgebra::Point3;
 
 pub struct Coordinate {

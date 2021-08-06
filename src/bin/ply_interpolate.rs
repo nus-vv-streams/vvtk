@@ -4,8 +4,10 @@ extern crate iswr;
 // use std::env;
 extern crate clap;
 use clap::{App, Arg};
-use iswr::{errors::*, points, reader};
-use std::io::{self, Write};
+use iswr::{errors::*, points, reader, params::Params};
+// use std::io::{self, Write};
+
+
 // use std::path::{ PathBuf };
 
 // example usage: cargo run  --bin ply_interpolate -- --unmapped
@@ -110,37 +112,38 @@ fn run() -> Result<()> {
         .value_of("method")
         .unwrap_or("closest_with_ratio_average_points_recovery");
 
-    let show_unmapped_points = matches.is_present("unmapped");
-    let mark_enlarged = matches.is_present("mark_enlarged");
-    let compute_frame_delta = matches.is_present("frame_delta");
-    let resize_near_cracks = matches.is_present("resize");
+    let mut params: Params = Params::new();
+    params.show_unmapped_points = matches.is_present("unmapped");
+    params.mark_enlarged = matches.is_present("mark_enlarged");
+    params.compute_frame_delta = matches.is_present("frame_delta");
+    params.resize_near_cracks = matches.is_present("resize");
     let two_way_interpolation = matches.is_present("two_way");
 
     let output_dir = matches.value_of("output");
 
     //  println!("show unmapped points: {}", show_unmapped_points);
     //  println!("interpolation method: {}", method);
-    let coor_delta_weight = matches
+    params.penalize_coor = matches
         .value_of("coor_delta")
         .unwrap_or("49.5")
         .parse::<f32>()
-        .unwrap();
-    let col_delta_weight = matches
+        .unwrap() / 100.0;
+    params.penalize_col = matches
         .value_of("col_delta")
         .unwrap_or("49.5")
         .parse::<f32>()
-        .unwrap();
-    let pre_mapped_weight = matches
+        .unwrap() / 100.0;
+    params.penalize_mapped = matches
         .value_of("pre_mapped")
         .unwrap_or("1")
         .parse::<f32>()
-        .unwrap();
-    let radius = matches
+        .unwrap() / 100.0;
+    params.radius = matches
         .value_of("radius")
         .unwrap_or("0.7")
         .parse::<f32>()
         .unwrap();
-    let options_for_nearest = matches
+    params.options_for_nearest = matches
         .value_of("nearest_points")
         .unwrap_or("400")
         .parse::<usize>()
@@ -151,15 +154,7 @@ fn run() -> Result<()> {
         next_frame_dir,
         method,
         two_way_interpolation,
-        coor_delta_weight,
-        col_delta_weight,
-        pre_mapped_weight,
-        radius,
-        options_for_nearest,
-        show_unmapped_points,
-        resize_near_cracks,
-        mark_enlarged,
-        compute_frame_delta,
+        params,
         output_dir,
     )
 }
@@ -169,24 +164,13 @@ fn interpolate(
     next_frame_dir: Option<&str>,
     method: &str,
     two_way_interpolation: bool,
-    coor_delta_weight: f32,
-    col_delta_weight: f32,
-    pre_mapped_weight: f32,
-    radius: f32,
-    options_for_nearest: usize,
-    show_unmapped_points: bool,
-    resize_near_cracks: bool,
-    mark_enlarged: bool,
-    compute_frame_delta: bool,
+    params: Params,
     output_dir: Option<&str>,
 ) -> Result<()> {
     let mut prev =
         reader::read(prev_frame_dir).chain_err(|| "Problem with the input of prev frame")?;
     let mut next =
         reader::read(next_frame_dir).chain_err(|| "Problem with the input of next frame")?;
-    // let mut result = points::Points::new();
-    // let reference_unmapped = points::Points::new();
-    // let marked_interpolated_frame = points::Points::new();
 
     let mut end_result = points::Points::new();
     let mut end_reference_unmapped = points::Points::new();
@@ -194,32 +178,16 @@ fn interpolate(
 
     if method == "closest_with_ratio_average_points_recovery" {
         if two_way_interpolation {
-            let (mut prev_result, reference_unmapped, marked_interpolated_frame) = prev
+            let (mut prev_result, _reference_unmapped, _marked_interpolated_frame) = prev
                 .closest_with_ratio_average_points_recovery(
                     &next,
-                    coor_delta_weight / 100.0,
-                    col_delta_weight / 100.0,
-                    pre_mapped_weight / 100.0,
-                    radius,
-                    options_for_nearest,
-                    show_unmapped_points,
-                    resize_near_cracks,
-                    mark_enlarged,
-                    compute_frame_delta,
+                    &params,
                 ); //sum of first 3 must equal 1
 
             let (mut result, reference_unmapped, marked_interpolated_frame) = next
                 .closest_with_ratio_average_points_recovery(
                     &prev,
-                    coor_delta_weight / 100.0,
-                    col_delta_weight / 100.0,
-                    pre_mapped_weight / 100.0,
-                    radius,
-                    options_for_nearest,
-                    show_unmapped_points,
-                    resize_near_cracks,
-                    mark_enlarged,
-                    compute_frame_delta,
+                    &params,
                 ); //sum of first 3 must equal 1
 
             result.data.append(&mut prev_result.data);
@@ -230,15 +198,7 @@ fn interpolate(
             let (result, reference_unmapped, marked_interpolated_frame) = prev
                 .closest_with_ratio_average_points_recovery(
                     &next,
-                    coor_delta_weight / 100.0,
-                    col_delta_weight / 100.0,
-                    pre_mapped_weight / 100.0,
-                    radius,
-                    options_for_nearest,
-                    show_unmapped_points,
-                    resize_near_cracks,
-                    mark_enlarged,
-                    compute_frame_delta,
+                    &params,
                 ); //sum of first 3 must equal 1
 
             end_result = result;
@@ -251,9 +211,9 @@ fn interpolate(
 
     //output block
 
-    if show_unmapped_points {
+    if params.show_unmapped_points {
         output = end_reference_unmapped;
-    } else if mark_enlarged {
+    } else if params.mark_enlarged {
         output = end_marked_interpolated_frame;
     } else {
         output = end_result;
