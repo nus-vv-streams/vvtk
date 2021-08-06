@@ -3,9 +3,8 @@ use rand::thread_rng;
 use std::sync::mpsc;
 use std::thread;
 
-use kiddo::KdTree;
 use kiddo::distance::squared_euclidean;
-
+use kiddo::KdTree;
 
 use ply_rs::ply;
 use std::iter::Iterator;
@@ -60,7 +59,7 @@ pub fn setup_run_indiv_thread(
     tx: std::sync::mpsc::Sender<Vec<Vec<usize>>>,
     slices: &mut std::slice::Chunks<Point>,
     kd_tree: &KdTree<f32, usize, 3>,
-    options_for_nearest: usize
+    options_for_nearest: usize,
 ) -> std::thread::JoinHandle<()> {
     let kd = kd_tree.clone();
     let slice = slices.next().unwrap().to_owned();
@@ -71,14 +70,13 @@ pub fn setup_run_indiv_thread(
         }
         tx.send(nearests).unwrap();
     })
-
 }
 
 pub fn run_threads(
     threads: usize,
     slices: &mut std::slice::Chunks<Point>,
     kd_tree: &KdTree<f32, usize, 3>,
-    options_for_nearest: usize
+    options_for_nearest: usize,
 ) -> Vec<Vec<usize>> {
     let mut vrx: Vec<std::sync::mpsc::Receiver<Vec<Vec<usize>>>> = Vec::new();
     let mut vhandle: Vec<std::thread::JoinHandle<()>> = Vec::new();
@@ -109,7 +107,7 @@ pub fn parallel_query_nearests(
     data_copy: &[Point],
     kd_tree: &KdTree<f32, usize, 3>,
     threads: usize,
-    options_for_nearest: usize
+    options_for_nearest: usize,
 ) -> Vec<Vec<usize>> {
     let mut slices = data_copy.chunks((data_copy.len() as f32 / threads as f32).ceil() as usize);
 
@@ -227,14 +225,16 @@ impl Points {
         let mut shuffled_points = self.data;
         shuffled_points.shuffle(&mut thread_rng());
         for point in &shuffled_points {
-            kdtree.add(
-                &[
-                    point.point_coord.x,
-                    point.point_coord.y,
-                    point.point_coord.z,
-                ],
-                point.index,
-            ).unwrap();
+            kdtree
+                .add(
+                    &[
+                        point.point_coord.x,
+                        point.point_coord.y,
+                        point.point_coord.z,
+                    ],
+                    point.index,
+                )
+                .unwrap();
         }
         kdtree
     }
@@ -314,13 +314,11 @@ impl Points {
         }
     }
 
-
     pub fn closest_with_ratio_average_points_recovery(
         &mut self,
         next_points: &Points,
-        params: &Params
+        params: &Params,
     ) -> (Points, Points, Points) {
-
         //start time
         let now = Instant::now();
         self.reference_frame = next_points.data.clone();
@@ -328,17 +326,17 @@ impl Points {
         let kd_tree = next_points.clone().to_kdtree();
         let data_copy = self.data.clone();
 
-        let all_nearests = parallel_query_nearests(&data_copy, &kd_tree, 4, params.options_for_nearest);
+        let all_nearests =
+            parallel_query_nearests(&data_copy, &kd_tree, 6, params.options_for_nearest);
         let mut point_data = Points::of(
             data_copy
                 .into_iter()
-                .map(|point| {                    
+                .map(|point| {
                     point.get_average_closest(
                         next_points,
-                        &all_nearests[point.index],                        
+                        &all_nearests[point.index],
                         &mut self.reference_frame,
-                        params
-                
+                        params,
                     )
                 })
                 .collect(),
@@ -377,7 +375,6 @@ impl Points {
     //accepts argument of points in case this function is called in main before any interpolation function is called i.e. will be used to calculate a simple delta
     // this function is also called in each of the interpolation functions, taking in the vector of closest points i.e. fn can be used in 2 ways
     pub fn frame_delta(&mut self, prev: Points) {
-
         let (next_coordinates_obj, next_colours_obj) = self.clone().get_coords_cols();
 
         let next_coordinates = next_coordinates_obj.get_point_coor_vec();
@@ -628,20 +625,23 @@ impl Point {
             .map(|found| *found.1)
             .collect()
     }
-    pub fn get_nearest_neighbours(&self, kd_tree: &KdTree<f32, usize, 3>, quantity: usize) -> Vec<usize> {
+    pub fn get_nearest_neighbours(
+        &self,
+        kd_tree: &KdTree<f32, usize, 3>,
+        quantity: usize,
+    ) -> Vec<usize> {
         kd_tree
             .nearest(
                 &[self.point_coord.x, self.point_coord.y, self.point_coord.z],
                 quantity,
                 &squared_euclidean,
             )
-        .unwrap()
-        .into_iter()
-        .map(|found| *found.1)
-        .collect()
+            .unwrap()
+            .into_iter()
+            .map(|found| *found.1)
+            .collect()
     }
 
-    
     pub fn get_average(&self, another_point: &Point) -> Point {
         Point::new(
             self.point_coord.get_average(&another_point.point_coord),
@@ -667,7 +667,7 @@ impl Point {
         &self,
         another_point: &Point,
         another_point_mapping: u16,
-        params: &Params
+        params: &Params,
     ) -> f32 {
         let max_coor: f32 = 3.0 * 512.0 * 512.0;
         let scale_coor = max_coor.sqrt();
@@ -685,7 +685,7 @@ impl Point {
         next_points: &Points,
         k_nearest_indices: &[usize],
         reference_frame: &mut Vec<Point>,
-        params: &Params
+        params: &Params,
     ) -> Point {
         let mut min: f32 = f32::MAX;
         let mut result: Point;
@@ -716,32 +716,32 @@ impl Point {
         next_points: &Points,
         k_nearest_indices: &[usize],
         reference_frame: &mut Vec<Point>,
-        params: &Params
+        params: &Params,
     ) -> Point {
         if k_nearest_indices.is_empty() {
             return self.clone();
         }
 
-        let p = &self.get_closest(
-            next_points,
-            k_nearest_indices,
-            reference_frame,
-            params
-            
-        );
+        let p = &self.get_closest(next_points, k_nearest_indices, reference_frame, params);
         self.get_average(p)
     }
 
     #[cfg(feature = "by_knn")]
-    pub fn method_of_neighbour_query(&self, kd_tree: &KdTree<f32, usize, 3>, options_for_nearest: usize) -> Vec<usize>{
+    pub fn method_of_neighbour_query(
+        &self,
+        kd_tree: &KdTree<f32, usize, 3>,
+        options_for_nearest: usize,
+    ) -> Vec<usize> {
         self.get_nearest_neighbours(&kd_tree, options_for_nearest)
-
     }
 
     #[cfg(feature = "by_radius")]
-    pub fn method_of_neighbour_query(&self, kd_tree: &KdTree<f32, usize, 3>, _options_for_nearest: usize) -> Vec<usize>{ 
+    pub fn method_of_neighbour_query(
+        &self,
+        kd_tree: &KdTree<f32, usize, 3>,
+        _options_for_nearest: usize,
+    ) -> Vec<usize> {
         self.get_radius_neghbours(kd_tree)
-
     }
 }
 
@@ -762,4 +762,3 @@ impl ply::PropertyAccess for Point {
         }
     }
 }
-

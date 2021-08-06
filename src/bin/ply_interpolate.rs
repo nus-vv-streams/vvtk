@@ -4,9 +4,8 @@ extern crate iswr;
 // use std::env;
 extern crate clap;
 use clap::{App, Arg};
-use iswr::{errors::*, points, reader, params::Params};
+use iswr::{errors::*, params::Params, points, reader};
 // use std::io::{self, Write};
-
 
 // use std::path::{ PathBuf };
 
@@ -127,17 +126,20 @@ fn run() -> Result<()> {
         .value_of("coor_delta")
         .unwrap_or("49.5")
         .parse::<f32>()
-        .unwrap() / 100.0;
+        .unwrap()
+        / 100.0;
     params.penalize_col = matches
         .value_of("col_delta")
         .unwrap_or("49.5")
         .parse::<f32>()
-        .unwrap() / 100.0;
+        .unwrap()
+        / 100.0;
     params.penalize_mapped = matches
         .value_of("pre_mapped")
         .unwrap_or("1")
         .parse::<f32>()
-        .unwrap() / 100.0;
+        .unwrap()
+        / 100.0;
     params.radius = matches
         .value_of("radius")
         .unwrap_or("0.7")
@@ -178,28 +180,19 @@ fn interpolate(
 
     if method == "closest_with_ratio_average_points_recovery" {
         if two_way_interpolation {
-            let (mut prev_result, _reference_unmapped, _marked_interpolated_frame) = prev
-                .closest_with_ratio_average_points_recovery(
-                    &next,
-                    &params,
-                ); //sum of first 3 must equal 1
+            let (mut prev_result, _reference_unmapped, _marked_interpolated_frame) =
+                prev.closest_with_ratio_average_points_recovery(&next, &params); //sum of first 3 must equal 1
 
-            let (mut result, reference_unmapped, marked_interpolated_frame) = next
-                .closest_with_ratio_average_points_recovery(
-                    &prev,
-                    &params,
-                ); //sum of first 3 must equal 1
+            let (mut result, reference_unmapped, marked_interpolated_frame) =
+                next.closest_with_ratio_average_points_recovery(&prev, &params); //sum of first 3 must equal 1
 
             result.data.append(&mut prev_result.data);
             end_result = result;
             end_reference_unmapped = reference_unmapped;
             end_marked_interpolated_frame = marked_interpolated_frame;
         } else {
-            let (result, reference_unmapped, marked_interpolated_frame) = prev
-                .closest_with_ratio_average_points_recovery(
-                    &next,
-                    &params,
-                ); //sum of first 3 must equal 1
+            let (result, reference_unmapped, marked_interpolated_frame) =
+                prev.closest_with_ratio_average_points_recovery(&next, &params); //sum of first 3 must equal 1
 
             end_result = result;
             end_reference_unmapped = reference_unmapped;

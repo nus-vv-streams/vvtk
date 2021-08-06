@@ -12,7 +12,7 @@ pub struct Params {
 
 impl Params {
     pub fn new() -> Self {
-        Params{
+        Params {
             penalize_coor: 0.0,
             penalize_col: 0.0,
             penalize_mapped: 0.0,
@@ -22,9 +22,7 @@ impl Params {
             resize_near_cracks: false,
             mark_enlarged: false,
             compute_frame_delta: false,
-
         }
-       
     }
 }
 
@@ -33,4 +31,3 @@ impl Default for Params {
         Self::new()
     }
 }
-    
