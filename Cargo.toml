@@ -22,6 +22,7 @@ rand = "0.8.3"
 lab = "0.10.0"
 clap = "2.33.3"
 error-chain = "0.12.4"
+image        = "0.23"
 
 [[bin]]
 name = "ply_to_ply"
@@ -40,6 +41,3 @@ name = "ply_fat"
 
 [[bin]]
 name = "test"
-
-[[bin]]
-name = "test_input"

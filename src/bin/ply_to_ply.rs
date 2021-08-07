@@ -8,7 +8,7 @@ quick_main!(run);
 
 fn run() -> Result<()> {
     let matches = App::new("ply_to_ply")
-        .about("Write data to ply file in ascii form")
+        .about("Write data to ply file in ascii or binary form")
         .arg(
             Arg::with_name("input")
                 .short("i")

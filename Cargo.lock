@@ -936,6 +936,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "error-chain",
+ "image",
  "kiddo",
  "kiss3d",
  "lab",

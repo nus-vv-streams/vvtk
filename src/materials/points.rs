@@ -1,3 +1,4 @@
+use crate::errors::*;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use std::sync::mpsc;
@@ -14,7 +15,6 @@ use std::cmp::Ordering;
 
 use crate::color::{Color, PointColor};
 use crate::coordinate::{Coordinate, PointCoordinate};
-use crate::errors::*;
 use crate::filter::FilterProducer;
 use crate::tool::renderer::Renderer;
 use crate::transform::TransformProducer;
@@ -196,11 +196,11 @@ impl Points {
     }
 
     pub fn render(&self) {
-        self.render_with_camera(None, None)
+        self.do_render(None, None)
     }
 
-    pub fn render_with_camera(&self, eye: Option<Point3<f32>>, at: Option<Point3<f32>>) {
-        let mut renderer = Renderer::new();
+    pub fn do_render(&self, eye: Option<Point3<f32>>, at: Option<Point3<f32>>) {
+        let mut renderer = Renderer::new(None);
 
         renderer.config_camera(eye, at);
 
@@ -209,15 +209,24 @@ impl Points {
         }
     }
 
-    // pub fn take_sreenshoot_to_path(&self, path: &str) {
-    //     let mut renderer = Renderer::new();
-    //     renderer.rendering();
-    //     renderer.render_frame(&self);
-    //     renderer.rendering();
-    //     renderer.render_frame(&self);
-    //     renderer.rendering();
-    //     renderer.screenshoot_to_path(path);
-    // }
+    pub fn save_to_png(
+        &self,
+        eye: Option<Point3<f32>>,
+        at: Option<Point3<f32>>,
+        x: Option<u32>,
+        y: Option<u32>,
+        width: Option<u32>,
+        height: Option<u32>,
+        path: Option<&str>,
+    ) -> Result<()> {
+        let mut renderer = Renderer::new(None);
+
+        renderer.config_camera(eye, at);
+
+        renderer.save_to_png(&self, x, y, width, height, path)?;
+
+        Ok(())
+    }
 
     pub fn to_kdtree(self) -> KdTree<f32, usize, 3> {
         let mut kdtree: KdTree<f32, usize, 3> = KdTree::with_capacity(64).unwrap();
@@ -241,7 +250,7 @@ impl Points {
                     point.point_coord.z,
                 ],
                 point.index,
-            );
+            ).unwrap();
         }
         kdtree
         // KdTree::build_by_ordered_float(self.data)
@@ -371,16 +380,6 @@ impl Points {
             data_copy
                 .into_iter()
                 .map(|point| {
-                    // point.get_average_closest_from_kdtree(
-                    //     &next_points,
-                    //     &kd_tree,
-                    //     penalize_coor,
-                    //     penalize_col,
-                    //     &mut self.reference_frame,
-                    //     penalize_mapped,
-                    //     radius,
-                    //     options_for_nearest,
-                    // )
                     point.get_average_closest(
                         &next_points,
                         &all_nearests[point.index],
@@ -561,7 +560,7 @@ impl Points {
         match output {
             Some(path) => {
                 File::create(Path::new(path))
-                    .expect("Cannot create path")
+                    .chain_err(|| "Cannot create path")?
                     .write_all(&buf)?;
             }
             None => {

@@ -8,7 +8,7 @@ quick_main!(run);
 
 fn run() -> Result<()> {
     let matches = App::new("ply_fat")
-        .about("View a ply frame or play a ply video")
+        .about("Filter and Transform points")
         .arg(
             Arg::with_name("input")
                 .short("i")

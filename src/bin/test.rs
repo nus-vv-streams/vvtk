@@ -1,10 +1,12 @@
-#![allow(unused_imports)]
 extern crate iswr;
 
-use iswr::{filter, reader, transform};
+#[macro_use]
+extern crate error_chain;
 
-use std::io::{self, BufRead, Read, Write};
+use iswr::{errors::*};
 
-fn main() -> io::Result<()> {
+quick_main!(run);
+
+fn run() -> Result<()> {
     Ok(())
 }

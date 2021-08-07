@@ -46,7 +46,7 @@ impl PlyDir {
             }
         });
 
-        let mut renderer = renderer::Renderer::new();
+        let mut renderer = renderer::Renderer::new(None);
 
         renderer.config_camera(eye, at);
 

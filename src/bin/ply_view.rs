@@ -2,11 +2,9 @@
 extern crate error_chain;
 extern crate iswr;
 use clap::{App, Arg};
-use iswr::{errors::*, ply_dir::PlyDir, reader};
-// use std::io::{Error, ErrorKind};
+use iswr::{errors::*, ply_dir::PlyDir, reader::read};
 use std::path::Path;
 
-// cargo run --release --bin test | cargo run --release --bin ply_view -- --eye=100,100,100
 quick_main!(run);
 
 fn run() -> Result<()> {
@@ -19,6 +17,24 @@ fn run() -> Result<()> {
                 .takes_value(true)
                 .multiple(false)
                 .help("File directory for data"),
+        )
+        .arg(
+            Arg::with_name("width")
+                .short("w")
+                .long("width")
+                .use_delimiter(true)
+                .takes_value(true)
+                .multiple(false)
+                .help("Position of at"),
+        )
+        .arg(
+            Arg::with_name("height")
+                .short("h")
+                .long("height")
+                .use_delimiter(true)
+                .takes_value(true)
+                .multiple(false)
+                .help("Position of at"),
         )
         .arg(
             Arg::with_name("eye")
@@ -42,9 +58,9 @@ fn run() -> Result<()> {
         Some(vec) => Some(
             Some(vec.collect::<Vec<_>>())
                 .filter(|vec| vec.len() == 3)
-                .map(|vec| process(vec))
+                .map(|vec| process_vec(vec))
                 .chain_err(|| "Inappropriate number of arguments in eye")?
-                .chain_err(|| "Inappropriate type of arguments, should be float number")?,
+                .chain_err(|| "Inappropriate type of arguments in eye, should be float number")?,
         ),
         None => None,
     };
@@ -53,9 +69,9 @@ fn run() -> Result<()> {
         Some(vec) => Some(
             Some(vec.collect::<Vec<_>>())
                 .filter(|vec| vec.len() == 3)
-                .map(|vec| process(vec))
-                .chain_err(|| "Inappropriate number of arguments in at")?
-                .chain_err(|| "Inappropriate type of arguments, should be float number")?,
+                .map(|vec| process_vec(vec))
+                .chain_err(|| "Inappropriate number of arguments in at, need 3 arguments")?
+                .chain_err(|| "Inappropriate type of arguments in at, should be float number {}")?,
         ),
         None => None,
     };
@@ -66,9 +82,9 @@ fn run() -> Result<()> {
         Some(path) => {
             let new_path = Path::new(&path);
             if new_path.is_file() {
-                reader::read(input)
+                read(input)
                     .chain_err(|| "Problem with the input")?
-                    .render_with_camera(eye, at);
+                    .do_render(eye, at);
             } else if new_path.is_dir() {
                 PlyDir::new(&path).play_with_camera(eye, at);
             } else {
@@ -76,16 +92,16 @@ fn run() -> Result<()> {
             }
         }
         None => {
-            iswr::reader::read(input)
+            read(input)
                 .chain_err(|| "Problem with the input")?
-                .render_with_camera(eye, at);
+                .do_render(eye, at);
         }
     };
 
     Ok(())
 }
 
-fn process(vec: Vec<&str>) -> Result<nalgebra::Point3<f32>> {
+fn process_vec(vec: Vec<&str>) -> Result<nalgebra::Point3<f32>> {
     Ok(nalgebra::Point3::new(
         vec[0].parse::<f32>()?,
         vec[1].parse::<f32>()?,

@@ -5,7 +5,8 @@ pub mod errors {
     error_chain! {
         foreign_links {
             Io(std::io::Error);
-            Num(std::num::ParseFloatError);
+            Float(std::num::ParseFloatError);
+            Int(std::num::ParseIntError);
         }
     }
 }
@@ -20,4 +21,4 @@ pub use methods::{filter, transform};
 pub use ply_dir::PlyDir;
 pub use tool::{reader, renderer};
 
-use std::time::{Duration, Instant};
+use std::time::{Instant};

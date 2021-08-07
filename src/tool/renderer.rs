@@ -1,5 +1,9 @@
+use crate::errors::*;
+
+use image::{imageops::flip_vertical, ImageBuffer, Rgb};
 use kiss3d::camera::ArcBall;
 use kiss3d::light::Light;
+use kiss3d::point_renderer::PointRenderer;
 use kiss3d::window::Window;
 use nalgebra::Point3;
 
@@ -8,6 +12,10 @@ use std::path::Path;
 
 const DEFAULT_EYE: Point3<f32> = Point3::new(0.0f32, 500.0, 2500.0);
 const DEFAULT_AT: Point3<f32> = Point3::new(300.0f32, 800.0, 200.0);
+pub static DEFAULT_WIDTH: u32 = 1600u32;
+pub static DEFAULT_HEIGHT: u32 = 1200u32;
+pub static DEFAULT_CORNER: u32 = 0u32;
+pub static DEFAULT_TITLE: &str = "In Summer We Render";
 
 pub struct Renderer {
     first_person: ArcBall,
@@ -15,19 +23,14 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn new() -> Self {
-        let mut window = Window::new("In Summer We Render");
+    pub fn new(title: Option<&str>) -> Self {
+        let mut window = Window::new(title.unwrap_or(DEFAULT_TITLE));
+
         window.set_light(Light::StickToCamera);
         window.set_point_size(1.0); // <-- change here
 
         Renderer {
-            first_person: ArcBall::new_with_frustrum(
-                std::f32::consts::PI / 4.0,
-                0.1,
-                10000.0,
-                DEFAULT_EYE,
-                DEFAULT_AT,
-            ),
+            first_person: default_camera(),
             window,
         }
     }
@@ -66,10 +69,62 @@ impl Renderer {
         }
     }
 
-    pub(crate) fn screenshoot_to_path(&mut self, path: &str) {
-        let img = self.window.snap_image();
-        let img_path = Path::new(path);
-        img.save(img_path).unwrap();
-        println!("Screeshot saved to {}", path);
+    pub fn save_to_png(
+        &mut self,
+        data: &Points,
+        x: Option<u32>,
+        y: Option<u32>,
+        width: Option<u32>,
+        height: Option<u32>,
+        path: Option<&str>,
+    ) -> Result<()> {
+        use kiss3d::renderer::Renderer;
+
+        let mut pr = PointRenderer::new();
+        for point in &data.data {
+            pr.draw_point_with_size(
+                point.get_coord().get_point3(),
+                point.get_color().get_point3(),
+                point.point_size,
+            );
+        }
+
+        pr.render(0, &mut self.first_person);
+
+        let mut buf = Vec::new();
+
+        self.window.snap_rect(
+            &mut buf,
+            x.unwrap_or(DEFAULT_CORNER) as usize,
+            y.unwrap_or(DEFAULT_CORNER) as usize,
+            width.unwrap_or(DEFAULT_WIDTH) as usize,
+            height.unwrap_or(DEFAULT_HEIGHT) as usize,
+        );
+
+        let img_opt = ImageBuffer::from_vec(
+            width.unwrap_or(DEFAULT_WIDTH),
+            height.unwrap_or(DEFAULT_HEIGHT),
+            buf,
+        );
+        let img: ImageBuffer<Rgb<u8>, Vec<u8>> =
+            img_opt.chain_err(|| "Buffer created from window was not big enough for image")?;
+        let img = flip_vertical(&img);
+
+        let img_path = Path::new(path.chain_err(|| "No output found")?);
+        img.save(img_path)
+            .map(|_| println!("Image saved to {}", path.unwrap()))
+            .chain_err(|| "Cannot save image")?;
+
+        Ok(())
     }
+}
+
+fn default_camera() -> ArcBall {
+    ArcBall::new_with_frustrum(
+        std::f32::consts::PI / 4.0,
+        0.1,
+        10000.0,
+        DEFAULT_EYE,
+        DEFAULT_AT,
+    )
 }
