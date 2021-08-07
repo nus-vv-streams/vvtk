@@ -21,4 +21,4 @@ pub use methods::{filter, transform};
 pub use ply_dir::PlyDir;
 pub use tool::{reader, renderer};
 
-use std::time::{Instant};
+use std::time::Instant;
