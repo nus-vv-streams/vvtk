@@ -8,6 +8,11 @@ edition = "2018"
 [profile.release]
 debug = 1
 
+[features]
+default = ["by_radius"]
+by_radius = []
+by_knn = []
+
 [lib]
 name = "iswr"
 path = "src/lib.rs"
