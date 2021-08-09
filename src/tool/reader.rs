@@ -28,8 +28,8 @@ pub fn read(input: Option<&str>) -> Result<Points> {
         points_list = point_parser.read_payload_for_element(&mut buf_read, &element, &header)?;
     }
 
-    for idx in 0..points_list.len() {
-        points_list[idx].set_index(idx);
+    for (idx, item) in points_list.iter_mut().enumerate() {
+        item.set_index(idx);
     }
 
     Ok(Points::of(points_list))
