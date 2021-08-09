@@ -19,19 +19,6 @@ rustup toolchain install nightly
 We follow the [official Rust coding style](https://github.com/rust-dev-tools/fmt-rfcs/blob/master/guide/guide.md).  You can use `rustfmt` (or run `cargo fmt`) to automatically formt your code.
 
 
-``` {.}
-cargo run --release --bin ply_fat -- -i plySource/binary_ply/longdress_vox10_1051.ply --filter=upper_half -t=all_green -r=all_red
-```
-
-``` {.}
-cargo run --release --bin ply_to_ply -- -i plySource/binary_ply/longdress_vox10_1051.ply -f binary -o hello.ply
-```
-
-``` {.}
-cargo run --release --bin ply_view -- -i plySource/binary_ply/longdress_vox10_1051.ply --eye=100,100,100
-```
-
-
 
 
 
