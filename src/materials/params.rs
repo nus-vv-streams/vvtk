@@ -24,6 +24,20 @@ impl Params {
             compute_frame_delta: false,
         }
     }
+
+    pub fn clone(&self) -> Params{
+        Params {
+            penalize_coor: self.penalize_coor,
+            penalize_col: self.penalize_col,
+            penalize_mapped: self.penalize_mapped,
+            radius: self.radius,
+            options_for_nearest: self.options_for_nearest,
+            show_unmapped_points: self.show_unmapped_points,
+            resize_near_cracks: self.resize_near_cracks,
+            mark_enlarged: self.mark_enlarged,
+            compute_frame_delta: self.compute_frame_delta,
+        }
+    }
 }
 
 impl Default for Params {

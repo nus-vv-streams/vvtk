@@ -55,39 +55,58 @@ pub fn inf_norm(a: &[f32; 3], b: &[f32; 3]) -> f32 {
     }
 }
 
-pub fn setup_run_indiv_thread_nearest_points(
-    tx: std::sync::mpsc::Sender<Vec<Vec<usize>>>,
+pub fn setup_run_indiv_thread_closest_points(
+    tx: std::sync::mpsc::Sender<Vec<Point>>,
     slices: &mut std::slice::Chunks<Point>,
     kd_tree: std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
     options_for_nearest: usize,
+    next_points: std::sync::Arc<Points>,
+    params: std::sync::Arc<Params>,
+    reference_frame: & mut Vec<Point>
 ) -> std::thread::JoinHandle<()> {
     // let kd = kd_tree.clone();
     let slice = slices.next().unwrap().to_owned();
+
+    // let now = Instant::now();
+    let mut refer = reference_frame.clone();
+    // println!("cloning time: {}", now.elapsed().as_millis());
+
     thread::spawn(move || {
-        let mut nearests: Vec<Vec<usize>> = Vec::new();
+        // let mut nearests: Vec<usize> = Vec::new();
+        let mut closests: Vec<Point> = Vec::new();
         for s in &slice {
-            nearests.push(s.method_of_neighbour_query(kd_tree.clone(), options_for_nearest));
+            let nearests = s.method_of_neighbour_query(kd_tree.clone(), options_for_nearest);
+            let p = s.get_average_closest(
+                next_points.clone(),
+                &nearests,
+                &mut refer,
+                params.clone(),
+            );
+            closests.push(p);
         }
-        tx.send(nearests).unwrap();
+        tx.send(closests).unwrap();
     })
 }
 
-pub fn run_precompute_threads(
+pub fn run_threads(
     threads: usize,
     slices: &mut std::slice::Chunks<Point>,
     kd_tree: std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
     options_for_nearest: usize,
-) -> Vec<Vec<usize>> {
-    let mut vrx: Vec<std::sync::mpsc::Receiver<Vec<Vec<usize>>>> = Vec::new();
+    next_points: std::sync::Arc<Points>,
+    params: std::sync::Arc<Params>,
+    reference_frame: & mut Vec<Point>
+) -> Vec<Point> {
+    let mut vrx: Vec<std::sync::mpsc::Receiver<Vec<Point>>> = Vec::new();
     let mut vhandle: Vec<std::thread::JoinHandle<()>> = Vec::new();
 
     for _i in 0..threads {
         let (tx, rx): (
-            std::sync::mpsc::Sender<Vec<Vec<usize>>>,
-            std::sync::mpsc::Receiver<Vec<Vec<usize>>>,
+            std::sync::mpsc::Sender<Vec<Point>>,
+            std::sync::mpsc::Receiver<Vec<Point>>,
         ) = mpsc::channel();
         vrx.push(rx);
-        let handle = setup_run_indiv_thread_nearest_points(tx, slices, kd_tree.clone(), options_for_nearest);
+        let handle = setup_run_indiv_thread_closest_points(tx, slices, kd_tree.clone(), options_for_nearest, next_points.clone(), params.clone(), reference_frame);
         vhandle.push(handle);
     }
 
@@ -95,7 +114,7 @@ pub fn run_precompute_threads(
         handle.join().unwrap();
     }
 
-    let mut result: Vec<Vec<usize>> = Vec::new();
+    let mut result: Vec<Point> = Vec::new();
 
     for rx in vrx {
         result.append(&mut rx.recv().unwrap());
@@ -103,15 +122,18 @@ pub fn run_precompute_threads(
 
     result
 }
-pub fn parallel_query_nearests(
+pub fn parallel_query_closests(
     data_copy: &[Point],
     kd_tree: std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
     threads: usize,
     options_for_nearest: usize,
-) -> Vec<Vec<usize>> {
+    next_points: std::sync::Arc<Points>,
+    params: std::sync::Arc<Params>,
+    reference_frame: & mut Vec<Point>
+) -> Vec<Point> {
     let mut slices = data_copy.chunks((data_copy.len() as f32 / threads as f32).ceil() as usize);
 
-    run_precompute_threads(threads, &mut slices, kd_tree, options_for_nearest)
+    run_threads(threads, &mut slices, kd_tree, options_for_nearest, next_points, params, reference_frame)
 }
 
 #[derive(Clone)]
@@ -325,8 +347,8 @@ impl Points {
 
     pub fn closest_with_ratio_average_points_recovery(
         &mut self,
-        next_points: &Points,
-        params: &Params,
+        next_points: Points,
+        params: Params,
     ) -> (Points, Points, Points) {
         //start time
         let now = Instant::now();
@@ -336,35 +358,38 @@ impl Points {
         // let mutex_tree = std::sync::Mutex::new(kd_tree);
         let arc_tree = std::sync::Arc::new(kd_tree);
         // let kd = 'static kd_tree;
+        let arc_next_points = std::sync::Arc::new(next_points);
+        let arc_params = std::sync::Arc::new(params);
 
         let data_copy = self.data.clone();
 
         let threads = 2;
-        let all_nearests =
-            parallel_query_nearests(&data_copy, arc_tree.clone(), threads, params.options_for_nearest);
         let mut point_data = Points::of(
-            data_copy
-                .into_iter()
-                .map(|point| {
-                    point.get_average_closest(
-                        next_points,
-                        &all_nearests[point.index],
-                        &mut self.reference_frame,
-                        params,
-                    )
-                })
-                .collect(),
+            parallel_query_closests(&data_copy, arc_tree.clone(), threads, arc_params.options_for_nearest, arc_next_points, arc_params.clone(), &mut self.reference_frame),
         );
+        // let mut point_data = Points::of(
+        //     data_copy
+        //         .into_iter()
+        //         .map(|point| {
+        //             point.get_average_closest(
+        //                 next_points,
+        //                 &all_nearests[point.index],
+        //                 &mut self.reference_frame,
+        //                 params,
+        //             )
+        //         })
+        //         .collect(),
+        // );
 
         // let point_data = parallel_compute_closest(data_copy, next_points, &all_nearests, &mut self.reference_frame, params, threads);
 
         println!("interpolation time: {}", now.elapsed().as_millis());
 
-        if params.compute_frame_delta {
+        if arc_params.compute_frame_delta {
             self.frame_delta(point_data.clone());
         }
 
-        if params.show_unmapped_points {
+        if arc_params.show_unmapped_points {
             self.mark_unmapped_points(arc_tree);
         }
 
@@ -372,12 +397,12 @@ impl Points {
         //point_data.render(); //original interpolated frame
         /////////////
 
-        if params.resize_near_cracks {
-            point_data.adjust_point_sizes(params.radius);
+        if arc_params.resize_near_cracks {
+            point_data.adjust_point_sizes(arc_params.radius);
         }
 
         let marked_interpolated_frame = Points::new();
-        if params.resize_near_cracks && params.mark_enlarged {
+        if arc_params.resize_near_cracks && arc_params.mark_enlarged {
             let _marked_interpolated_frame = self.mark_points_near_cracks(&point_data);
         }
 
@@ -683,7 +708,7 @@ impl Point {
         &self,
         another_point: &Point,
         another_point_mapping: u16,
-        params: &Params,
+        params: std::sync::Arc<Params>,
     ) -> f32 {
         let max_coor: f32 = 3.0 * 512.0 * 512.0;
         let scale_coor = max_coor.sqrt();
@@ -698,10 +723,10 @@ impl Point {
 
     fn get_closest(
         &self,
-        next_points: &Points,
+        next_points: std::sync::Arc<Points>,
         k_nearest_indices: &[usize],
         reference_frame: &mut Vec<Point>,
-        params: &Params,
+        params: std::sync::Arc<Params>,
     ) -> Point {
         let mut min: f32 = f32::MAX;
         let mut result: Point;
@@ -711,7 +736,7 @@ impl Point {
             let cur = self.get_difference(
                 &next_points.data[*idx],
                 reference_frame[*idx].mapping,
-                params,
+                params.clone(),
             );
             if cur < min {
                 min = cur;
@@ -729,10 +754,10 @@ impl Point {
 
     fn get_average_closest(
         &self,
-        next_points: &Points,
+        next_points: std::sync::Arc<Points>,
         k_nearest_indices: &[usize],
         reference_frame: &mut Vec<Point>,
-        params: &Params,
+        params: std::sync::Arc<Params>,
     ) -> Point {
         if k_nearest_indices.is_empty() {
             return self.clone();
