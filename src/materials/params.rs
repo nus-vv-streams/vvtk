@@ -25,7 +25,7 @@ impl Params {
         }
     }
 
-    pub fn clone(&self) -> Params{
+    pub fn clone(&self) -> Params {
         Params {
             penalize_coor: self.penalize_coor,
             penalize_col: self.penalize_col,
