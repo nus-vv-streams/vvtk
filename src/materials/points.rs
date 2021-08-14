@@ -71,19 +71,19 @@ pub fn setup_run_indiv_thread_closest_points(
     let mut refer = reference_frame.clone();
     // println!("cloning time: {}", now.elapsed().as_millis());
 
-    let now = Instant::now();
+    //let now = Instant::now();
     thread::spawn(move || {
         // let kd_arc_clone = kd_tree.clone();
         // let next_points_clone = next_points.clone();
         // let params_clone = params.clone();
         // let mut nearests: Vec<usize> = Vec::new();
-        let mut closests: Vec<Point> = Vec::new();
+        let mut closests: Vec<Point> = Vec::with_capacity(100);
         for s in &slice {
             let nearests = s.method_of_neighbour_query(&kd_tree, options_for_nearest);
             let p = s.get_average_closest(&next_points, &nearests, &mut refer, &params);
             closests.push(p);
         }
-        println!("time for 1 thread to finish: {}", now.elapsed().as_millis());
+        //println!("time for 1 thread to finish: {}", now.elapsed().as_millis());
         tx.send(closests).unwrap();
     })
 }
@@ -97,10 +97,10 @@ pub fn run_threads(
     params: &std::sync::Arc<Params>,
     reference_frame: &mut Vec<Point>,
 ) -> Vec<Point> {
-    let mut vrx: Vec<std::sync::mpsc::Receiver<Vec<Point>>> = Vec::new();
-    let mut vhandle: Vec<std::thread::JoinHandle<()>> = Vec::new();
+    let mut vrx: Vec<std::sync::mpsc::Receiver<Vec<Point>>> = Vec::with_capacity(12);
+    let mut vhandle: Vec<std::thread::JoinHandle<()>> = Vec::with_capacity(12);
 
-    let now = Instant::now();
+    // let now = Instant::now();
 
     for _i in 0..threads {
         let (tx, rx): (
@@ -120,26 +120,26 @@ pub fn run_threads(
         vhandle.push(handle);
     }
 
-    println!("time to spawn threads: {}", now.elapsed().as_millis());
+    //println!("time to spawn threads: {}", now.elapsed().as_millis());
 
     for handle in vhandle {
         handle.join().unwrap();
     }
 
-    println!(
-        "closest point computation time: {}",
-        now.elapsed().as_millis()
-    );
+    // println!(
+    //     "closest point computation time: {}",
+    //     now.elapsed().as_millis()
+    // );
 
-    let mut result: Vec<Point> = Vec::new();
+    let mut result: Vec<Point> = Vec::with_capacity(100000);
 
     for rx in vrx {
         result.extend(rx.recv().unwrap());
     }
-    println!(
-        "full closest comp and vector extension: {}",
-        now.elapsed().as_millis()
-    );
+    // println!(
+    //     "full closest comp and vector extension: {}",
+    //     now.elapsed().as_millis()
+    // );
     result
 }
 pub fn parallel_query_closests(
@@ -386,7 +386,9 @@ impl Points {
         self.reference_frame = next_points.data.clone();
         // println!("ref frame cloning: {}", now.elapsed().as_millis());
         let kd_tree = next_points.clone().to_kdtree();
-        println!("kd tree constrcution: {}", now.elapsed().as_millis());
+
+       // println!("kd tree constrcution: {}", now.elapsed().as_millis());
+
         // let mutex_tree = std::sync::Mutex::new(kd_tree);
         let arc_tree = std::sync::Arc::new(kd_tree);
         // let kd = 'static kd_tree;
@@ -806,7 +808,7 @@ impl Point {
             return self.clone();
         }
 
-        let p = &self.get_closest(&next_points, k_nearest_indices, reference_frame, &params);
+        let p = &self.get_closest(next_points, k_nearest_indices, reference_frame, params);
         self.get_average(p)
     }
 
@@ -825,7 +827,7 @@ impl Point {
         kd_tree: &std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
         _options_for_nearest: usize,
     ) -> Vec<usize> {
-        self.get_radius_neghbours(&kd_tree)
+        self.get_radius_neghbours(kd_tree)
     }
 }
 
