@@ -71,7 +71,7 @@ pub fn setup_run_indiv_thread_closest_points(
     let mut refer = reference_frame.clone();
     // println!("cloning time: {}", now.elapsed().as_millis());
 
-    //let now = Instant::now();
+    // let now = Instant::now();
     thread::spawn(move || {
         // let kd_arc_clone = kd_tree.clone();
         // let next_points_clone = next_points.clone();
@@ -83,7 +83,7 @@ pub fn setup_run_indiv_thread_closest_points(
             let p = s.get_average_closest(&next_points, &nearests, &mut refer, &params);
             closests.push(p);
         }
-        //println!("time for 1 thread to finish: {}", now.elapsed().as_millis());
+        // println!("time for 1 thread to finish: {}", now.elapsed().as_millis());
         tx.send(closests).unwrap();
     })
 }
@@ -120,7 +120,7 @@ pub fn run_threads(
         vhandle.push(handle);
     }
 
-    //println!("time to spawn threads: {}", now.elapsed().as_millis());
+    // println!("time to spawn threads: {}", now.elapsed().as_millis());
 
     for handle in vhandle {
         handle.join().unwrap();
@@ -387,7 +387,7 @@ impl Points {
         // println!("ref frame cloning: {}", now.elapsed().as_millis());
         let kd_tree = next_points.clone().to_kdtree();
 
-       // println!("kd tree constrcution: {}", now.elapsed().as_millis());
+    //    println!("kd tree constrcution: {}", now.elapsed().as_millis());
 
         // let mutex_tree = std::sync::Mutex::new(kd_tree);
         let arc_tree = std::sync::Arc::new(kd_tree);

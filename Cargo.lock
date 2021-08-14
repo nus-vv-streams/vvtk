@@ -834,8 +834,7 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 [[package]]
 name = "kiddo"
 version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73e70400c6435a3f5e4d7bfb406af50bc66950cc8f24f45488d66f47bf3f5e25"
+source = "git+https://github.com/giterator/kiddo#cdae45e480d754978aef3d62b6860a2830d3357a"
 dependencies = [
  "num-traits",
 ]
