@@ -1,6 +1,15 @@
+#![warn(missing_docs)]
+
+//! # in-summer-we-render
+//!
+//! In summer, we render
+//!
+//! [Github](https://github.com/hungkhoaitay/in-summer-we-render)
+
 #[macro_use]
 extern crate error_chain;
 
+/// Error handling mod
 pub mod errors {
     error_chain! {
         foreign_links {

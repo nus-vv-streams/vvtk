@@ -255,9 +255,7 @@ impl Points {
 
         renderer.config_camera(eye, at);
 
-        while renderer.render() {
-            renderer.render_frame(self);
-        }
+        renderer.render_image(&self);
     }
 
     pub fn save_to_png(
@@ -387,7 +385,7 @@ impl Points {
         // println!("ref frame cloning: {}", now.elapsed().as_millis());
         let kd_tree = next_points.clone().to_kdtree();
 
-    //    println!("kd tree constrcution: {}", now.elapsed().as_millis());
+        //    println!("kd tree constrcution: {}", now.elapsed().as_millis());
 
         // let mutex_tree = std::sync::Mutex::new(kd_tree);
         let arc_tree = std::sync::Arc::new(kd_tree);

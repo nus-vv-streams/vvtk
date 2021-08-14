@@ -12,17 +12,20 @@ use std::path::Path;
 
 const DEFAULT_EYE: Point3<f32> = Point3::new(0.0f32, 500.0, 2500.0);
 const DEFAULT_AT: Point3<f32> = Point3::new(300.0f32, 800.0, 200.0);
+
 pub static DEFAULT_WIDTH: u32 = 1600u32;
 pub static DEFAULT_HEIGHT: u32 = 1200u32;
 pub static DEFAULT_CORNER: u32 = 0u32;
 pub static DEFAULT_TITLE: &str = "In Summer We Render";
 
+/// Structure representing a window and a camera.
 pub struct Renderer {
     first_person: ArcBall,
     pub(crate) window: Window,
 }
 
 impl Renderer {
+    /// Create a new Renderer with specific name and default window's and camera's configuration.
     pub fn new(title: Option<&str>) -> Self {
         let mut window = Window::new(title.unwrap_or(DEFAULT_TITLE));
 
@@ -35,14 +38,21 @@ impl Renderer {
         }
     }
 
+    /// Set the size of points
     pub fn set_point_size(&mut self, point_size: f32) {
         self.window.set_point_size(point_size)
     }
 
+    /// Render with default camera
     pub fn render(&mut self) -> bool {
         self.window.render_with_camera(&mut self.first_person)
     }
 
+    /// Config the camera
+    ///
+    /// # Arguments
+    /// * `eye` - the coordinate of the "eye"
+    /// * `at` - the coordinate of where the "eye" look at
     pub fn config_camera(&mut self, eye: Option<Point3<f32>>, at: Option<Point3<f32>>) {
         self.first_person = ArcBall::new_with_frustrum(
             std::f32::consts::PI / 4.0,
@@ -53,6 +63,7 @@ impl Renderer {
         );
     }
 
+    /// Open the window and render the frame
     pub fn render_frame(&mut self, data: &Points) {
         for point in &data.data {
             self.window.draw_point_with_size(
@@ -63,12 +74,21 @@ impl Renderer {
         }
     }
 
+    /// Open the window and render the frame many times
     pub fn render_image(&mut self, data: &Points) {
         while self.render() {
             self.render_frame(data);
         }
     }
 
+    /// Render a ply file to png format
+    ///
+    /// # Arguments
+    /// * `x` - the x-coordinate of the bottom left corner
+    /// * `y` - the y-coordinate of the bottom left corner
+    /// * `width` - the width of the png
+    /// * `height` - the height of the png
+    /// * `path` - the path to save the png file
     pub fn save_to_png(
         &mut self,
         data: &Points,

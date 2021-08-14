@@ -9,6 +9,17 @@ use crate::points::{Point, Points};
 
 use std::io::{self, BufRead, BufReader};
 
+/// Read any form of ply file and return the collections of points.
+///
+/// # Arguments
+/// * `input` - the path to the file that needed to be read
+///
+/// # Examples
+/// ```
+/// use iswr::reader;
+///
+/// reader::read(Some("path/to/your/ply/file")).unwrap().reader();
+/// ```
 pub fn read(input: Option<&str>) -> Result<Points> {
     let stdin = io::stdin();
 
