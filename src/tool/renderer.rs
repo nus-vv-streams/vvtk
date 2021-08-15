@@ -13,9 +13,16 @@ use std::path::Path;
 const DEFAULT_EYE: Point3<f32> = Point3::new(0.0f32, 500.0, 2500.0);
 const DEFAULT_AT: Point3<f32> = Point3::new(300.0f32, 800.0, 200.0);
 
+/// The default width of the canvas
 pub static DEFAULT_WIDTH: u32 = 1600u32;
+
+/// The default height of the canvas
 pub static DEFAULT_HEIGHT: u32 = 1200u32;
+
+/// The default corner's coordinate of the canvas
 pub static DEFAULT_CORNER: u32 = 0u32;
+
+/// The default name of the canvas
 pub static DEFAULT_TITLE: &str = "In Summer We Render";
 
 /// Structure representing a window and a camera.

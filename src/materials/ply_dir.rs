@@ -5,11 +5,13 @@ use std::sync::Arc;
 
 use crate::tool::{reader, renderer};
 
+/// Structure representing a directory containing ply files
 pub struct PlyDir {
     paths: Vec<PathBuf>,
 }
 
 impl PlyDir {
+    /// Creating a new `PlyDir`
     pub fn new(path: &str) -> Self {
         let mut entries = std::fs::read_dir(path)
             .unwrap()
@@ -22,14 +24,17 @@ impl PlyDir {
         PlyDir { paths: entries }
     }
 
+    /// Return number of ply files
     pub fn count(&self) -> usize {
         self.paths.len()
     }
 
+    /// Open the window and play 3D video
     pub fn play(self) {
         self.play_with_camera(None, None);
     }
 
+    /// Open the window and play 3D video with specific camera
     pub fn play_with_camera(self, eye: Option<Point3<f32>>, at: Option<Point3<f32>>) {
         let len = self.count();
         let paths = Arc::new(self.paths);

@@ -58,7 +58,7 @@ fn run() -> Result<()> {
         Some(vec) => Some(
             Some(vec.collect::<Vec<_>>())
                 .filter(|vec| vec.len() == 3)
-                .map(|vec| process_vec(vec))
+                .map(process_vec)
                 .chain_err(|| "Inappropriate number of arguments in eye")?
                 .chain_err(|| "Inappropriate type of arguments in eye, should be float number")?,
         ),
@@ -69,7 +69,7 @@ fn run() -> Result<()> {
         Some(vec) => Some(
             Some(vec.collect::<Vec<_>>())
                 .filter(|vec| vec.len() == 3)
-                .map(|vec| process_vec(vec))
+                .map(process_vec)
                 .chain_err(|| "Inappropriate number of arguments in at, need 3 arguments")?
                 .chain_err(|| "Inappropriate type of arguments in at, should be float number {}")?,
         ),
@@ -86,7 +86,7 @@ fn run() -> Result<()> {
                     .chain_err(|| "Problem with the input")?
                     .do_render(eye, at);
             } else if new_path.is_dir() {
-                PlyDir::new(&path).play_with_camera(eye, at);
+                PlyDir::new(path).play_with_camera(eye, at);
             } else {
                 print!("No such file or dir {}", path)
             }

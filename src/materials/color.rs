@@ -1,24 +1,31 @@
 use lab::Lab;
 use nalgebra::Point3;
 
+/// Structure representing a collection of colors (in RGB) in the collection the points.
 pub struct Color {
     data: Vec<PointColor>,
 }
 
 impl Color {
+    /// Creating a new collection of color with specific data
     pub fn new(data: Vec<PointColor>) -> Self {
         Color { data }
     }
 
-    pub fn get_point_col_vec(&self) -> &Vec<PointColor> {
+    /// Get a data under the borrow type
+    pub fn get_borrow_data(&self) -> &Vec<PointColor> {
         &self.data //self.data.into_iter().map(|coord| coord.get_point3()).collect()
     }
 }
 
+/// Structure representing the colors (in RGB) of one point.
 #[derive(Debug, Clone)]
 pub struct PointColor {
+    /// red
     pub red: u8,
+    /// green
     pub green: u8,
+    /// blue
     pub blue: u8,
 }
 
@@ -29,6 +36,7 @@ impl PartialEq for PointColor {
 }
 
 impl PointColor {
+    /// Return a white `PointColor` (R = G = B = 0)
     pub fn new_default() -> Self {
         PointColor {
             red: 0,
@@ -37,6 +45,7 @@ impl PointColor {
         }
     }
 
+    /// Return a `PointColor` with specific RGB
     pub fn new(red: u8, green: u8, blue: u8) -> Self {
         PointColor { red, green, blue }
     }
@@ -53,6 +62,7 @@ impl PointColor {
         Lab::from_rgb(&self.to_array())
     }
 
+    /// Return the `Point3` type of the `PointColor` for rendering
     pub fn get_point3(&self) -> Point3<f32> {
         Point3::new(
             self.red as f32 / 256.0,
@@ -61,6 +71,7 @@ impl PointColor {
         )
     }
 
+    /// Return a average `PointColor` of two `PointColor`s
     pub fn get_average(&self, another_point: &PointColor) -> PointColor {
         let lab_of_self = self.to_lab();
         let lab_of_another = another_point.to_lab();
@@ -76,6 +87,7 @@ impl PointColor {
         // (self.blue + another_point.blue) / 2)
     }
 
+    /// Return the difference between two `PointColor`s
     pub fn get_color_delta(&self, another_point: &PointColor) -> f32 {
         // let lab_of_self = self.to_lab();
         // let lab_of_another = another_point.to_lab();

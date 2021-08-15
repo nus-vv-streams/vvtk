@@ -85,7 +85,7 @@ fn run() -> Result<()> {
         Some(vec) => Some(
             Some(vec.collect::<Vec<_>>())
                 .filter(|vec| vec.len() == 3)
-                .map(|vec| process(vec))
+                .map(process)
                 .chain_err(|| "Inappropriate number of arguments in eye")?
                 .chain_err(|| "Inappropriate type of arguments, should be float number")?,
         ),
@@ -96,7 +96,7 @@ fn run() -> Result<()> {
         Some(vec) => Some(
             Some(vec.collect::<Vec<_>>())
                 .filter(|vec| vec.len() == 3)
-                .map(|vec| process(vec))
+                .map(process)
                 .chain_err(|| "Inappropriate number of arguments in at, need 3 arguments")?
                 .chain_err(|| "Inappropriate type of arguments, should be float number {}")?,
         ),

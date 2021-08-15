@@ -458,13 +458,13 @@ impl Points {
     pub fn frame_delta(&mut self, prev: Points) {
         let (next_coordinates_obj, next_colours_obj) = self.clone().get_coords_cols();
 
-        let next_coordinates = next_coordinates_obj.get_point_coor_vec();
-        let next_colours = next_colours_obj.get_point_col_vec();
+        let next_coordinates = next_coordinates_obj.get_borrow_data();
+        let next_colours = next_colours_obj.get_borrow_data();
 
         let (prev_coordinates_obj, prev_colours_obj) = prev.get_coords_cols();
 
-        let prev_coordinates = prev_coordinates_obj.get_point_coor_vec();
-        let prev_colours = prev_colours_obj.get_point_col_vec();
+        let prev_coordinates = prev_coordinates_obj.get_borrow_data();
+        let prev_colours = prev_colours_obj.get_borrow_data();
 
         for (pos, _e) in prev_coordinates.iter().enumerate() {
             let (x, y, z) = (
