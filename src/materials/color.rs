@@ -82,6 +82,7 @@ impl PointColor {
         };
 
         PointColor::new_with_array(lab_of_average.to_rgb())
+
         // PointColor::new((self.red + another_point.red) / 2,
         // (self.green + another_point.green) / 2,
         // (self.blue + another_point.blue) / 2)
