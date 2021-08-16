@@ -1,10 +1,10 @@
-#![warn(missing_docs)]
-
 //! # in-summer-we-render
 //!
 //! In summer, we render
 //!
 //! [Github](https://github.com/hungkhoaitay/in-summer-we-render)
+
+#![warn(missing_docs)]
 
 #[macro_use]
 extern crate error_chain;

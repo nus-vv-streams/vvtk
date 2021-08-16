@@ -19,24 +19,6 @@ fn run() -> Result<()> {
                 .help("File directory for data"),
         )
         .arg(
-            Arg::with_name("width")
-                .short("w")
-                .long("width")
-                .use_delimiter(true)
-                .takes_value(true)
-                .multiple(false)
-                .help("Position of at"),
-        )
-        .arg(
-            Arg::with_name("height")
-                .short("h")
-                .long("height")
-                .use_delimiter(true)
-                .takes_value(true)
-                .multiple(false)
-                .help("Position of at"),
-        )
-        .arg(
             Arg::with_name("eye")
                 .long("eye")
                 .use_delimiter(true)

@@ -255,7 +255,7 @@ impl Points {
 
         renderer.config_camera(eye, at);
 
-        renderer.render_image(&self);
+        renderer.render_image(self);
     }
 
     pub fn save_to_png(
@@ -272,7 +272,7 @@ impl Points {
 
         renderer.config_camera(eye, at);
 
-        renderer.save_to_png(&self, x, y, width, height, path)?;
+        renderer.save_to_png(self, x, y, width, height, path)?;
 
         Ok(())
     }

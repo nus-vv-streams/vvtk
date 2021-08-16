@@ -36,7 +36,7 @@ pub fn read(input: Option<&str>) -> Result<Points> {
 
     let mut points_list = Vec::new();
     for (_ignore_key, element) in &header.elements {
-        points_list = point_parser.read_payload_for_element(&mut buf_read, &element, &header)?;
+        points_list = point_parser.read_payload_for_element(&mut buf_read, element, &header)?;
     }
 
     for (idx, item) in points_list.iter_mut().enumerate() {

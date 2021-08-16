@@ -4,7 +4,6 @@ pub mod color;
 /// Module handling coordinates of points
 pub mod coordinate;
 
-
 pub mod params;
 
 /// Module handling directory of ply files
