@@ -751,7 +751,7 @@ impl Point {
         &self,
         another_point: &Point,
         another_point_mapping: u16,
-        params: std::sync::Arc<Params>,
+        params: &std::sync::Arc<Params>,
     ) -> f32 {
         let max_coor: f32 = 3.0 * 512.0 * 512.0;
         let scale_coor = max_coor.sqrt();
@@ -779,7 +779,7 @@ impl Point {
             let cur = self.get_difference(
                 &next_points.data[*idx],
                 reference_frame[*idx].mapping,
-                params.clone(),
+                params,
             );
             if cur < min {
                 min = cur;
