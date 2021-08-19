@@ -73,13 +73,13 @@ impl PointColor {
 
     /// Return a average `PointColor` of two `PointColor`s
     pub fn get_average(&self, another_point: &PointColor) -> PointColor {
-        let lab_of_self = self.to_lab();
-        let lab_of_another = another_point.to_lab();
-        let lab_of_average = Lab {
-            l: (lab_of_self.l + lab_of_another.l) / 2.0,
-            a: (lab_of_self.a + lab_of_another.a) / 2.0,
-            b: (lab_of_self.b + lab_of_another.b) / 2.0,
-        };
+        // let lab_of_self = self.to_lab();
+        // let lab_of_another = another_point.to_lab();
+        // let lab_of_average = Lab {
+        //     l: (lab_of_self.l + lab_of_another.l) / 2.0,
+        //     a: (lab_of_self.a + lab_of_another.a) / 2.0,
+        //     b: (lab_of_self.b + lab_of_another.b) / 2.0,
+        // };
 
         // PointColor::new_with_array(lab_of_average.to_rgb())
 
