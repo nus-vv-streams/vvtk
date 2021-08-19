@@ -395,7 +395,7 @@ impl Points {
         // println!("arc cloning: {}", now.elapsed().as_millis());
         let data_copy = self.data.clone();
         // println!("PRE INTERPOLATION RUNTIME: {}", now.elapsed().as_millis());
-        let threads = 2;
+        let threads = 6;
         let interpolated_points = parallel_query_closests(
             &data_copy,
             &arc_tree,

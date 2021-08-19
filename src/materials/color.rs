@@ -81,11 +81,12 @@ impl PointColor {
             b: (lab_of_self.b + lab_of_another.b) / 2.0,
         };
 
-        PointColor::new_with_array(lab_of_average.to_rgb())
+        // PointColor::new_with_array(lab_of_average.to_rgb())
 
         // PointColor::new((self.red + another_point.red) / 2,
         // (self.green + another_point.green) / 2,
         // (self.blue + another_point.blue) / 2)
+        PointColor::new(another_point.red, another_point.green, another_point.blue)
     }
 
     /// Return the difference between two `PointColor`s
