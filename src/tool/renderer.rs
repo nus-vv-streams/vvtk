@@ -70,6 +70,11 @@ impl Renderer {
         );
     }
 
+    pub fn config_background_color(&mut self, background_color: Option<Point3<f32>>) {
+        let color = background_color.unwrap_or(Point3::origin());
+        self.window.set_background_color(color.x, color.y, color.z);
+    }
+
     /// Open the window and render the frame
     pub fn render_frame(&mut self, data: &Points) {
         for point in &data.data {

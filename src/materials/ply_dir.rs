@@ -31,11 +31,11 @@ impl PlyDir {
 
     /// Open the window and play 3D video
     pub fn play(self) {
-        self.play_with_camera(None, None);
+        self.play_with_camera(None, None, None);
     }
 
     /// Open the window and play 3D video with specific camera
-    pub fn play_with_camera(self, eye: Option<Point3<f32>>, at: Option<Point3<f32>>) {
+    pub fn play_with_camera(self, eye: Option<Point3<f32>>, at: Option<Point3<f32>>, background_color: Option<Point3<f32>>) {
         let len = self.count();
         let paths = Arc::new(self.paths);
 
@@ -54,6 +54,8 @@ impl PlyDir {
         let mut renderer = renderer::Renderer::new(None);
 
         renderer.config_camera(eye, at);
+
+        renderer.config_background_color(background_color);
 
         let mut frame;
 

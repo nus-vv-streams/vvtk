@@ -34,6 +34,15 @@ fn run() -> Result<()> {
                 .multiple(false)
                 .help("Position of at"),
         )
+        .arg(
+            Arg::with_name("background")
+                .short("b")
+                .long("background")
+                .use_delimiter(true)
+                .takes_value(true)
+                .multiple(false)
+                .help("Color of background"),
+        )
         .get_matches();
 
     let eye = match matches.values_of("eye") {
@@ -58,6 +67,17 @@ fn run() -> Result<()> {
         None => None,
     };
 
+    let background_color = match matches.values_of("background") {
+        Some(vec) => Some(
+            Some(vec.collect::<Vec<_>>())
+                .filter(|vec| vec.len() == 3)
+                .map(process_vec)
+                .chain_err(|| "Inappropriate number of arguments in background, need 3 arguments")?
+                .chain_err(|| "Inappropriate type of arguments in background, should be float number {}")?,
+        ),
+        None => None,
+    };
+
     let input = matches.value_of("input");
 
     match input {
@@ -66,9 +86,9 @@ fn run() -> Result<()> {
             if new_path.is_file() {
                 read(input)
                     .chain_err(|| "Problem with the input")?
-                    .do_render(eye, at);
+                    .do_render(eye, at, background_color);
             } else if new_path.is_dir() {
-                PlyDir::new(path).play_with_camera(eye, at);
+                PlyDir::new(path).play_with_camera(eye, at, background_color);
             } else {
                 print!("No such file or dir {}", path)
             }
@@ -76,7 +96,7 @@ fn run() -> Result<()> {
         None => {
             read(input)
                 .chain_err(|| "Problem with the input")?
-                .do_render(eye, at);
+                .do_render(eye, at, background_color);
         }
     };
 

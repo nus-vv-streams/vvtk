@@ -247,13 +247,15 @@ impl Points {
     }
 
     pub fn render(&self) {
-        self.do_render(None, None)
+        self.do_render(None, None, None)
     }
 
-    pub fn do_render(&self, eye: Option<Point3<f32>>, at: Option<Point3<f32>>) {
+    pub fn do_render(&self, eye: Option<Point3<f32>>, at: Option<Point3<f32>>, background_color: Option<Point3<f32>>) {
         let mut renderer = Renderer::new(None);
 
         renderer.config_camera(eye, at);
+
+        renderer.config_background_color(background_color);
 
         renderer.render_image(self);
     }
