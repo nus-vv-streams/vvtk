@@ -1,8 +1,17 @@
 [package]
 name = "main"
 version = "0.1.0"
-authors = ["Hungkhoaitay <e0550385@u.nus.edu>", "giterator <e055220@u.nus.edu>"]
+authors = ["weitsang <weitsang@nus.edu.sg>", "hungkhoaitay <e0550385@u.nus.edu>", "giterator <e055220@u.nus.edu>"]
 edition = "2018"
+
+description = "This project aims to design and develop a set of robust and high performance Unix CLI tools for analyzing, processing, debugging, and viewing 3D point clouds using Rust"
+readme = "README.md"
+repository = "https://github.com/hungkhoaitay/in-summer-we-render"
+
+license = "Apache-2.0"
+keywords = ["3D", "ISWR"]
+categories = ["command-line-utilities"]
+publish = ["in-summer-we-render"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [profile.release]
