@@ -1,5 +1,5 @@
 [package]
-name = "main"
+name = "in-summer-we-render"
 version = "0.1.0"
 authors = ["weitsang <weitsang@nus.edu.sg>", "hungkhoaitay <e0550385@u.nus.edu>", "giterator <e055220@u.nus.edu>"]
 edition = "2018"
@@ -11,7 +11,6 @@ repository = "https://github.com/hungkhoaitay/in-summer-we-render"
 license = "Apache-2.0"
 keywords = ["3D", "ISWR"]
 categories = ["command-line-utilities"]
-publish = ["in-summer-we-render"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [profile.release]
@@ -28,15 +27,19 @@ path = "src/lib.rs"
 
 [dependencies]
 ply-rs = "0.1.3"
-kiss3d = { git = "https://github.com/nus-mmsys/kiss3d", version = "0.31.0" }
+kiss3d = { git = "https://github.com/nus-mmsys/kiss3d", version = "0.31.0" } #"0.31.0"
+#kiss3d = "0.31.0"
 nalgebra = "0.26.2"
-kiddo =  {git = "https://github.com/giterator/kiddo"}  #"0.1.4"
+kiddo =  { git = "https://github.com/giterator/kiddo", version = "0.1.4" }  #"0.1.4"
 typenum = "1.13.0"
 rand = "0.8.3"
 lab = "0.10.0"
 clap = "2.33.3"
 error-chain = "0.12.4"
-image        = "0.23"
+image = "0.23"
+
+#[patch.crates-io]
+#kiss3d = { git = "https://github.com/nus-mmsys/kiss3d", version = "0.31.0" }
 
 [[bin]]
 name = "ply_to_ply"
