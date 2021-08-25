@@ -119,6 +119,7 @@ fn run() -> Result<()> {
     let two_way_interpolation = matches.is_present("two_way");
 
     let output_dir = matches.value_of("output");
+    let exists_output_dir = matches.is_present("output");
 
     //  println!("show unmapped points: {}", show_unmapped_points);
     //  println!("interpolation method: {}", method);
@@ -158,6 +159,7 @@ fn run() -> Result<()> {
         two_way_interpolation,
         params,
         output_dir,
+        exists_output_dir
     )
 }
 
@@ -168,6 +170,7 @@ fn interpolate(
     two_way_interpolation: bool,
     params: Params,
     output_dir: Option<&str>,
+    exists_output_dir: bool
 ) -> Result<()> {
     let mut prev =
         reader::read(prev_frame_dir).chain_err(|| "Problem with the input of prev frame")?;
@@ -212,9 +215,18 @@ fn interpolate(
         output = end_result;
     }
 
-    output
+    if !exists_output_dir{
+        output
+        .write(None, None)
+        .chain_err(|| "Problem with the output")?;
+
+    }  else{
+        output
         .write(None, output_dir)
         .chain_err(|| "Problem with the output")?;
+    }
+
+    
 
     Ok(())
 }

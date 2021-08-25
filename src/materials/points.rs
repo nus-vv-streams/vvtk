@@ -255,7 +255,7 @@ impl Points {
 
         renderer.config_camera(eye, at);
 
-        renderer.render_image(self);
+        renderer.render_image(&self);
     }
 
     pub fn save_to_png(
@@ -272,7 +272,7 @@ impl Points {
 
         renderer.config_camera(eye, at);
 
-        renderer.save_to_png(self, x, y, width, height, path)?;
+        renderer.save_to_png(&self, x, y, width, height, path)?;
 
         Ok(())
     }
@@ -422,7 +422,7 @@ impl Points {
 
         // let point_data = parallel_compute_closest(data_copy, next_points, &all_nearests, &mut self.reference_frame, params, threads);
 
-        println!("interpolation time: {}", now.elapsed().as_millis());
+        // println!("interpolation time: {}", now.elapsed().as_millis());
 
         let mut point_data = Points::of(interpolated_points);
         if arc_params.compute_frame_delta {
