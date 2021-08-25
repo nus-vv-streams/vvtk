@@ -102,6 +102,12 @@ fn run() -> Result<()> {
               .takes_value(true)
               .multiple(false)
               .help("Output directory for interpolated frame / t2 with unmapped points highlighted"))
+     .arg(Arg::with_name("threads")
+              .short("t")
+              .long("threads")
+              .takes_value(true)
+              .multiple(false)
+              .help("Number of threads to spawn to speed up interpolation"))
      .get_matches();
 
     let prev_frame_dir = matches.value_of("prev");
@@ -121,8 +127,8 @@ fn run() -> Result<()> {
     let output_dir = matches.value_of("output");
     let exists_output_dir = matches.is_present("output");
 
-    //  println!("show unmapped points: {}", show_unmapped_points);
-    //  println!("interpolation method: {}", method);
+    params.threads = matches.value_of("threads").unwrap_or("1").parse::<usize>().unwrap();
+
     params.penalize_coor = matches
         .value_of("coor_delta")
         .unwrap_or("49.5")
@@ -159,7 +165,7 @@ fn run() -> Result<()> {
         two_way_interpolation,
         params,
         output_dir,
-        exists_output_dir
+        exists_output_dir,
     )
 }
 
@@ -170,7 +176,7 @@ fn interpolate(
     two_way_interpolation: bool,
     params: Params,
     output_dir: Option<&str>,
-    exists_output_dir: bool
+    exists_output_dir: bool,
 ) -> Result<()> {
     let mut prev =
         reader::read(prev_frame_dir).chain_err(|| "Problem with the input of prev frame")?;
@@ -184,10 +190,10 @@ fn interpolate(
     if method == "closest_with_ratio_average_points_recovery" {
         if two_way_interpolation {
             let (mut prev_result, _reference_unmapped, _marked_interpolated_frame) =
-                prev.closest_with_ratio_average_points_recovery(next.clone(), params.clone()); //sum of first 3 must equal 1
+                prev.closest_with_ratio_average_points_recovery(next.clone(), params.clone(), exists_output_dir); //sum of first 3 must equal 1
 
             let (mut result, reference_unmapped, marked_interpolated_frame) =
-                next.closest_with_ratio_average_points_recovery(prev, params.clone()); //sum of first 3 must equal 1
+                next.closest_with_ratio_average_points_recovery(prev, params.clone(), exists_output_dir); //sum of first 3 must equal 1
 
             result.data.append(&mut prev_result.data);
             end_result = result;
@@ -195,7 +201,7 @@ fn interpolate(
             end_marked_interpolated_frame = marked_interpolated_frame;
         } else {
             let (result, reference_unmapped, marked_interpolated_frame) =
-                prev.closest_with_ratio_average_points_recovery(next, params.clone()); //sum of first 3 must equal 1
+                prev.closest_with_ratio_average_points_recovery(next, params.clone(), exists_output_dir); //sum of first 3 must equal 1
 
             end_result = result;
             end_reference_unmapped = reference_unmapped;
@@ -215,18 +221,15 @@ fn interpolate(
         output = end_result;
     }
 
-    if !exists_output_dir{
+    if !exists_output_dir {
         output
-        .write(None, None)
-        .chain_err(|| "Problem with the output")?;
-
-    }  else{
+            .write(None, None)
+            .chain_err(|| "Problem with the output")?;
+    } else {
         output
-        .write(None, output_dir)
-        .chain_err(|| "Problem with the output")?;
+            .write(None, output_dir)
+            .chain_err(|| "Problem with the output")?;
     }
-
-    
 
     Ok(())
 }

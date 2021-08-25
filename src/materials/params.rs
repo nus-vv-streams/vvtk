@@ -9,6 +9,7 @@ pub struct Params {
     pub resize_near_cracks: bool,
     pub mark_enlarged: bool,
     pub compute_frame_delta: bool,
+    pub threads: usize
 }
 
 impl Params {
@@ -23,6 +24,7 @@ impl Params {
             resize_near_cracks: false,
             mark_enlarged: false,
             compute_frame_delta: false,
+            threads: 1
         }
     }
 
