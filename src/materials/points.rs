@@ -56,7 +56,7 @@ pub fn inf_norm(a: &[f32; 3], b: &[f32; 3]) -> f32 {
 }
 
 pub fn setup_run_indiv_thread_closest_points(
-    tx: std::sync::mpsc::Sender<Vec<Point>>,
+    tx: std::sync::mpsc::Sender<(Vec<Point>, Vec<Point>)>,
     slices: &mut std::slice::Chunks<Point>,
     kd_tree: std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
     options_for_nearest: usize,
@@ -84,7 +84,7 @@ pub fn setup_run_indiv_thread_closest_points(
             closests.push(p);
         }
         // println!("time for 1 thread to finish: {}", now.elapsed().as_millis());
-        tx.send(closests).unwrap();
+        tx.send((closests, refer)).unwrap();
     })
 }
 
@@ -97,15 +97,15 @@ pub fn run_threads(
     params: &std::sync::Arc<Params>,
     reference_frame: &mut Vec<Point>,
 ) -> Vec<Point> {
-    let mut vrx: Vec<std::sync::mpsc::Receiver<Vec<Point>>> = Vec::with_capacity(12);
+    let mut vrx: Vec<std::sync::mpsc::Receiver<(Vec<Point>, Vec<Point>)>> = Vec::with_capacity(12);
     let mut vhandle: Vec<std::thread::JoinHandle<()>> = Vec::with_capacity(12);
 
     // let now = Instant::now();
 
     for _i in 0..threads {
         let (tx, rx): (
-            std::sync::mpsc::Sender<Vec<Point>>,
-            std::sync::mpsc::Receiver<Vec<Point>>,
+            std::sync::mpsc::Sender<(Vec<Point>, Vec<Point>)>,
+            std::sync::mpsc::Receiver<(Vec<Point>, Vec<Point>)>,
         ) = mpsc::channel();
         vrx.push(rx);
         let handle = setup_run_indiv_thread_closest_points(
@@ -120,26 +120,23 @@ pub fn run_threads(
         vhandle.push(handle);
     }
 
-    // println!("time to spawn threads: {}", now.elapsed().as_millis());
 
     for handle in vhandle {
         handle.join().unwrap();
     }
 
-    // println!(
-    //     "closest point computation time: {}",
-    //     now.elapsed().as_millis()
-    // );
-
     let mut result: Vec<Point> = Vec::with_capacity(100000);
 
     for rx in vrx {
-        result.extend(rx.recv().unwrap());
+        let res = rx.recv().unwrap();
+        result.extend(res.0);
+
+        for i in 0..reference_frame.len(){
+            if reference_frame[i].mapping == 0 && res.1[i].mapping > 0{
+                reference_frame[i].mapping = res.1[i].mapping;
+            }
+        }
     }
-    // println!(
-    //     "full closest comp and vector extension: {}",
-    //     now.elapsed().as_millis()
-    // );
     result
 }
 pub fn parallel_query_closests(
@@ -299,6 +296,7 @@ impl Points {
     pub fn mark_unmapped_points(
         &mut self,
         kd_tree: std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
+        exists_output_dir: bool
     ) {
         let mut mapped_points = 0;
         let mut all_unmapped: bool = true;
@@ -324,14 +322,17 @@ impl Points {
             }
         }
 
-        println!(
-            "mapped points: {}; total points: {}",
-            mapped_points,
-            self.reference_frame.len()
-        );
+        if exists_output_dir{
+            println!(
+                "mapped points: {}; total points: {}",
+                mapped_points,
+                self.reference_frame.len()
+            );
+        }
+        
     }
 
-    pub fn mark_points_near_cracks(&mut self, point_data: &Points) -> Points {
+    pub fn mark_points_near_cracks(&mut self, point_data: &Points, exists_output_dir: bool) -> Points {
         let mut marked_interpolated_frame = point_data.clone();
 
         let mut points_near_cracks = 0;
@@ -344,7 +345,10 @@ impl Points {
             }
         }
 
-        println!("number of points near cracks: {}", points_near_cracks);
+        if exists_output_dir{
+            println!("number of points near cracks: {}", points_near_cracks);
+        }
+        
         marked_interpolated_frame
     }
 
@@ -409,23 +413,6 @@ impl Points {
             );
         }
 
-        // let mut point_data = Points::of(
-        //     data_copy
-        //         .into_iter()
-        //         .map(|point| {
-        //             point.get_average_closest(
-        //                 next_points,
-        //                 &all_nearests[point.index],
-        //                 &mut self.reference_frame,
-        //                 params,
-        //             )
-        //         })
-        //         .collect(),
-        // );
-
-        // let point_data = parallel_compute_closest(data_copy, next_points, &all_nearests, &mut self.reference_frame, params, threads);
-
-
         if exists_output_dir{
             println!("interpolation time: {}", now.elapsed().as_millis());
         }
@@ -436,7 +423,7 @@ impl Points {
         }
 
         if arc_params.show_unmapped_points {
-            self.mark_unmapped_points(arc_tree);
+            self.mark_unmapped_points(arc_tree, exists_output_dir);
         }
 
         /////////////
@@ -447,9 +434,9 @@ impl Points {
             point_data.adjust_point_sizes(arc_params.radius);
         }
 
-        let marked_interpolated_frame = Points::new();
+        let mut marked_interpolated_frame = Points::new();
         if arc_params.resize_near_cracks && arc_params.mark_enlarged {
-            let _marked_interpolated_frame = self.mark_points_near_cracks(&point_data);
+            marked_interpolated_frame = self.mark_points_near_cracks(&point_data, exists_output_dir);
         }
 
         (
