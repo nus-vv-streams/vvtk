@@ -13,7 +13,7 @@ use std::iter::Iterator;
 use crate::params::Params;
 
 use nalgebra::Point3;
-// use std::any::type_name;
+
 use std::cmp::Ordering;
 
 use crate::color::{Color, PointColor};
@@ -34,10 +34,12 @@ use std::fs::File;
 use std::io::{self, Write};
 use std::path::Path;
 
-// fn type_of<T>(_: T) -> &'static str {
-//     type_name::<T>()
-// }
-
+/// Computes Chebyshev Distance for 2 given points
+///
+/// # Arguments
+/// * `a` - the first point
+/// * `b` - the second point
+///
 pub fn inf_norm(a: &[f32; 3], b: &[f32; 3]) -> f32 {
     let max: f32;
     let dx = (a[0] - b[0]).abs();
@@ -55,6 +57,8 @@ pub fn inf_norm(a: &[f32; 3], b: &[f32; 3]) -> f32 {
     }
 }
 
+
+/// Spawns a single thread to compute the next "chunk" of closest points
 pub fn setup_run_indiv_thread_closest_points(
     tx: std::sync::mpsc::Sender<(Vec<Point>, Vec<Point>)>,
     slices: &mut std::slice::Chunks<Point>,
@@ -88,6 +92,7 @@ pub fn setup_run_indiv_thread_closest_points(
     })
 }
 
+/// Iteratively spawns threads to perform interpolation.
 pub fn run_threads(
     threads: usize,
     slices: &mut std::slice::Chunks<Point>,
@@ -139,6 +144,8 @@ pub fn run_threads(
     }
     result
 }
+
+/// Wrapper function for run_threads(). Slices the given Points into t chunks where t is the number of threads to be used.
 pub fn parallel_query_closests(
     data_copy: &[Point],
     kd_tree: &std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
@@ -162,7 +169,9 @@ pub fn parallel_query_closests(
 }
 
 #[derive(Clone)]
+/// Class of Points containing all necessary metadata
 pub struct Points {
+    /// data is a vector of type Point, storing all coordinate and colour data
     pub data: Vec<Point>,
     pub delta_pos_vector: Vec<Point3<f32>>,
     pub delta_colours: Vec<Point3<f32>>,
@@ -274,6 +283,7 @@ impl Points {
         Ok(())
     }
 
+    /// Constructs and returns a kdtree from a class of Points
     pub fn to_kdtree(self) -> KdTree<f32, usize, 3> {
         let mut kdtree: KdTree<f32, usize, 3> = KdTree::with_capacity(64).unwrap();
         let mut shuffled_points = self.data;
@@ -293,6 +303,7 @@ impl Points {
         kdtree
     }
 
+    /// Highlights unmapped points as Green in the reference frame
     pub fn mark_unmapped_points(
         &mut self,
         kd_tree: std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
@@ -378,6 +389,7 @@ impl Points {
         }
     }
 
+    /// Point to point interolation method
     pub fn closest_with_ratio_average_points_recovery(
         &mut self,
         next_points: Points,
@@ -638,24 +650,26 @@ impl Point {
         }
     }
 
-    pub fn partial_cmp(&self, other: &Point) -> Option<Ordering> {
-        let mut first_dist_from_ori = f32::powi(self.point_coord.x, 2)
-            + f32::powi(self.point_coord.y, 2)
-            + f32::powi(self.point_coord.z, 2);
-        first_dist_from_ori = first_dist_from_ori.sqrt();
 
-        let next_dist_from_ori = f32::powi(other.point_coord.x, 2)
-            + f32::powi(other.point_coord.y, 2)
-            + f32::powi(other.point_coord.z, 2);
+    // POTENTIAL DEPRECATION OF PARTIAL COMP FOR POINT
+    // pub fn partial_cmp(&self, other: &Point) -> Option<Ordering> {
+    //     let mut first_dist_from_ori = f32::powi(self.point_coord.x, 2)
+    //         + f32::powi(self.point_coord.y, 2)
+    //         + f32::powi(self.point_coord.z, 2);
+    //     first_dist_from_ori = first_dist_from_ori.sqrt();
 
-        if first_dist_from_ori < next_dist_from_ori {
-            return Some(Ordering::Less);
-        } else if first_dist_from_ori > next_dist_from_ori {
-            return Some(Ordering::Greater);
-        }
+    //     let next_dist_from_ori = f32::powi(other.point_coord.x, 2)
+    //         + f32::powi(other.point_coord.y, 2)
+    //         + f32::powi(other.point_coord.z, 2);
 
-        Some(Ordering::Equal)
-    }
+    //     if first_dist_from_ori < next_dist_from_ori {
+    //         return Some(Ordering::Less);
+    //     } else if first_dist_from_ori > next_dist_from_ori {
+    //         return Some(Ordering::Greater);
+    //     }
+
+    //     Some(Ordering::Equal)
+    // }
 
     pub fn new_default() -> Self {
         Point {
@@ -685,8 +699,7 @@ impl Point {
         self.index
     }
 
-    //penalization
-    //update count in kdtree point
+    /// Returns neighbouring points within a given radius
     pub fn get_radius_neghbours(
         &self,
         kd_tree: &std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
@@ -703,6 +716,8 @@ impl Point {
             .map(|found| *found.1)
             .collect()
     }
+
+    /// Returns k neighbouring points
     pub fn get_nearest_neighbours(
         &self,
         kd_tree: std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
@@ -815,6 +830,7 @@ impl Point {
     }
 
     #[cfg(feature = "by_radius")]
+    /// queries neighbours by radius
     pub fn method_of_neighbour_query(
         &self,
         kd_tree: &std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
