@@ -90,6 +90,12 @@ fn run() -> Result<()> {
               .takes_value(false)
               .multiple(false)
               .help("Highlights enlarged points as red"))
+    .arg(Arg::with_name("threads")
+              .short("t")
+              .long("threads")
+              .takes_value(true)
+              .multiple(false)
+              .help("Number of threads used for interpolation"))
      .arg(Arg::with_name("frame_delta")
               .short("frame_delta")
               .long("frame_delta")
@@ -123,6 +129,12 @@ fn run() -> Result<()> {
 
     //  println!("show unmapped points: {}", show_unmapped_points);
     //  println!("interpolation method: {}", method);
+    params.threads = matches
+        .value_of("threads")
+        .unwrap_or("1")
+        .parse::<usize>()
+        .unwrap();
+
     params.penalize_coor = matches
         .value_of("coor_delta")
         .unwrap_or("49.5")
@@ -184,10 +196,10 @@ fn interpolate(
     if method == "closest_with_ratio_average_points_recovery" {
         if two_way_interpolation {
             let (mut prev_result, _reference_unmapped, _marked_interpolated_frame) =
-                prev.closest_with_ratio_average_points_recovery(next.clone(), params.clone()); //sum of first 3 must equal 1
+                prev.closest_with_ratio_average_points_recovery(next.clone(), params.clone(), exists_output_dir); //sum of first 3 must equal 1
 
             let (mut result, reference_unmapped, marked_interpolated_frame) =
-                next.closest_with_ratio_average_points_recovery(prev, params.clone()); //sum of first 3 must equal 1
+                next.closest_with_ratio_average_points_recovery(prev, params.clone(), exists_output_dir); //sum of first 3 must equal 1
 
             result.data.append(&mut prev_result.data);
             end_result = result;
@@ -195,7 +207,7 @@ fn interpolate(
             end_marked_interpolated_frame = marked_interpolated_frame;
         } else {
             let (result, reference_unmapped, marked_interpolated_frame) =
-                prev.closest_with_ratio_average_points_recovery(next, params.clone()); //sum of first 3 must equal 1
+                prev.closest_with_ratio_average_points_recovery(next, params.clone(), exists_output_dir); //sum of first 3 must equal 1
 
             end_result = result;
             end_reference_unmapped = reference_unmapped;

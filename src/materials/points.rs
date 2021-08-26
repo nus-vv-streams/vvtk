@@ -378,6 +378,7 @@ impl Points {
         &mut self,
         next_points: Points,
         params: Params,
+        exists_output_dir: bool
     ) -> (Points, Points, Points) {
         //start time
         let now = Instant::now();
@@ -399,7 +400,7 @@ impl Points {
         let interpolated_points = parallel_query_closests(
             &data_copy,
             &arc_tree,
-            threads,
+            arc_params.threads,
             arc_params.options_for_nearest,
             arc_next_points,
             &arc_params,
@@ -421,8 +422,11 @@ impl Points {
         // );
 
         // let point_data = parallel_compute_closest(data_copy, next_points, &all_nearests, &mut self.reference_frame, params, threads);
-
-        // println!("interpolation time: {}", now.elapsed().as_millis());
+        
+        if exists_output_dir{
+            println!("interpolation time: {}", now.elapsed().as_millis());
+        }
+        
 
         let mut point_data = Points::of(interpolated_points);
         if arc_params.compute_frame_delta {
