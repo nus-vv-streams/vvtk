@@ -162,7 +162,7 @@ fn run() -> Result<()> {
         / 100.0;
     params.radius = matches
         .value_of("radius")
-        .unwrap_or("0.7")
+        .unwrap_or("2.0")
         .parse::<f32>()
         .unwrap();
     params.options_for_nearest = matches

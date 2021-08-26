@@ -79,7 +79,7 @@ pub fn setup_run_indiv_thread_closest_points(
         // let mut nearests: Vec<usize> = Vec::new();
         let mut closests: Vec<Point> = Vec::with_capacity(100);
         for s in &slice {
-            let nearests = s.method_of_neighbour_query(&kd_tree, options_for_nearest);
+            let nearests = s.method_of_neighbour_query(&kd_tree, options_for_nearest, params.radius);
             let p = s.get_average_closest(&next_points, &nearests, &mut refer, &params);
             closests.push(p);
         }
@@ -690,11 +690,12 @@ impl Point {
     pub fn get_radius_neghbours(
         &self,
         kd_tree: &std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
+        radius: f32
     ) -> Vec<usize> {
         kd_tree
             .within_unsorted(
                 &[self.point_coord.x, self.point_coord.y, self.point_coord.z],
-                2.0,
+                radius,
                 &inf_norm,
             )
             .unwrap()
@@ -808,6 +809,7 @@ impl Point {
         &self,
         kd_tree: &KdTree<f32, usize, 3>,
         options_for_nearest: usize,
+        radius: f32
     ) -> Vec<usize> {
         self.get_nearest_neighbours(&kd_tree, options_for_nearest)
     }
@@ -817,8 +819,9 @@ impl Point {
         &self,
         kd_tree: &std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
         _options_for_nearest: usize,
+        radius: f32
     ) -> Vec<usize> {
-        self.get_radius_neghbours(kd_tree)
+        self.get_radius_neghbours(kd_tree, radius)
     }
 }
 
