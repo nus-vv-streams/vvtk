@@ -14,7 +14,7 @@ use crate::params::Params;
 
 use nalgebra::Point3;
 
-use std::cmp::Ordering;
+// use std::cmp::Ordering;
 
 use crate::color::{Color, PointColor};
 use crate::coordinate::{Coordinate, PointCoordinate};
@@ -171,10 +171,13 @@ pub fn parallel_query_closests(
 #[derive(Clone)]
 /// Class of Points containing all necessary metadata
 pub struct Points {
-    /// data is a vector of type Point, storing all coordinate and colour data
+    /// Data is a vector of type Point, storing all coordinate and colour data
     pub data: Vec<Point>,
+    /// Stores the coordinate delta between the next and prev frames
     pub delta_pos_vector: Vec<Point3<f32>>,
+    /// Stores the colour delta between the next and prev frames
     pub delta_colours: Vec<Point3<f32>>,
+    /// Stores the next frame as a reference for mapping count and unmapped points
     pub reference_frame: Vec<Point>,
 }
 
@@ -185,6 +188,7 @@ impl Default for Points {
 }
 
 impl Points {
+    /// Creates new instance of Points
     pub fn new() -> Self {
         Points {
             data: Vec::new(),
@@ -194,10 +198,12 @@ impl Points {
         }
     }
 
+    /// Appends new Point to stored data
     pub fn add(&mut self, elem: Point) {
         self.data.push(elem);
     }
 
+    /// Creates new instance of Points given a vector of Point
     pub fn of(data: Vec<Point>) -> Self {
         Points {
             data,
@@ -207,22 +213,27 @@ impl Points {
         }
     }
 
+    /// Returns lengtb of stored data
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
+    /// Checks if stored data vector is empty
     pub fn is_empty(&self) -> bool {
         self.data.len() == 0
     }
 
+    /// Returns stored data as a vector of Point
     pub fn get_data(self) -> Vec<Point> {
         self.data
     }
 
+    /// Returns clone of stored data
     pub fn get_clone_data(&self) -> Vec<Point> {
         self.data.clone()
     }
 
+    /// Returns new instance of Colour portion of stored data
     pub fn get_colors(self) -> Color {
         Color::new(
             self.data
@@ -232,6 +243,7 @@ impl Points {
         )
     }
 
+    /// Returns new instance of Coordinate portion of stored data
     pub fn get_coords(self) -> Coordinate {
         Coordinate::new(
             self.data
@@ -241,6 +253,7 @@ impl Points {
         )
     }
 
+    /// Returns new instances of Coordiante and Colour portions of stored data as a tuple
     pub fn get_coords_cols(self) -> (Coordinate, Color) {
         let mut coords = Vec::new();
         let mut colors = Vec::new();
@@ -252,10 +265,12 @@ impl Points {
         (Coordinate::new(coords), Color::new(colors))
     }
 
+    /// Wrapper function to render current Points with default eye and at positions
     pub fn render(&self) {
         self.do_render(None, None)
     }
 
+    /// Renders current Points with given eye and at positions
     pub fn do_render(&self, eye: Option<Point3<f32>>, at: Option<Point3<f32>>) {
         let mut renderer = Renderer::new(None);
 
@@ -343,6 +358,7 @@ impl Points {
         
     }
 
+    /// Highlihgts points in close range to cracks as Red in the interpolated frame
     pub fn mark_points_near_cracks(&mut self, point_data: &Points, exists_output_dir: bool) -> Points {
         let mut marked_interpolated_frame = point_data.clone();
 
@@ -363,7 +379,7 @@ impl Points {
         marked_interpolated_frame
     }
 
-    //changing point size based on surrounding point density
+    /// Changes point size based on surrounding point density
     pub fn adjust_point_sizes(&mut self, radius: f32) {
         let interpolated_kd_tree = self.clone().to_kdtree();
 
@@ -458,8 +474,8 @@ impl Points {
         )
     }
 
-    //accepts argument of points in case this function is called in main before any interpolation function is called i.e. will be used to calculate a simple delta
-    // this function is also called in each of the interpolation functions, taking in the vector of closest points i.e. fn can be used in 2 ways
+    /// Accepts argument of points in case this function is called in main before any interpolation function is called i.e. will be used to calculate a simple delta
+    /// this function is also called in each of the interpolation functions, taking in the vector of closest points i.e. fn can be used in 2 ways
     pub fn frame_delta(&mut self, prev: Points) {
         let (next_coordinates_obj, next_colours_obj) = self.clone().get_coords_cols();
 
@@ -490,10 +506,12 @@ impl Points {
         }
     }
 
+    /// Returns clone of vector containing delta of coordinates between next and prev frames
     pub fn get_delta_pos_vector(&self) -> Vec<Point3<f32>> {
         self.delta_pos_vector.clone()
     }
 
+    /// Returns clone of vector containing delta of colours between next and prev frames
     pub fn get_delta_colours(&self) -> Vec<Point3<f32>> {
         self.delta_colours.clone()
     }
@@ -735,6 +753,7 @@ impl Point {
             .collect()
     }
 
+    /// Returns a Point whose coordinates and colours are the average of 2 given points
     pub fn get_average(&self, another_point: &Point) -> Point {
         Point::new(
             self.point_coord.get_average(&another_point.point_coord),
