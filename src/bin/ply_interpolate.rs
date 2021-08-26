@@ -167,7 +167,7 @@ fn run() -> Result<()> {
         .unwrap();
     params.options_for_nearest = matches
         .value_of("nearest_points")
-        .unwrap_or("400")
+        .unwrap_or("10")
         .parse::<usize>()
         .unwrap();
 

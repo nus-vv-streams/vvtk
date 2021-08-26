@@ -329,7 +329,7 @@ impl Points {
 
         for point in self.reference_frame.clone().iter_mut() {
             if point.mapping == 0 {
-                let k_nearest_indices = point.get_nearest_neighbours(kd_tree.clone(), 3);
+                let k_nearest_indices = point.get_nearest_neighbours(&kd_tree, 3);
                 for idx in &k_nearest_indices {
                     if self.reference_frame[*idx].mapping != 0 {
                         all_unmapped = false;
@@ -738,7 +738,7 @@ impl Point {
     /// Returns k neighbouring points
     pub fn get_nearest_neighbours(
         &self,
-        kd_tree: std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
+        kd_tree: &std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
         quantity: usize,
     ) -> Vec<usize> {
         kd_tree
@@ -841,11 +841,11 @@ impl Point {
     #[cfg(feature = "by_knn")]
     pub fn method_of_neighbour_query(
         &self,
-        kd_tree: &KdTree<f32, usize, 3>,
+        kd_tree: &std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
         options_for_nearest: usize,
         radius: f32
     ) -> Vec<usize> {
-        self.get_nearest_neighbours(&kd_tree, options_for_nearest)
+        self.get_nearest_neighbours(kd_tree, options_for_nearest)
     }
 
     #[cfg(feature = "by_radius")]
