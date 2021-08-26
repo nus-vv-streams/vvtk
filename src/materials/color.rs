@@ -83,9 +83,11 @@ impl PointColor {
 
         // PointColor::new_with_array(lab_of_average.to_rgb())
 
-        PointColor::new(((self.red as usize + another_point.red as usize) / 2) as u8,
-        ((self.green as usize + another_point.green as usize) / 2 ) as u8,
-        ((self.blue as usize + another_point.blue as usize)/ 2) as u8 )
+        PointColor::new(
+            ((self.red as usize + another_point.red as usize) / 2) as u8,
+            ((self.green as usize + another_point.green as usize) / 2) as u8,
+            ((self.blue as usize + another_point.blue as usize) / 2) as u8,
+        )
         // PointColor::new((self.red.clone() + another_point.red.clone()) / 2, (self.green.clone() + another_point.green.clone()) / 2, (self.blue.clone() + another_point.blue.clone()) / 2)
         // PointColor::new(another_point.red, another_point.green, another_point.blue)
     }

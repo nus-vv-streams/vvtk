@@ -108,6 +108,12 @@ fn run() -> Result<()> {
               .takes_value(true)
               .multiple(false)
               .help("Output directory for interpolated frame / t2 with unmapped points highlighted"))
+     .arg(Arg::with_name("threads")
+              .short("t")
+              .long("threads")
+              .takes_value(true)
+              .multiple(false)
+              .help("Number of threads to spawn to speed up interpolation"))
      .get_matches();
 
     let prev_frame_dir = matches.value_of("prev");
@@ -134,6 +140,7 @@ fn run() -> Result<()> {
         .unwrap_or("1")
         .parse::<usize>()
         .unwrap();
+
 
     params.penalize_coor = matches
         .value_of("coor_delta")
@@ -171,7 +178,7 @@ fn run() -> Result<()> {
         two_way_interpolation,
         params,
         output_dir,
-        exists_output_dir
+        exists_output_dir,
     )
 }
 
@@ -182,7 +189,7 @@ fn interpolate(
     two_way_interpolation: bool,
     params: Params,
     output_dir: Option<&str>,
-    exists_output_dir: bool
+    exists_output_dir: bool,
 ) -> Result<()> {
     let mut prev =
         reader::read(prev_frame_dir).chain_err(|| "Problem with the input of prev frame")?;
@@ -227,18 +234,15 @@ fn interpolate(
         output = end_result;
     }
 
-    if !exists_output_dir{
+    if !exists_output_dir {
         output
-        .write(None, None)
-        .chain_err(|| "Problem with the output")?;
-
-    }  else{
+            .write(None, None)
+            .chain_err(|| "Problem with the output")?;
+    } else {
         output
-        .write(None, output_dir)
-        .chain_err(|| "Problem with the output")?;
+            .write(None, output_dir)
+            .chain_err(|| "Problem with the output")?;
     }
-
-    
 
     Ok(())
 }
