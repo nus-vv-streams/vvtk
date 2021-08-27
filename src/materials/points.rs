@@ -302,7 +302,7 @@ impl Points {
     pub fn to_kdtree(self) -> KdTree<f32, usize, 3> {
         let mut kdtree: KdTree<f32, usize, 3> = KdTree::with_capacity(64).unwrap();
         let mut shuffled_points = self.data;
-        shuffled_points.shuffle(&mut thread_rng());
+        // shuffled_points.shuffle(&mut thread_rng());
         for point in &shuffled_points {
             kdtree
                 .add(
@@ -440,6 +440,14 @@ impl Points {
                 &mut self.reference_frame,
             );
         }
+
+        // No parallelization interpolation
+        // let mut interpolated_points: Vec<Point> = Vec::with_capacity(100);
+        // for s in data_copy {
+        //     let nearests = s.method_of_neighbour_query(&arc_tree, arc_params.options_for_nearest, params.radius);
+        //     let p = s.get_average_closest(&arc_next_points, &nearests, &mut self.reference_frame, &arc_params);
+        //     interpolated_points.push(p);
+        // }
 
         if exists_output_dir{
             println!("interpolation time: {}", now.elapsed().as_millis());
@@ -784,7 +792,7 @@ impl Point {
         let max_coor: f32 = 3.0 * 512.0 * 512.0;
         let scale_coor = max_coor.sqrt();
 
-        let max_col: f32 = (100.0 * 100.0) + 2.0 * (256.0 * 256.0);
+        let max_col: f32 =  3.0 * (256.0 * 256.0); //(100.0 * 100.0) + 2.0 * (256.0 * 256.0);
         let scale_col = max_col.sqrt();
 
         self.get_coord_delta(another_point) * params.penalize_coor / scale_coor
@@ -803,12 +811,14 @@ impl Point {
         let mut result: Point;
 
         let mut result_idx = 0;
+        // result_idx = k_nearest_indices[k_nearest_indices.len() - 1];
         for idx in k_nearest_indices {
             let cur = self.get_difference(
                 &next_points.data[*idx],
                 reference_frame[*idx].mapping,
                 params,
             );
+
             if cur < min {
                 min = cur;
                 result_idx = *idx;
@@ -836,6 +846,8 @@ impl Point {
 
         let p = &self.get_closest(next_points, k_nearest_indices, reference_frame, params);
         self.get_average(p)
+        // p.clone()
+        // self.clone()
     }
 
     #[cfg(feature = "by_knn")]
@@ -856,6 +868,9 @@ impl Point {
         _options_for_nearest: usize,
         radius: f32
     ) -> Vec<usize> {
+        // let mut x = Vec::new(); x.push(self.index); if self.index + 1 < kd_tree.size() {x.push(self.index + 1);}
+        // x
+
         self.get_radius_neghbours(kd_tree, radius)
     }
 }
