@@ -8,7 +8,7 @@ pub struct Params {
     /// Weightage to penalize pre-mapped points
     pub penalize_mapped: f32,
     /// Radius to determine point density and potentially query nearest neighbours
-    pub radius: f32,
+    pub density_radius: f32,
     /// Number of neighbours to query
     pub options_for_nearest: usize,
     /// Flag to trigger highlighting of points with a mapping count of 0
@@ -30,7 +30,7 @@ impl Params {
             penalize_coor: 0.0,
             penalize_col: 0.0,
             penalize_mapped: 0.0,
-            radius: 0.0,
+            density_radius: 0.0,
             options_for_nearest: 0,
             show_unmapped_points: false,
             resize_near_cracks: false,

@@ -87,8 +87,9 @@ impl PointColor {
         // (lab_of_self.l - lab_of_another.l)
         //     .hypot(lab_of_self.a - lab_of_another.a)
         //     .hypot(lab_of_self.b - lab_of_another.b)
-        ((self.red - another_point.red) as f32)
-            .hypot((self.green - another_point.green) as f32)
-            .hypot((self.blue - another_point.blue) as f32)
+        (self.red as f32 - another_point.red as f32)
+            .hypot(self.green as f32 - another_point.green as f32)
+            .hypot(self.blue as f32 - another_point.blue as f32)
     }
+
 }

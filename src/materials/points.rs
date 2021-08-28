@@ -85,7 +85,7 @@ pub fn setup_run_indiv_thread_closest_points(
         let mut closests: Vec<Point> = Vec::with_capacity(100);
         for s in &slice {
             let nearests =
-                s.method_of_neighbour_query(&kd_tree, options_for_nearest, params.radius);
+                s.method_of_neighbour_query(&kd_tree, options_for_nearest, params.density_radius);
             let p = s.get_average_closest(&next_points, &nearests, &mut refer, &params);
             closests.push(p);
         }
@@ -479,7 +479,7 @@ impl Points {
         /////////////
 
         if arc_params.resize_near_cracks {
-            point_data.adjust_point_sizes(arc_params.radius);
+            point_data.adjust_point_sizes(arc_params.density_radius);
         }
 
         let mut marked_interpolated_frame = Points::new();
@@ -825,7 +825,7 @@ impl Point {
         result = next_points.data[result_idx].clone();
 
         //This is point density in t0
-        result.point_density = k_nearest_indices.len() as f32 / (params.radius.powi(2) * PI);
+        result.point_density = k_nearest_indices.len() as f32 / (params.density_radius.powi(2) * PI);
         reference_frame[result_idx].mapping += 1;
         result
     }
