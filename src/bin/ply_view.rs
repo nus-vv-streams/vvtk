@@ -73,7 +73,9 @@ fn run() -> Result<()> {
                 .filter(|vec| vec.len() == 3)
                 .map(process_vec)
                 .chain_err(|| "Inappropriate number of arguments in background, need 3 arguments")?
-                .chain_err(|| "Inappropriate type of arguments in background, should be float number {}")?,
+                .chain_err(|| {
+                    "Inappropriate type of arguments in background, should be float number {}"
+                })?,
         ),
         None => None,
     };

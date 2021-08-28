@@ -181,10 +181,10 @@ fn interpolate(
     if method == "closest_with_ratio_average_points_recovery" {
         if two_way_interpolation {
             let (mut prev_result, _reference_unmapped, _marked_interpolated_frame) =
-                prev.closest_with_ratio_average_points_recovery(next.clone(), params.clone()); //sum of first 3 must equal 1
+                prev.closest_with_ratio_average_points_recovery(next.clone(), params); //sum of first 3 must equal 1
 
             let (mut result, reference_unmapped, marked_interpolated_frame) =
-                next.closest_with_ratio_average_points_recovery(prev, params.clone()); //sum of first 3 must equal 1
+                next.closest_with_ratio_average_points_recovery(prev, params); //sum of first 3 must equal 1
 
             result.data.append(&mut prev_result.data);
             end_result = result;
@@ -192,7 +192,7 @@ fn interpolate(
             end_marked_interpolated_frame = marked_interpolated_frame;
         } else {
             let (result, reference_unmapped, marked_interpolated_frame) =
-                prev.closest_with_ratio_average_points_recovery(next, params.clone()); //sum of first 3 must equal 1
+                prev.closest_with_ratio_average_points_recovery(next, params); //sum of first 3 must equal 1
 
             end_result = result;
             end_reference_unmapped = reference_unmapped;
