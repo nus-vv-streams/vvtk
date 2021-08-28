@@ -1,4 +1,3 @@
-use lab::Lab;
 use nalgebra::Point3;
 
 /// Structure representing a collection of colors (in RGB) in the collection the points.
@@ -48,18 +47,6 @@ impl PointColor {
     /// Return a `PointColor` with specific RGB
     pub fn new(red: u8, green: u8, blue: u8) -> Self {
         PointColor { red, green, blue }
-    }
-
-    fn new_with_array(array: [u8; 3]) -> PointColor {
-        PointColor::new(array[0], array[1], array[2])
-    }
-
-    fn to_array(&self) -> [u8; 3] {
-        [self.red, self.green, self.blue]
-    }
-
-    fn to_lab(&self) -> Lab {
-        Lab::from_rgb(&self.to_array())
     }
 
     /// Return the `Point3` type of the `PointColor` for rendering

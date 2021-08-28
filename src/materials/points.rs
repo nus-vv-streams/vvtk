@@ -1,6 +1,8 @@
 use crate::errors::*;
-use rand::seq::SliceRandom;
-use rand::thread_rng;
+
+// use rand::seq::SliceRandom;
+// use rand::thread_rng;
+
 use std::sync::mpsc;
 use std::thread;
 
@@ -13,8 +15,8 @@ use std::iter::Iterator;
 use crate::params::Params;
 
 use nalgebra::Point3;
-// use std::any::type_name;
-use std::cmp::Ordering;
+
+// use std::cmp::Ordering;
 
 use crate::color::{Color, PointColor};
 use crate::coordinate::{Coordinate, PointCoordinate};
@@ -34,10 +36,12 @@ use std::fs::File;
 use std::io::{self, Write};
 use std::path::Path;
 
-// fn type_of<T>(_: T) -> &'static str {
-//     type_name::<T>()
-// }
-
+/// Computes Chebyshev Distance for 2 given points
+///
+/// # Arguments
+/// * `a` - the first point
+/// * `b` - the second point
+///
 pub fn inf_norm(a: &[f32; 3], b: &[f32; 3]) -> f32 {
     let max: f32;
     let dx = (a[0] - b[0]).abs();
@@ -55,8 +59,9 @@ pub fn inf_norm(a: &[f32; 3], b: &[f32; 3]) -> f32 {
     }
 }
 
+/// Spawns a single thread to compute the next "chunk" of closest points
 pub fn setup_run_indiv_thread_closest_points(
-    tx: std::sync::mpsc::Sender<Vec<Point>>,
+    tx: std::sync::mpsc::Sender<(Vec<Point>, Vec<Point>)>,
     slices: &mut std::slice::Chunks<Point>,
     kd_tree: std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
     options_for_nearest: usize,
@@ -79,15 +84,17 @@ pub fn setup_run_indiv_thread_closest_points(
         // let mut nearests: Vec<usize> = Vec::new();
         let mut closests: Vec<Point> = Vec::with_capacity(100);
         for s in &slice {
-            let nearests = s.method_of_neighbour_query(&kd_tree, options_for_nearest);
+            let nearests =
+                s.method_of_neighbour_query(&kd_tree, options_for_nearest, params.radius);
             let p = s.get_average_closest(&next_points, &nearests, &mut refer, &params);
             closests.push(p);
         }
         // println!("time for 1 thread to finish: {}", now.elapsed().as_millis());
-        tx.send(closests).unwrap();
+        tx.send((closests, refer)).unwrap();
     })
 }
 
+/// Iteratively spawns threads to perform interpolation.
 pub fn run_threads(
     threads: usize,
     slices: &mut std::slice::Chunks<Point>,
@@ -97,15 +104,15 @@ pub fn run_threads(
     params: &std::sync::Arc<Params>,
     reference_frame: &mut Vec<Point>,
 ) -> Vec<Point> {
-    let mut vrx: Vec<std::sync::mpsc::Receiver<Vec<Point>>> = Vec::with_capacity(12);
+    let mut vrx: Vec<std::sync::mpsc::Receiver<(Vec<Point>, Vec<Point>)>> = Vec::with_capacity(12);
     let mut vhandle: Vec<std::thread::JoinHandle<()>> = Vec::with_capacity(12);
 
     // let now = Instant::now();
 
     for _i in 0..threads {
         let (tx, rx): (
-            std::sync::mpsc::Sender<Vec<Point>>,
-            std::sync::mpsc::Receiver<Vec<Point>>,
+            std::sync::mpsc::Sender<(Vec<Point>, Vec<Point>)>,
+            std::sync::mpsc::Receiver<(Vec<Point>, Vec<Point>)>,
         ) = mpsc::channel();
         vrx.push(rx);
         let handle = setup_run_indiv_thread_closest_points(
@@ -120,28 +127,26 @@ pub fn run_threads(
         vhandle.push(handle);
     }
 
-    // println!("time to spawn threads: {}", now.elapsed().as_millis());
-
     for handle in vhandle {
         handle.join().unwrap();
     }
 
-    // println!(
-    //     "closest point computation time: {}",
-    //     now.elapsed().as_millis()
-    // );
-
     let mut result: Vec<Point> = Vec::with_capacity(100000);
 
     for rx in vrx {
-        result.extend(rx.recv().unwrap());
+        let res = rx.recv().unwrap();
+        result.extend(res.0);
+
+        for i in 0..reference_frame.len() {
+            if reference_frame[i].mapping == 0 && res.1[i].mapping > 0 {
+                reference_frame[i].mapping = res.1[i].mapping;
+            }
+        }
     }
-    // println!(
-    //     "full closest comp and vector extension: {}",
-    //     now.elapsed().as_millis()
-    // );
     result
 }
+
+/// Wrapper function for run_threads(). Slices the given Points into t chunks where t is the number of threads to be used.
 pub fn parallel_query_closests(
     data_copy: &[Point],
     kd_tree: &std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
@@ -165,10 +170,15 @@ pub fn parallel_query_closests(
 }
 
 #[derive(Clone)]
+/// Class of Points containing all necessary metadata
 pub struct Points {
+    /// Data is a vector of type Point, storing all coordinate and colour data
     pub data: Vec<Point>,
+    /// Stores the coordinate delta between the next and prev frames
     pub delta_pos_vector: Vec<Point3<f32>>,
+    /// Stores the colour delta between the next and prev frames
     pub delta_colours: Vec<Point3<f32>>,
+    /// Stores the next frame as a reference for mapping count and unmapped points
     pub reference_frame: Vec<Point>,
 }
 
@@ -179,6 +189,7 @@ impl Default for Points {
 }
 
 impl Points {
+    /// Creates new instance of Points
     pub fn new() -> Self {
         Points {
             data: Vec::new(),
@@ -188,10 +199,12 @@ impl Points {
         }
     }
 
+    /// Appends new Point to stored data
     pub fn add(&mut self, elem: Point) {
         self.data.push(elem);
     }
 
+    /// Creates new instance of Points given a vector of Point
     pub fn of(data: Vec<Point>) -> Self {
         Points {
             data,
@@ -201,22 +214,27 @@ impl Points {
         }
     }
 
+    /// Returns lengtb of stored data
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
+    /// Checks if stored data vector is empty
     pub fn is_empty(&self) -> bool {
         self.data.len() == 0
     }
 
+    /// Returns stored data as a vector of Point
     pub fn get_data(self) -> Vec<Point> {
         self.data
     }
 
+    /// Returns clone of stored data
     pub fn get_clone_data(&self) -> Vec<Point> {
         self.data.clone()
     }
 
+    /// Returns new instance of Colour portion of stored data
     pub fn get_colors(self) -> Color {
         Color::new(
             self.data
@@ -226,6 +244,7 @@ impl Points {
         )
     }
 
+    /// Returns new instance of Coordinate portion of stored data
     pub fn get_coords(self) -> Coordinate {
         Coordinate::new(
             self.data
@@ -235,6 +254,7 @@ impl Points {
         )
     }
 
+    /// Returns new instances of Coordiante and Colour portions of stored data as a tuple
     pub fn get_coords_cols(self) -> (Coordinate, Color) {
         let mut coords = Vec::new();
         let mut colors = Vec::new();
@@ -246,10 +266,12 @@ impl Points {
         (Coordinate::new(coords), Color::new(colors))
     }
 
+    /// Wrapper function to render current Points with default eye and at positions
     pub fn render(&self) {
         self.do_render(None, None, None)
     }
 
+    /// Render the frame with configable eye, at and background color
     pub fn do_render(
         &self,
         eye: Option<Point3<f32>>,
@@ -265,6 +287,7 @@ impl Points {
         renderer.render_image(self);
     }
 
+    /// Save the ply file to png
     pub fn save_to_png(
         &self,
         eye: Option<Point3<f32>>,
@@ -279,15 +302,16 @@ impl Points {
 
         renderer.config_camera(eye, at);
 
-        renderer.save_to_png(self, x, y, width, height, path)?;
+        renderer.save_to_png(&self, x, y, width, height, path)?;
 
         Ok(())
     }
 
+    /// Constructs and returns a kdtree from a class of Points
     pub fn to_kdtree(self) -> KdTree<f32, usize, 3> {
         let mut kdtree: KdTree<f32, usize, 3> = KdTree::with_capacity(64).unwrap();
-        let mut shuffled_points = self.data;
-        shuffled_points.shuffle(&mut thread_rng());
+        let shuffled_points = self.data;
+        // shuffled_points.shuffle(&mut thread_rng());
         for point in &shuffled_points {
             kdtree
                 .add(
@@ -303,16 +327,18 @@ impl Points {
         kdtree
     }
 
+    /// Highlights unmapped points as Green in the reference frame
     pub fn mark_unmapped_points(
         &mut self,
         kd_tree: std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
+        exists_output_dir: bool,
     ) {
         let mut mapped_points = 0;
         let mut all_unmapped: bool = true;
 
         for point in self.reference_frame.clone().iter_mut() {
             if point.mapping == 0 {
-                let k_nearest_indices = point.get_nearest_neighbours(kd_tree.clone(), 3);
+                let k_nearest_indices = point.get_nearest_neighbours(&kd_tree, 3);
                 for idx in &k_nearest_indices {
                     if self.reference_frame[*idx].mapping != 0 {
                         all_unmapped = false;
@@ -331,14 +357,21 @@ impl Points {
             }
         }
 
-        println!(
-            "mapped points: {}; total points: {}",
-            mapped_points,
-            self.reference_frame.len()
-        );
+        if exists_output_dir {
+            println!(
+                "mapped points: {}; total points: {}",
+                mapped_points,
+                self.reference_frame.len()
+            );
+        }
     }
 
-    pub fn mark_points_near_cracks(&mut self, point_data: &Points) -> Points {
+    /// Highlihgts points in close range to cracks as Red in the interpolated frame
+    pub fn mark_points_near_cracks(
+        &mut self,
+        point_data: &Points,
+        exists_output_dir: bool,
+    ) -> Points {
         let mut marked_interpolated_frame = point_data.clone();
 
         let mut points_near_cracks = 0;
@@ -351,11 +384,14 @@ impl Points {
             }
         }
 
-        println!("number of points near cracks: {}", points_near_cracks);
+        if exists_output_dir {
+            println!("number of points near cracks: {}", points_near_cracks);
+        }
+
         marked_interpolated_frame
     }
 
-    //changing point size based on surrounding point density
+    /// Changes point size based on surrounding point density
     pub fn adjust_point_sizes(&mut self, radius: f32) {
         let interpolated_kd_tree = self.clone().to_kdtree();
 
@@ -381,10 +417,12 @@ impl Points {
         }
     }
 
+    /// Point to point interolation method
     pub fn closest_with_ratio_average_points_recovery(
         &mut self,
         next_points: Points,
         params: Params,
+        exists_output_dir: bool,
     ) -> (Points, Points, Points) {
         //start time
         let now = Instant::now();
@@ -401,35 +439,31 @@ impl Points {
         let arc_params = std::sync::Arc::new(params);
         // println!("arc cloning: {}", now.elapsed().as_millis());
         let data_copy = self.data.clone();
-        // println!("PRE INTERPOLATION RUNTIME: {}", now.elapsed().as_millis());
-        let threads = 2;
-        let interpolated_points = parallel_query_closests(
-            &data_copy,
-            &arc_tree,
-            threads,
-            arc_params.options_for_nearest,
-            arc_next_points,
-            &arc_params,
-            &mut self.reference_frame,
-        );
+        let mut interpolated_points: Vec<Point> = Vec::new();
 
-        // let mut point_data = Points::of(
-        //     data_copy
-        //         .into_iter()
-        //         .map(|point| {
-        //             point.get_average_closest(
-        //                 next_points,
-        //                 &all_nearests[point.index],
-        //                 &mut self.reference_frame,
-        //                 params,
-        //             )
-        //         })
-        //         .collect(),
-        // );
+        if data_copy.len() != 0 {
+            interpolated_points = parallel_query_closests(
+                &data_copy,
+                &arc_tree,
+                params.threads,
+                arc_params.options_for_nearest,
+                arc_next_points,
+                &arc_params,
+                &mut self.reference_frame,
+            );
+        }
 
-        // let point_data = parallel_compute_closest(data_copy, next_points, &all_nearests, &mut self.reference_frame, params, threads);
+        // No parallelization interpolation
+        // let mut interpolated_points: Vec<Point> = Vec::with_capacity(100);
+        // for s in data_copy {
+        //     let nearests = s.method_of_neighbour_query(&arc_tree, arc_params.options_for_nearest, params.radius);
+        //     let p = s.get_average_closest(&arc_next_points, &nearests, &mut self.reference_frame, &arc_params);
+        //     interpolated_points.push(p);
+        // }
 
-        println!("interpolation time: {}", now.elapsed().as_millis());
+        if exists_output_dir {
+            println!("interpolation time: {}", now.elapsed().as_millis());
+        }
 
         let mut point_data = Points::of(interpolated_points);
         if arc_params.compute_frame_delta {
@@ -437,7 +471,7 @@ impl Points {
         }
 
         if arc_params.show_unmapped_points {
-            self.mark_unmapped_points(arc_tree);
+            self.mark_unmapped_points(arc_tree, exists_output_dir);
         }
 
         /////////////
@@ -448,9 +482,10 @@ impl Points {
             point_data.adjust_point_sizes(arc_params.radius);
         }
 
-        let marked_interpolated_frame = Points::new();
+        let mut marked_interpolated_frame = Points::new();
         if arc_params.resize_near_cracks && arc_params.mark_enlarged {
-            let _marked_interpolated_frame = self.mark_points_near_cracks(&point_data);
+            marked_interpolated_frame =
+                self.mark_points_near_cracks(&point_data, exists_output_dir);
         }
 
         (
@@ -460,8 +495,8 @@ impl Points {
         )
     }
 
-    //accepts argument of points in case this function is called in main before any interpolation function is called i.e. will be used to calculate a simple delta
-    // this function is also called in each of the interpolation functions, taking in the vector of closest points i.e. fn can be used in 2 ways
+    /// Accepts argument of points in case this function is called in main before any interpolation function is called i.e. will be used to calculate a simple delta
+    /// this function is also called in each of the interpolation functions, taking in the vector of closest points i.e. fn can be used in 2 ways
     pub fn frame_delta(&mut self, prev: Points) {
         let (next_coordinates_obj, next_colours_obj) = self.clone().get_coords_cols();
 
@@ -492,14 +527,17 @@ impl Points {
         }
     }
 
+    /// Returns clone of vector containing delta of coordinates between next and prev frames
     pub fn get_delta_pos_vector(&self) -> Vec<Point3<f32>> {
         self.delta_pos_vector.clone()
     }
 
+    /// Returns clone of vector containing delta of colours between next and prev frames
     pub fn get_delta_colours(&self) -> Vec<Point3<f32>> {
         self.delta_colours.clone()
     }
 
+    /// Filter and transform points
     pub fn fat(
         &self,
         filter_producer: Option<&FilterProducer>,
@@ -522,20 +560,7 @@ impl Points {
         Ok(res)
     }
 
-    pub fn read(input: Option<&str>) -> std::io::Result<()> {
-        // match input {
-        //     Some(path) => {
-        //         File::open(Path::new(path)).unwrap();
-        //     }
-        //     None => {}
-        // };
-        if let Some(path) = input {
-            File::open(Path::new(path)).unwrap();
-        };
-
-        Ok(())
-    }
-
+    /// Write a ply file to hard drive
     pub fn write(self, form: Option<&str>, output: Option<&str>) -> Result<()> {
         let encoding = match form {
             Some("ascii") => Some(Encoding::Ascii),
@@ -615,14 +640,15 @@ impl IntoIterator for Points {
 }
 
 #[derive(Debug, Clone)]
+/// Structure presenting a point
 pub struct Point {
-    pub point_coord: PointCoordinate,
-    pub point_color: PointColor,
-    pub mapping: u16,
-    pub index: usize,
-    pub point_density: f32,
-    pub point_size: f32,
-    pub near_crack: bool,
+    pub(crate) point_coord: PointCoordinate,
+    pub(crate) point_color: PointColor,
+    pub(crate) mapping: u16,
+    pub(crate) index: usize,
+    pub(crate) point_density: f32,
+    pub(crate) point_size: f32,
+    pub(crate) near_crack: bool,
 }
 
 impl PartialEq for Point {
@@ -632,7 +658,7 @@ impl PartialEq for Point {
 }
 
 impl Point {
-    pub fn new(
+    pub(crate) fn new(
         point_coord: PointCoordinate,
         point_color: PointColor,
         mapping: u16,
@@ -652,26 +678,27 @@ impl Point {
         }
     }
 
-    pub fn partial_cmp(&self, other: &Point) -> Option<Ordering> {
-        let mut first_dist_from_ori = f32::powi(self.point_coord.x, 2)
-            + f32::powi(self.point_coord.y, 2)
-            + f32::powi(self.point_coord.z, 2);
-        first_dist_from_ori = first_dist_from_ori.sqrt();
+    // POTENTIAL DEPRECATION OF PARTIAL COMP FOR POINT
+    // pub fn partial_cmp(&self, other: &Point) -> Option<Ordering> {
+    //     let mut first_dist_from_ori = f32::powi(self.point_coord.x, 2)
+    //         + f32::powi(self.point_coord.y, 2)
+    //         + f32::powi(self.point_coord.z, 2);
+    //     first_dist_from_ori = first_dist_from_ori.sqrt();
 
-        let next_dist_from_ori = f32::powi(other.point_coord.x, 2)
-            + f32::powi(other.point_coord.y, 2)
-            + f32::powi(other.point_coord.z, 2);
+    //     let next_dist_from_ori = f32::powi(other.point_coord.x, 2)
+    //         + f32::powi(other.point_coord.y, 2)
+    //         + f32::powi(other.point_coord.z, 2);
 
-        if first_dist_from_ori < next_dist_from_ori {
-            return Some(Ordering::Less);
-        } else if first_dist_from_ori > next_dist_from_ori {
-            return Some(Ordering::Greater);
-        }
+    //     if first_dist_from_ori < next_dist_from_ori {
+    //         return Some(Ordering::Less);
+    //     } else if first_dist_from_ori > next_dist_from_ori {
+    //         return Some(Ordering::Greater);
+    //     }
 
-        Some(Ordering::Equal)
-    }
+    //     Some(Ordering::Equal)
+    // }
 
-    pub fn new_default() -> Self {
+    pub(crate) fn new_default() -> Self {
         Point {
             point_coord: PointCoordinate::new_default(),
             point_color: PointColor::new_default(),
@@ -683,32 +710,28 @@ impl Point {
         }
     }
 
-    pub fn get_coord(&self) -> &PointCoordinate {
+    pub(crate) fn get_coord(&self) -> &PointCoordinate {
         &self.point_coord
     }
 
-    pub fn get_color(&self) -> &PointColor {
+    pub(crate) fn get_color(&self) -> &PointColor {
         &self.point_color
     }
 
-    pub fn set_index(&mut self, idx: usize) {
+    pub(crate) fn set_index(&mut self, idx: usize) {
         self.index = idx;
     }
 
-    pub fn get_index(&mut self) -> usize {
-        self.index
-    }
-
-    //penalization
-    //update count in kdtree point
+    /// Returns neighbouring points within a given radius
     pub fn get_radius_neghbours(
         &self,
         kd_tree: &std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
+        radius: f32,
     ) -> Vec<usize> {
         kd_tree
             .within_unsorted(
                 &[self.point_coord.x, self.point_coord.y, self.point_coord.z],
-                2.0,
+                radius,
                 &inf_norm,
             )
             .unwrap()
@@ -716,9 +739,11 @@ impl Point {
             .map(|found| *found.1)
             .collect()
     }
+
+    /// Returns k neighbouring points
     pub fn get_nearest_neighbours(
         &self,
-        kd_tree: std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
+        kd_tree: &std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
         quantity: usize,
     ) -> Vec<usize> {
         kd_tree
@@ -733,6 +758,7 @@ impl Point {
             .collect()
     }
 
+    /// Returns a Point whose coordinates and colours are the average of 2 given points
     pub fn get_average(&self, another_point: &Point) -> Point {
         Point::new(
             self.point_coord.get_average(&another_point.point_coord),
@@ -763,7 +789,7 @@ impl Point {
         let max_coor: f32 = 3.0 * 512.0 * 512.0;
         let scale_coor = max_coor.sqrt();
 
-        let max_col: f32 = (100.0 * 100.0) + 2.0 * (256.0 * 256.0);
+        let max_col: f32 = 3.0 * (256.0 * 256.0); //(100.0 * 100.0) + 2.0 * (256.0 * 256.0);
         let scale_col = max_col.sqrt();
 
         self.get_coord_delta(another_point) * params.penalize_coor / scale_coor
@@ -782,12 +808,14 @@ impl Point {
         let mut result: Point;
 
         let mut result_idx = 0;
+        // result_idx = k_nearest_indices[k_nearest_indices.len() - 1];
         for idx in k_nearest_indices {
             let cur = self.get_difference(
                 &next_points.data[*idx],
                 reference_frame[*idx].mapping,
                 params,
             );
+
             if cur < min {
                 min = cur;
                 result_idx = *idx;
@@ -815,24 +843,32 @@ impl Point {
 
         let p = &self.get_closest(next_points, k_nearest_indices, reference_frame, params);
         self.get_average(p)
+        // p.clone()
+        // self.clone()
     }
 
     #[cfg(feature = "by_knn")]
     pub fn method_of_neighbour_query(
         &self,
-        kd_tree: &KdTree<f32, usize, 3>,
+        kd_tree: &std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
         options_for_nearest: usize,
+        radius: f32,
     ) -> Vec<usize> {
-        self.get_nearest_neighbours(&kd_tree, options_for_nearest)
+        self.get_nearest_neighbours(kd_tree, options_for_nearest)
     }
 
     #[cfg(feature = "by_radius")]
+    /// queries neighbours by radius
     pub fn method_of_neighbour_query(
         &self,
         kd_tree: &std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
         _options_for_nearest: usize,
+        radius: f32,
     ) -> Vec<usize> {
-        self.get_radius_neghbours(kd_tree)
+        // let mut x = Vec::new(); x.push(self.index); if self.index + 1 < kd_tree.size() {x.push(self.index + 1);}
+        // x
+
+        self.get_radius_neghbours(kd_tree, radius)
     }
 }
 

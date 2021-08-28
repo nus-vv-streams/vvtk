@@ -1,17 +1,30 @@
 #[derive(Debug, Clone, Copy)]
+/// Struct containing all settings needed to execute interpolation
 pub struct Params {
+    /// Weightage to penalize coordinate delta
     pub penalize_coor: f32,
+    /// Weightage to penalize colour delta
     pub penalize_col: f32,
+    /// Weightage to penalize pre-mapped points
     pub penalize_mapped: f32,
+    /// Radius to determine point density and potentially query nearest neighbours
     pub radius: f32,
+    /// Number of neighbours to query
     pub options_for_nearest: usize,
+    /// Flag to trigger highlighting of points with a mapping count of 0
     pub show_unmapped_points: bool,
+    /// Flag to resize points in close range to cracks
     pub resize_near_cracks: bool,
+    /// Flag to highlight points that were enlarged due to proximity with cracks
     pub mark_enlarged: bool,
+    /// Flag to compute coordinate and colour delta between the prev and next frames
     pub compute_frame_delta: bool,
+    /// Number of threads to use for the interpolation process
+    pub threads: usize,
 }
 
 impl Params {
+    /// Create a new instance of type Params
     pub fn new() -> Self {
         Params {
             penalize_coor: 0.0,
@@ -23,22 +36,9 @@ impl Params {
             resize_near_cracks: false,
             mark_enlarged: false,
             compute_frame_delta: false,
+            threads: 1,
         }
     }
-
-    // pub fn clone(&self) -> Params {
-    //     Params {
-    //         penalize_coor: self.penalize_coor,
-    //         penalize_col: self.penalize_col,
-    //         penalize_mapped: self.penalize_mapped,
-    //         radius: self.radius,
-    //         options_for_nearest: self.options_for_nearest,
-    //         show_unmapped_points: self.show_unmapped_points,
-    //         resize_near_cracks: self.resize_near_cracks,
-    //         mark_enlarged: self.mark_enlarged,
-    //         compute_frame_delta: self.compute_frame_delta,
-    //     }
-    // }
 }
 
 impl Default for Params {
