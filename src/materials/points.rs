@@ -1,7 +1,7 @@
 use crate::errors::*;
 
-// use rand::seq::SliceRandom;
-// use rand::thread_rng;
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 
 use std::sync::mpsc;
 use std::thread;
@@ -310,8 +310,8 @@ impl Points {
     /// Constructs and returns a kdtree from a class of Points
     pub fn to_kdtree(self) -> KdTree<f32, usize, 3> {
         let mut kdtree: KdTree<f32, usize, 3> = KdTree::with_capacity(64).unwrap();
-        let shuffled_points = self.data;
-        // shuffled_points.shuffle(&mut thread_rng());
+        let mut shuffled_points = self.data;
+        shuffled_points.shuffle(&mut thread_rng());
         for point in &shuffled_points {
             kdtree
                 .add(
@@ -445,7 +445,7 @@ impl Points {
             interpolated_points = parallel_query_closests(
                 &data_copy,
                 &arc_tree,
-                params.threads,
+                arc_params.threads,
                 arc_params.options_for_nearest,
                 arc_next_points,
                 &arc_params,
@@ -807,8 +807,8 @@ impl Point {
         let mut min: f32 = f32::MAX;
         let mut result: Point;
 
-        let mut result_idx = 0;
-        // result_idx = k_nearest_indices[k_nearest_indices.len() - 1];
+        // let mut result_idx = 0;
+        let mut result_idx = k_nearest_indices[k_nearest_indices.len() - 1];
         for idx in k_nearest_indices {
             let cur = self.get_difference(
                 &next_points.data[*idx],
@@ -816,7 +816,7 @@ impl Point {
                 params,
             );
 
-            if cur < min {
+            if cur < min || (cur == min && *idx < result_idx) {
                 min = cur;
                 result_idx = *idx;
             }
@@ -825,7 +825,8 @@ impl Point {
         result = next_points.data[result_idx].clone();
 
         //This is point density in t0
-        result.point_density = k_nearest_indices.len() as f32 / (params.density_radius.powi(2) * PI);
+        result.point_density =
+            k_nearest_indices.len() as f32 / (params.density_radius.powi(2) * PI);
         reference_frame[result_idx].mapping += 1;
         result
     }

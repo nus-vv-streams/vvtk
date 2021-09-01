@@ -91,5 +91,4 @@ impl PointColor {
             .hypot(self.green as f32 - another_point.green as f32)
             .hypot(self.blue as f32 - another_point.blue as f32)
     }
-
 }

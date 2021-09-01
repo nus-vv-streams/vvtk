@@ -1,4 +1,8 @@
-#[derive(Debug, Clone, Copy)]
+// use kiddo::distance::squared_euclidean;
+// use kiddo::KdTree;
+// use crate::points::inf_norm;
+
+#[derive(Debug, Clone)]
 /// Struct containing all settings needed to execute interpolation
 pub struct Params {
     /// Weightage to penalize coordinate delta
