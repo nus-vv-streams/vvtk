@@ -44,11 +44,21 @@ fn run() -> Result<()> {
               .takes_value(true)
               .multiple(false)
               .help("Weightage for coordinate delta in penalization function out of 100"))
+     .arg(Arg::with_name("scale_coor_delta")
+              .long("scale_coor_delta")
+              .takes_value(true)
+              .multiple(false)
+              .help("Scale factor to make the coordinate delta within [0, 1]"))
      .arg(Arg::with_name("col_delta")
               .long("col_delta")
               .takes_value(true)
               .multiple(false)
               .help("Weightage for colour delta in penalization function out of 100"))
+     .arg(Arg::with_name("scale_col_delta")
+              .long("scale_col_delta")
+              .takes_value(true)
+              .multiple(false)
+              .help("Scale factor to make the color delta within [0, 1]"))
      .arg(Arg::with_name("pre_mapped")
               .long("pre_mapped")
               .takes_value(true)
@@ -117,6 +127,19 @@ fn run() -> Result<()> {
 
     //  println!("show unmapped points: {}", show_unmapped_points);
     //  println!("interpolation method: {}", method);
+
+    params.scale_coor_delta = matches
+        .value_of("scale_coor_delta")
+        .unwrap_or("1.0")
+        .parse::<f32>()
+        .unwrap();
+
+    params.scale_col_delta = matches
+        .value_of("scale_col_delta")
+        .unwrap_or("1.0")
+        .parse::<f32>()
+        .unwrap();
+
     params.threads = matches
         .value_of("threads")
         .unwrap_or("1")

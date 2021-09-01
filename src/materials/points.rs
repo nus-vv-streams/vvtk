@@ -786,10 +786,10 @@ impl Point {
         another_point_mapping: u16,
         params: &std::sync::Arc<Params>,
     ) -> f32 {
-        let max_coor: f32 = 3.0 * 512.0 * 512.0;
+        let max_coor: f32 = 3.0 * params.scale_coor_delta.powi(2);
         let scale_coor = max_coor.sqrt();
-
-        let max_col: f32 = 3.0 * (256.0 * 256.0); //(100.0 * 100.0) + 2.0 * (256.0 * 256.0);
+        
+        let max_col: f32 = 3.0 * params.scale_col_delta.powi(2); 
         let scale_col = max_col.sqrt();
 
         self.get_coord_delta(another_point) * params.penalize_coor / scale_coor

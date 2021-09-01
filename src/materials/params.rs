@@ -25,6 +25,10 @@ pub struct Params {
     pub compute_frame_delta: bool,
     /// Number of threads to use for the interpolation process
     pub threads: usize,
+    /// Scale factor to constrain coordinate delta between [0, 1]
+    pub scale_coor_delta: f32,
+    /// Scale factor to constrain color delta between [0, 1]
+    pub scale_col_delta: f32
 }
 
 impl Params {
@@ -41,6 +45,8 @@ impl Params {
             mark_enlarged: false,
             compute_frame_delta: false,
             threads: 1,
+            scale_coor_delta: 1.0,
+            scale_col_delta: 1.0
         }
     }
 }
