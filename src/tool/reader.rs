@@ -6,8 +6,6 @@ use ply_rs::parser;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 
-use std::time::Instant;
-
 /// Read any form of ply file and return the collections of points.
 ///
 /// # Arguments
@@ -20,8 +18,6 @@ use std::time::Instant;
 /// reader::read(Some("path/to/your/ply/file")).unwrap().reader();
 /// ```
 pub fn read(input: Option<&str>) -> Result<Points> {
-    let now = Instant::now();
-
     let stdin = io::stdin();
 
     let mut buf_read: Box<dyn BufRead> = match input {
@@ -46,6 +42,5 @@ pub fn read(input: Option<&str>) -> Result<Points> {
         item.set_index(idx);
     }
 
-    println!("The running time is {} millis", now.elapsed().as_millis());
     Ok(Points::of(points_list))
 }
