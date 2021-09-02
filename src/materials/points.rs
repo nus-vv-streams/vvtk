@@ -877,8 +877,8 @@ impl ply::PropertyAccess for Point {
         Point::new_default()
     }
 
-    fn set_property(&mut self, key: String, property: ply::Property) {
-        match (key.as_ref(), property) {
+    fn set_property(&mut self, key: &String, property: ply::Property) {
+        match (key.as_str(), property) {
             ("x", ply::Property::Float(v)) => self.point_coord.x = v,
             ("y", ply::Property::Float(v)) => self.point_coord.y = v,
             ("z", ply::Property::Float(v)) => self.point_coord.z = v,

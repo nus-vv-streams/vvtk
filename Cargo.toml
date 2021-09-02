@@ -26,7 +26,8 @@ name = "iswr"
 path = "src/lib.rs"
 
 [dependencies]
-ply-rs = "0.1.3"
+ply-rs = { git = "https://github.com/hungkhoaitay/ply-rs", version = "0.1.3" }
+#ply-rs = "0.1.3"
 kiss3d = { git = "https://github.com/nus-mmsys/kiss3d", version = "0.31.0" } #"0.31.0"
 #kiss3d = "0.31.0"
 nalgebra = "0.26.2"
