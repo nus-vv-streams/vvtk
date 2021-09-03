@@ -5,6 +5,7 @@ use crate::points::{Point, Points};
 use ply_rs::parser;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
+use std::path::Path;
 
 /// Read any form of ply file and return the collections of points.
 ///
@@ -20,10 +21,26 @@ use std::io::{self, BufRead, BufReader};
 pub fn read(input: Option<&str>) -> Result<Points> {
     let stdin = io::stdin();
 
-    let mut buf_read: Box<dyn BufRead> = match input {
-        Some(path) => Box::new(BufReader::new(File::open(path)?)),
-        None => Box::new(stdin.lock()),
+    let result_buf_read: Result<Box<dyn BufRead>> = match input {
+        Some(path) => {
+            let is_ply_file = Path::new(path)
+                .extension()
+                .filter(|e| e.to_str() == Some("ply"));
+
+            match is_ply_file {
+                Some(_) => Ok(Box::new(BufReader::new(File::open(path)?))),
+                None => bail!(format!(
+                    "{}{}{}",
+                    "Extension of file: ",
+                    input.unwrap(),
+                    " expected to be .ply"
+                )),
+            }
+        }
+        None => Ok(Box::new(stdin.lock())),
     };
+
+    let mut buf_read = result_buf_read?;
 
     let point_parser = parser::Parser::<Point>::new();
 

@@ -69,7 +69,7 @@ impl PlyDir {
             match frame {
                 Ok(f) => renderer.render_frame(&f),
                 Err(e) => {
-                    eprintln!("{}", e);
+                    eprintln!("Problem with reading file:\n    {}", e);
                     continue;
                 }
             }

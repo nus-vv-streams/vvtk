@@ -137,9 +137,15 @@ pub fn run_threads(
         let res = rx.recv().unwrap();
         result.extend(res.0);
 
-        for i in 0..reference_frame.len() {
-            if reference_frame[i].mapping == 0 && res.1[i].mapping > 0 {
-                reference_frame[i].mapping = res.1[i].mapping;
+        // for i in 0..reference_frame.len() {
+        //     if reference_frame[i].mapping == 0 && res.1[i].mapping > 0 {
+        //         reference_frame[i].mapping = res.1[i].mapping;
+        //     }
+        // }
+
+        for (i, item) in reference_frame.iter_mut().enumerate() {
+            if item.mapping == 0 && res.1[i].mapping > 0 {
+                item.mapping = res.1[i].mapping;
             }
         }
     }
@@ -302,7 +308,7 @@ impl Points {
 
         renderer.config_camera(eye, at);
 
-        renderer.save_to_png(&self, x, y, width, height, path)?;
+        renderer.save_to_png(self, x, y, width, height, path)?;
 
         Ok(())
     }
@@ -441,7 +447,7 @@ impl Points {
         let data_copy = self.data.clone();
         let mut interpolated_points: Vec<Point> = Vec::new();
 
-        if data_copy.len() != 0 {
+        if !data_copy.is_empty() {
             interpolated_points = parallel_query_closests(
                 &data_copy,
                 &arc_tree,

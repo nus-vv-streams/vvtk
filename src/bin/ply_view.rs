@@ -87,12 +87,12 @@ fn run() -> Result<()> {
             let new_path = Path::new(&path);
             if new_path.is_file() {
                 read(input)
-                    .chain_err(|| "Problem with the input")?
+                    .chain_err(|| format!("{}{}", "Problem with the input: ", input.unwrap()))?
                     .do_render(eye, at, background_color);
             } else if new_path.is_dir() {
                 PlyDir::new(path).play_with_camera(eye, at, background_color)?;
             } else {
-                print!("No such file or dir {}", path)
+                eprintln!("No such file or dir {}", path)
             }
         }
         None => {

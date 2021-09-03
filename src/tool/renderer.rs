@@ -72,7 +72,7 @@ impl Renderer {
 
     /// Config the background color
     pub fn config_background_color(&mut self, background_color: Option<Point3<f32>>) {
-        let color = background_color.unwrap_or(Point3::origin());
+        let color = background_color.unwrap_or_else(Point3::origin);
         self.window
             .set_background_color(color.x / 256.0, color.y / 256.0, color.z / 256.0);
     }
