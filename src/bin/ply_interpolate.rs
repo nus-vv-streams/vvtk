@@ -64,7 +64,7 @@ fn run() -> Result<()> {
               .takes_value(true)
               .multiple(false)
               .help("Weightage for pre-mapped points in penalization function out of 100"))
-    .arg(Arg::with_name("radius")
+    .arg(Arg::with_name("density_radius")
               .long("density_radius")
               .takes_value(true)
               .multiple(false)
