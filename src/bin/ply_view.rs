@@ -90,7 +90,7 @@ fn run() -> Result<()> {
                     .chain_err(|| "Problem with the input")?
                     .do_render(eye, at, background_color);
             } else if new_path.is_dir() {
-                PlyDir::new(path).play_with_camera(eye, at, background_color);
+                PlyDir::new(path).play_with_camera(eye, at, background_color)?;
             } else {
                 print!("No such file or dir {}", path)
             }
