@@ -27,9 +27,13 @@ pub fn read(input: Option<&str>) -> Result<Points> {
 
     let point_parser = parser::Parser::<Point>::new();
 
-    let header = point_parser
-        .read_header(&mut buf_read)
-        .chain_err(|| format!("{}{}", "Unable to read the header of the input: ", input.unwrap()))?;
+    let header = point_parser.read_header(&mut buf_read).chain_err(|| {
+        format!(
+            "{}{}",
+            "Unable to read the header of the input: ",
+            input.unwrap()
+        )
+    })?;
 
     let mut points_list = Vec::new();
     for (key, element) in &header.elements {

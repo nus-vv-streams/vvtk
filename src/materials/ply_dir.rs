@@ -70,10 +70,9 @@ impl PlyDir {
                 Ok(f) => renderer.render_frame(&f),
                 Err(e) => {
                     eprintln!("{}", e);
-                    continue
-                },
+                    continue;
+                }
             }
-            
         }
 
         Ok(())
