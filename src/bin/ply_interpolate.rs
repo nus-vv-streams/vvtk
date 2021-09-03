@@ -54,6 +54,11 @@ fn run() -> Result<()> {
               .takes_value(true)
               .multiple(false)
               .help("Weightage for colour delta in penalization function out of 100"))
+     .arg(Arg::with_name("prev_weight")
+              .long("prev_weight")
+              .takes_value(true)
+              .multiple(false)
+              .help("Weight for previous frame when averaging points to get interpolated point of of 100; next_weight is automatically set to 1 - prev_weight/100"))
      .arg(Arg::with_name("scale_col_delta")
               .long("scale_col_delta")
               .takes_value(true)
@@ -127,6 +132,17 @@ fn run() -> Result<()> {
 
     //  println!("show unmapped points: {}", show_unmapped_points);
     //  println!("interpolation method: {}", method);
+
+    params.prev_weight = matches
+        .value_of("prev_weight")
+        .unwrap_or("50")
+        .parse::<f32>()
+        .unwrap()
+        / 100.0;
+    if params.prev_weight > 1.0{
+        panic!("Entered prev_weight value exceeds 100");
+    }
+    params.next_weight = 1.0 - params.prev_weight;
 
     params.scale_coor_delta = matches
         .value_of("scale_coor_delta")

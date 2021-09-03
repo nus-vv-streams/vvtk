@@ -765,10 +765,10 @@ impl Point {
     }
 
     /// Returns a Point whose coordinates and colours are the average of 2 given points
-    pub fn get_average(&self, another_point: &Point) -> Point {
+    pub fn get_average(&self, another_point: &Point, prev_weight: f32, next_weight: f32) -> Point {
         Point::new(
-            self.point_coord.get_average(&another_point.point_coord),
-            self.point_color.get_average(&another_point.point_color),
+            self.point_coord.get_average(&another_point.point_coord, prev_weight, next_weight),
+            self.point_color.get_average(&another_point.point_color, prev_weight, next_weight),
             0,
             another_point.index,
             another_point.point_density,
@@ -849,7 +849,7 @@ impl Point {
         }
 
         let p = &self.get_closest(next_points, k_nearest_indices, reference_frame, params);
-        self.get_average(p)
+        self.get_average(p, params.prev_weight, params.next_weight)
         // p.clone()
         // self.clone()
     }

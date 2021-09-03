@@ -29,6 +29,10 @@ pub struct Params {
     pub scale_coor_delta: f32,
     /// Scale factor to constrain color delta between [0, 1]
     pub scale_col_delta: f32,
+    /// Weight for previous frame when averaging points to get interpolated point
+    pub prev_weight: f32,
+    /// Weight for next frame when averaging points to get interpolated point
+    pub next_weight: f32
 }
 
 impl Params {
@@ -47,6 +51,8 @@ impl Params {
             threads: 1,
             scale_coor_delta: 1.0,
             scale_col_delta: 1.0,
+            prev_weight: 0.5,
+            next_weight: 0.5
         }
     }
 }

@@ -59,7 +59,7 @@ impl PointColor {
     }
 
     /// Return a average `PointColor` of two `PointColor`s
-    pub fn get_average(&self, another_point: &PointColor) -> PointColor {
+    pub fn get_average(&self, another_point: &PointColor, prev_weight: f32, next_weight: f32) -> PointColor {
         // let lab_of_self = self.to_lab();
         // let lab_of_another = another_point.to_lab();
         // let lab_of_average = Lab {
@@ -70,13 +70,18 @@ impl PointColor {
 
         // PointColor::new_with_array(lab_of_average.to_rgb())
 
+        // PointColor::new(
+        //     ((self.red as usize + another_point.red as usize) / 2) as u8,
+        //     ((self.green as usize + another_point.green as usize) / 2) as u8,
+        //     ((self.blue as usize + another_point.blue as usize) / 2) as u8,
+        // )
+
         PointColor::new(
-            ((self.red as usize + another_point.red as usize) / 2) as u8,
-            ((self.green as usize + another_point.green as usize) / 2) as u8,
-            ((self.blue as usize + another_point.blue as usize) / 2) as u8,
+            ((self.red as f32 * prev_weight) + (another_point.red as f32 * next_weight) ) as u8,
+            ((self.green as f32 * prev_weight) + (another_point.green as f32 * next_weight) ) as u8,
+            ((self.blue as f32 * prev_weight) + (another_point.blue as f32 * next_weight) ) as u8,
         )
-        // PointColor::new((self.red.clone() + another_point.red.clone()) / 2, (self.green.clone() + another_point.green.clone()) / 2, (self.blue.clone() + another_point.blue.clone()) / 2)
-        // PointColor::new(another_point.red, another_point.green, another_point.blue)
+
     }
 
     /// Return the difference between two `PointColor`s
