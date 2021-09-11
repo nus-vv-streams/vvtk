@@ -20,12 +20,16 @@ use std::path::Path;
 /// ```
 pub fn read(input: Option<&str>) -> Result<Points> {
     let stdin = io::stdin();
+    let mut file_name: Option<String> = None;
 
     let result_buf_read: Result<Box<dyn BufRead>> = match input {
         Some(path) => {
-            let is_ply_file = Path::new(path)
+            let path = Path::new(path);
+            let is_ply_file = path
                 .extension()
                 .filter(|e| e.to_str() == Some("ply"));
+
+            file_name = path.file_name().map(|name| name.to_owned().into_string().unwrap());
 
             match is_ply_file {
                 Some(_) => Ok(Box::new(BufReader::new(File::open(path)?))),
@@ -63,5 +67,5 @@ pub fn read(input: Option<&str>) -> Result<Points> {
         item.set_index(idx);
     }
 
-    Ok(Points::of(points_list))
+    Ok(Points::of(file_name, points_list))
 }

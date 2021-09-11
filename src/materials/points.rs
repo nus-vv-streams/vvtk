@@ -178,6 +178,8 @@ pub fn parallel_query_closests(
 #[derive(Clone)]
 /// Class of Points containing all necessary metadata
 pub struct Points {
+    /// Name of the points
+    pub (crate) title: Option<String>,
     /// Data is a vector of type Point, storing all coordinate and colour data
     pub data: Vec<Point>,
     /// Stores the coordinate delta between the next and prev frames
@@ -198,6 +200,7 @@ impl Points {
     /// Creates new instance of Points
     pub fn new() -> Self {
         Points {
+            title: None,
             data: Vec::new(),
             delta_pos_vector: Vec::new(),
             delta_colours: Vec::new(),
@@ -211,8 +214,9 @@ impl Points {
     }
 
     /// Creates new instance of Points given a vector of Point
-    pub fn of(data: Vec<Point>) -> Self {
+    pub fn of(title: Option<String>, data: Vec<Point>) -> Self {
         Points {
+            title,
             data,
             delta_pos_vector: Vec::new(),
             delta_colours: Vec::new(),
@@ -284,7 +288,7 @@ impl Points {
         at: Option<Point3<f32>>,
         background_color: Option<Point3<f32>>,
     ) {
-        let mut renderer = Renderer::new(None);
+        let mut renderer = Renderer::new(self.title.as_ref().map(|title| title.as_str()));
 
         renderer.config_camera(eye, at);
 
@@ -471,7 +475,7 @@ impl Points {
             println!("interpolation time: {}", now.elapsed().as_millis());
         }
 
-        let mut point_data = Points::of(interpolated_points);
+        let mut point_data = Points::of(None, interpolated_points);
         if arc_params.compute_frame_delta {
             self.frame_delta(point_data.clone());
         }
@@ -496,7 +500,7 @@ impl Points {
 
         (
             point_data,
-            Points::of(self.reference_frame.clone()),
+            Points::of(None, self.reference_frame.clone()),
             marked_interpolated_frame,
         )
     }
