@@ -21,6 +21,9 @@ pub mod errors {
 }
 pub use errors::*;
 
+#[macro_use]
+extern crate approx;
+
 mod materials;
 mod methods;
 mod tool;

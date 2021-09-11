@@ -179,7 +179,7 @@ pub fn parallel_query_closests(
 /// Class of Points containing all necessary metadata
 pub struct Points {
     /// Name of the points
-    pub (crate) title: Option<String>,
+    pub(crate) title: Option<String>,
     /// Data is a vector of type Point, storing all coordinate and colour data
     pub data: Vec<Point>,
     /// Stores the coordinate delta between the next and prev frames
@@ -771,8 +771,10 @@ impl Point {
     /// Returns a Point whose coordinates and colours are the average of 2 given points
     pub fn get_average(&self, another_point: &Point, prev_weight: f32, next_weight: f32) -> Point {
         Point::new(
-            self.point_coord.get_average(&another_point.point_coord, prev_weight, next_weight),
-            self.point_color.get_average(&another_point.point_color, prev_weight, next_weight),
+            self.point_coord
+                .get_average(&another_point.point_coord, prev_weight, next_weight),
+            self.point_color
+                .get_average(&another_point.point_color, prev_weight, next_weight),
             0,
             another_point.index,
             another_point.point_density,

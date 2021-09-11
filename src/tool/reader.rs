@@ -25,11 +25,11 @@ pub fn read(input: Option<&str>) -> Result<Points> {
     let result_buf_read: Result<Box<dyn BufRead>> = match input {
         Some(path) => {
             let path = Path::new(path);
-            let is_ply_file = path
-                .extension()
-                .filter(|e| e.to_str() == Some("ply"));
+            let is_ply_file = path.extension().filter(|e| e.to_str() == Some("ply"));
 
-            file_name = path.file_name().map(|name| name.to_owned().into_string().unwrap());
+            file_name = path
+                .file_name()
+                .map(|name| name.to_owned().into_string().unwrap());
 
             match is_ply_file {
                 Some(_) => Ok(Box::new(BufReader::new(File::open(path)?))),

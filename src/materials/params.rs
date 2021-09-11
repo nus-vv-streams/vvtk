@@ -32,7 +32,7 @@ pub struct Params {
     /// Weight for previous frame when averaging points to get interpolated point
     pub prev_weight: f32,
     /// Weight for next frame when averaging points to get interpolated point
-    pub next_weight: f32
+    pub next_weight: f32,
 }
 
 impl Params {
@@ -52,7 +52,7 @@ impl Params {
             scale_coor_delta: 1.0,
             scale_col_delta: 1.0,
             prev_weight: 0.5,
-            next_weight: 0.5
+            next_weight: 0.5,
         }
     }
 }

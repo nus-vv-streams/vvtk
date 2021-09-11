@@ -67,7 +67,9 @@ impl PlyDir {
         while renderer.render() {
             frame = rx.recv().unwrap();
             match frame {
-                Ok(f) => renderer.render_frame(&f),
+                Ok(f) => {
+                    renderer.render_frame(&f);
+                }
                 Err(e) => {
                     eprintln!("Problem with reading file:\n    {}", e);
                     continue;

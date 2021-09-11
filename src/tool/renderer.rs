@@ -7,10 +7,12 @@ use kiss3d::point_renderer::PointRenderer;
 use kiss3d::window::Window;
 use nalgebra::Point3;
 
+use kiss3d::camera::Camera;
+
 use crate::points::Points;
 use std::path::Path;
 
-const DEFAULT_EYE: Point3<f32> = Point3::new(0.0f32, 500.0, 1800.0);
+const DEFAULT_EYE: Point3<f32> = Point3::new(0.0f32, 500.0, 1969.0);
 const DEFAULT_AT: Point3<f32> = Point3::new(300.0f32, 500.0, 200.0);
 
 /// The default width of the canvas
@@ -25,10 +27,15 @@ pub static DEFAULT_CORNER: u32 = 0u32;
 /// The default name of the canvas
 pub static DEFAULT_TITLE: &str = "In Summer We Render";
 
+pub static DEFAULT_EPSILON: f32 = 10.0f32;
+// let mut current_eye_try: Point3<f32> = DEFAULT_EYE;
+
 /// Structure representing a window and a camera.
 pub struct Renderer {
     first_person: ArcBall,
     pub(crate) window: Window,
+    current_eye: Point3<f32>,
+    current_at: Point3<f32>,
 }
 
 impl Renderer {
@@ -42,6 +49,8 @@ impl Renderer {
         Renderer {
             first_person: default_camera(),
             window,
+            current_eye: DEFAULT_EYE,
+            current_at: DEFAULT_AT,
         }
     }
 
@@ -86,6 +95,7 @@ impl Renderer {
                 point.point_size,
             );
         }
+        self.update_and_print_info();
     }
 
     /// Open the window and render the frame many times
@@ -151,6 +161,37 @@ impl Renderer {
 
         Ok(())
     }
+
+    /// Print out curr
+    pub fn update_and_print_info(&mut self) {
+        let runtime_eye = self.first_person.eye();
+        let runtime_at = self.first_person.at();
+
+        if self.is_update(&runtime_eye, &runtime_at) {
+            println!(
+                "===================\n    Update detected!\n    The eye's position is {}\n    looking at {}",
+                runtime_eye, runtime_at
+            );
+            self.update_eye_at(runtime_eye, runtime_at);
+        }
+    }
+
+    fn update_eye_at(&mut self, runtime_eye: Point3<f32>, runtime_at: Point3<f32>) {
+        self.current_eye = runtime_eye;
+        self.current_at = runtime_at;
+    }
+
+    fn is_update(&self, runtime_eye: &Point3<f32>, runtime_at: &Point3<f32>) -> bool {
+        self.is_eye_update(runtime_eye) || self.is_at_update(runtime_at)
+    }
+
+    fn is_eye_update(&self, runtime_eye: &Point3<f32>) -> bool {
+        !is_relative_eq(runtime_eye, &self.current_eye)
+    }
+
+    fn is_at_update(&self, runtime_at: &Point3<f32>) -> bool {
+        !is_relative_eq(runtime_at, &self.current_at)
+    }
 }
 
 fn default_camera() -> ArcBall {
@@ -161,4 +202,10 @@ fn default_camera() -> ArcBall {
         DEFAULT_EYE,
         DEFAULT_AT,
     )
+}
+
+fn is_relative_eq(point1: &Point3<f32>, point2: &Point3<f32>) -> bool {
+    relative_eq!(point1.x, point2.x, epsilon = DEFAULT_EPSILON)
+        && relative_eq!(point1.y, point2.y, epsilon = DEFAULT_EPSILON)
+        && relative_eq!(point1.z, point2.z, epsilon = DEFAULT_EPSILON)
 }

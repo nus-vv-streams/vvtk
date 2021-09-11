@@ -63,14 +63,19 @@ impl PointCoordinate {
     }
 
     /// Return a midpoint of two `PointCoordinate`s
-    pub fn get_average(&self, another_point: &PointCoordinate, prev_weight: f32, next_weight: f32) -> PointCoordinate {
+    pub fn get_average(
+        &self,
+        another_point: &PointCoordinate,
+        prev_weight: f32,
+        next_weight: f32,
+    ) -> PointCoordinate {
         // PointCoordinate::new(
         //     (self.x + another_point.x) / 2.0,
         //     (self.y + another_point.y) / 2.0,
         //     (self.z + another_point.z) / 2.0,
         // )
 
-         PointCoordinate::new(
+        PointCoordinate::new(
             (self.x * prev_weight) + (another_point.x * next_weight),
             (self.y * prev_weight) + (another_point.y * next_weight),
             (self.z * prev_weight) + (another_point.z * next_weight),

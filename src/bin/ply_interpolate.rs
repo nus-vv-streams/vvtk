@@ -139,7 +139,7 @@ fn run() -> Result<()> {
         .parse::<f32>()
         .unwrap()
         / 100.0;
-    if params.prev_weight > 1.0{
+    if params.prev_weight > 1.0 {
         panic!("Entered prev_weight value exceeds 100");
     }
     params.next_weight = 1.0 - params.prev_weight;

@@ -59,7 +59,12 @@ impl PointColor {
     }
 
     /// Return a average `PointColor` of two `PointColor`s
-    pub fn get_average(&self, another_point: &PointColor, prev_weight: f32, next_weight: f32) -> PointColor {
+    pub fn get_average(
+        &self,
+        another_point: &PointColor,
+        prev_weight: f32,
+        next_weight: f32,
+    ) -> PointColor {
         // let lab_of_self = self.to_lab();
         // let lab_of_another = another_point.to_lab();
         // let lab_of_average = Lab {
@@ -77,11 +82,10 @@ impl PointColor {
         // )
 
         PointColor::new(
-            ((self.red as f32 * prev_weight) + (another_point.red as f32 * next_weight) ) as u8,
-            ((self.green as f32 * prev_weight) + (another_point.green as f32 * next_weight) ) as u8,
-            ((self.blue as f32 * prev_weight) + (another_point.blue as f32 * next_weight) ) as u8,
+            ((self.red as f32 * prev_weight) + (another_point.red as f32 * next_weight)) as u8,
+            ((self.green as f32 * prev_weight) + (another_point.green as f32 * next_weight)) as u8,
+            ((self.blue as f32 * prev_weight) + (another_point.blue as f32 * next_weight)) as u8,
         )
-
     }
 
     /// Return the difference between two `PointColor`s
