@@ -3,14 +3,13 @@ use crate::errors::*;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
-use std::sync::mpsc;
 use std::thread;
 
 use kiddo::distance::squared_euclidean;
 use kiddo::KdTree;
-
 use ply_rs::ply;
 use std::iter::Iterator;
+use std::sync::*;
 
 use crate::params::Params;
 
@@ -61,12 +60,12 @@ pub fn inf_norm(a: &[f32; 3], b: &[f32; 3]) -> f32 {
 
 /// Spawns a single thread to compute the next "chunk" of closest points
 pub fn setup_run_indiv_thread_closest_points(
-    tx: std::sync::mpsc::Sender<(Vec<Point>, Vec<Point>)>,
+    tx: mpsc::Sender<(Vec<Point>, Vec<Point>)>,
     slices: &mut std::slice::Chunks<Point>,
-    kd_tree: std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
+    kd_tree: Arc<kiddo::KdTree<f32, usize, 3_usize>>,
     options_for_nearest: usize,
-    next_points: std::sync::Arc<Points>,
-    params: std::sync::Arc<Params>,
+    next_points: Arc<Points>,
+    params: Arc<Params>,
     reference_frame: &mut Vec<Point>,
 ) -> std::thread::JoinHandle<()> {
     // let kd = kd_tree.clone();
@@ -98,21 +97,21 @@ pub fn setup_run_indiv_thread_closest_points(
 pub fn run_threads(
     threads: usize,
     slices: &mut std::slice::Chunks<Point>,
-    kd_tree: &std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
+    kd_tree: &Arc<kiddo::KdTree<f32, usize, 3_usize>>,
     options_for_nearest: usize,
-    next_points: std::sync::Arc<Points>,
-    params: &std::sync::Arc<Params>,
+    next_points: Arc<Points>,
+    params: &Arc<Params>,
     reference_frame: &mut Vec<Point>,
 ) -> Vec<Point> {
-    let mut vrx: Vec<std::sync::mpsc::Receiver<(Vec<Point>, Vec<Point>)>> = Vec::with_capacity(12);
+    let mut vrx: Vec<mpsc::Receiver<(Vec<Point>, Vec<Point>)>> = Vec::with_capacity(12);
     let mut vhandle: Vec<std::thread::JoinHandle<()>> = Vec::with_capacity(12);
 
     // let now = Instant::now();
 
     for _i in 0..threads {
         let (tx, rx): (
-            std::sync::mpsc::Sender<(Vec<Point>, Vec<Point>)>,
-            std::sync::mpsc::Receiver<(Vec<Point>, Vec<Point>)>,
+            mpsc::Sender<(Vec<Point>, Vec<Point>)>,
+            mpsc::Receiver<(Vec<Point>, Vec<Point>)>,
         ) = mpsc::channel();
         vrx.push(rx);
         let handle = setup_run_indiv_thread_closest_points(
@@ -155,11 +154,11 @@ pub fn run_threads(
 /// Wrapper function for run_threads(). Slices the given Points into t chunks where t is the number of threads to be used.
 pub fn parallel_query_closests(
     data_copy: &[Point],
-    kd_tree: &std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
+    kd_tree: &Arc<kiddo::KdTree<f32, usize, 3_usize>>,
     threads: usize,
     options_for_nearest: usize,
-    next_points: std::sync::Arc<Points>,
-    params: &std::sync::Arc<Params>,
+    next_points: Arc<Points>,
+    params: &Arc<Params>,
     reference_frame: &mut Vec<Point>,
 ) -> Vec<Point> {
     let mut slices = data_copy.chunks((data_copy.len() as f32 / threads as f32).ceil() as usize);
@@ -179,7 +178,7 @@ pub fn parallel_query_closests(
 /// Class of Points containing all necessary metadata
 pub struct Points {
     /// Name of the points
-    pub (crate) title: Option<String>,
+    pub(crate) title: Option<String>,
     /// Data is a vector of type Point, storing all coordinate and colour data
     pub data: Vec<Point>,
     /// Stores the coordinate delta between the next and prev frames
@@ -340,7 +339,7 @@ impl Points {
     /// Highlights unmapped points as Green in the reference frame
     pub fn mark_unmapped_points(
         &mut self,
-        kd_tree: std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
+        kd_tree: Arc<kiddo::KdTree<f32, usize, 3_usize>>,
         exists_output_dir: bool,
     ) {
         let mut mapped_points = 0;
@@ -442,11 +441,11 @@ impl Points {
 
         //    println!("kd tree constrcution: {}", now.elapsed().as_millis());
 
-        // let mutex_tree = std::sync::Mutex::new(kd_tree);
-        let arc_tree = std::sync::Arc::new(kd_tree);
+        // let mutex_tree = Mutex::new(kd_tree);
+        let arc_tree = Arc::new(kd_tree);
         // let kd = 'static kd_tree;
-        let arc_next_points = std::sync::Arc::new(next_points);
-        let arc_params = std::sync::Arc::new(params);
+        let arc_next_points = Arc::new(next_points);
+        let arc_params = Arc::new(params);
         // println!("arc cloning: {}", now.elapsed().as_millis());
         let data_copy = self.data.clone();
         let mut interpolated_points: Vec<Point> = Vec::new();
@@ -735,7 +734,7 @@ impl Point {
     /// Returns neighbouring points within a given radius
     pub fn get_radius_neghbours(
         &self,
-        kd_tree: &std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
+        kd_tree: &Arc<kiddo::KdTree<f32, usize, 3_usize>>,
         radius: f32,
     ) -> Vec<usize> {
         kd_tree
@@ -753,7 +752,7 @@ impl Point {
     /// Returns k neighbouring points
     pub fn get_nearest_neighbours(
         &self,
-        kd_tree: &std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
+        kd_tree: &Arc<kiddo::KdTree<f32, usize, 3_usize>>,
         quantity: usize,
     ) -> Vec<usize> {
         kd_tree
@@ -771,8 +770,10 @@ impl Point {
     /// Returns a Point whose coordinates and colours are the average of 2 given points
     pub fn get_average(&self, another_point: &Point, prev_weight: f32, next_weight: f32) -> Point {
         Point::new(
-            self.point_coord.get_average(&another_point.point_coord, prev_weight, next_weight),
-            self.point_color.get_average(&another_point.point_color, prev_weight, next_weight),
+            self.point_coord
+                .get_average(&another_point.point_coord, prev_weight, next_weight),
+            self.point_color
+                .get_average(&another_point.point_color, prev_weight, next_weight),
             0,
             another_point.index,
             another_point.point_density,
@@ -794,7 +795,7 @@ impl Point {
         &self,
         another_point: &Point,
         another_point_mapping: u16,
-        params: &std::sync::Arc<Params>,
+        params: &Arc<Params>,
     ) -> f32 {
         let max_coor: f32 = 3.0 * params.scale_coor_delta.powi(2);
         let scale_coor = max_coor.sqrt();
@@ -809,10 +810,10 @@ impl Point {
 
     fn get_closest(
         &self,
-        next_points: &std::sync::Arc<Points>,
+        next_points: &Arc<Points>,
         k_nearest_indices: &[usize],
         reference_frame: &mut Vec<Point>,
-        params: &std::sync::Arc<Params>,
+        params: &Arc<Params>,
     ) -> Point {
         let mut min: f32 = f32::MAX;
         let mut result: Point;
@@ -843,10 +844,10 @@ impl Point {
 
     fn get_average_closest(
         &self,
-        next_points: &std::sync::Arc<Points>,
+        next_points: &Arc<Points>,
         k_nearest_indices: &[usize],
         reference_frame: &mut Vec<Point>,
-        params: &std::sync::Arc<Params>,
+        params: &Arc<Params>,
     ) -> Point {
         if k_nearest_indices.is_empty() {
             return self.clone();
@@ -861,7 +862,7 @@ impl Point {
     #[cfg(feature = "by_knn")]
     pub fn method_of_neighbour_query(
         &self,
-        kd_tree: &std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
+        kd_tree: &Arc<kiddo::KdTree<f32, usize, 3_usize>>,
         options_for_nearest: usize,
         radius: f32,
     ) -> Vec<usize> {
@@ -872,7 +873,7 @@ impl Point {
     /// queries neighbours by radius
     pub fn method_of_neighbour_query(
         &self,
-        kd_tree: &std::sync::Arc<kiddo::KdTree<f32, usize, 3_usize>>,
+        kd_tree: &Arc<kiddo::KdTree<f32, usize, 3_usize>>,
         _options_for_nearest: usize,
         radius: f32,
     ) -> Vec<usize> {
