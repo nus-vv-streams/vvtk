@@ -43,7 +43,27 @@ fn run() -> Result<()> {
                 .multiple(false)
                 .help("Color of background"),
         )
+        .arg(
+            Arg::with_name("width")
+                .short("w")
+                .long("width")
+                .use_delimiter(true)
+                .takes_value(true)
+                .multiple(false)
+                .help("Position of at"),
+        )
+        .arg(
+            Arg::with_name("height")
+                .short("h")
+                .long("height")
+                .use_delimiter(true)
+                .takes_value(true)
+                .multiple(false)
+                .help("Position of at"),
+        )
         .get_matches();
+
+    let input = matches.value_of("input");
 
     let eye = match matches.values_of("eye") {
         Some(vec) => Some(
@@ -80,7 +100,15 @@ fn run() -> Result<()> {
         None => None,
     };
 
-    let input = matches.value_of("input");
+    let width = match matches.value_of("width") {
+        Some(s) => Some(process_u32(s).chain_err(|| "Inappropriate type of arguments in width")?),
+        None => None,
+    };
+
+    let height = match matches.value_of("height") {
+        Some(s) => Some(process_u32(s).chain_err(|| "Inappropriate type of arguments in height")?),
+        None => None,
+    };
 
     match input {
         Some(path) => {
@@ -88,9 +116,9 @@ fn run() -> Result<()> {
             if new_path.is_file() {
                 read(input)
                     .chain_err(|| format!("{}{}", "Problem with the input: ", input.unwrap()))?
-                    .do_render(eye, at, background_color);
+                    .do_render(eye, at, background_color, width, height);
             } else if new_path.is_dir() {
-                PlyDir::new(path).play_with_camera(eye, at, background_color)?;
+                PlyDir::new(path).play_with_camera(eye, at, background_color, width, height)?;
             } else {
                 eprintln!("No such file or dir {}", path)
             }
@@ -98,7 +126,7 @@ fn run() -> Result<()> {
         None => {
             read(input)
                 .chain_err(|| "Problem with the input")?
-                .do_render(eye, at, background_color);
+                .do_render(eye, at, background_color, width, height);
         }
     };
 
@@ -111,4 +139,8 @@ fn process_vec(vec: Vec<&str>) -> Result<nalgebra::Point3<f32>> {
         vec[1].parse::<f32>()?,
         vec[2].parse::<f32>()?,
     ))
+}
+
+fn process_u32(s: &str) -> Result<u32> {
+    Ok(s.parse::<u32>()?)
 }
