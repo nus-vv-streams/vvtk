@@ -105,7 +105,8 @@ pub fn parallel_query_closests(
     params: &Arc<Params>,
     reference_frame: &mut Vec<Point>,
 ) -> Vec<Point> {
-    let mut slices = data_copy.chunks((data_copy.len() as f32 / params.threads as f32).ceil() as usize);
+    let mut slices =
+        data_copy.chunks((data_copy.len() as f32 / params.threads as f32).ceil() as usize);
 
     run_threads(
         params.threads,

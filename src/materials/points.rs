@@ -145,7 +145,11 @@ impl Points {
         width: Option<u32>,
         height: Option<u32>,
     ) {
-        let mut renderer = Renderer::new(self.title.as_ref().map(|title| title.as_str()), width, height);
+        let mut renderer = Renderer::new(
+            self.title.as_ref().map(|title| title.as_str()),
+            width,
+            height,
+        );
 
         renderer.config_camera(eye, at);
 
