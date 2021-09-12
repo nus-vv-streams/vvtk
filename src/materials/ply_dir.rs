@@ -31,7 +31,7 @@ impl PlyDir {
 
     /// Open the window and play 3D video
     pub fn play(self) -> Result<(), std::io::Error> {
-        self.play_with_camera(None, None, None)
+        self.play_with_camera(None, None, None, None, None)
     }
 
     /// Open the window and play 3D video with specific camera
@@ -40,6 +40,8 @@ impl PlyDir {
         eye: Option<Point3<f32>>,
         at: Option<Point3<f32>>,
         background_color: Option<Point3<f32>>,
+        width: Option<u32>,
+        height: Option<u32>,
     ) -> Result<(), std::io::Error> {
         let len = self.count();
         let paths = Arc::new(self.paths);
@@ -56,7 +58,7 @@ impl PlyDir {
             }
         });
 
-        let mut renderer = renderer::Renderer::new(None);
+        let mut renderer = renderer::Renderer::new(None, width, height);
 
         renderer.config_camera(eye, at);
 

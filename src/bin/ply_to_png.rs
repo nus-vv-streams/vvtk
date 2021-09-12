@@ -59,7 +59,7 @@ fn run() -> Result<()> {
                 .use_delimiter(true)
                 .takes_value(true)
                 .multiple(false)
-                .help("Position of at"),
+                .help("Width of PNG file"),
         )
         .arg(
             Arg::with_name("height")
@@ -68,7 +68,7 @@ fn run() -> Result<()> {
                 .use_delimiter(true)
                 .takes_value(true)
                 .multiple(false)
-                .help("Position of at"),
+                .help("Height of PNG file"),
         )
         .arg(
             Arg::with_name("output")

@@ -277,7 +277,7 @@ impl Points {
 
     /// Wrapper function to render current Points with default eye and at positions
     pub fn render(&self) {
-        self.do_render(None, None, None)
+        self.do_render(None, None, None, None, None)
     }
 
     /// Render the frame with configable eye, at and background color
@@ -286,8 +286,10 @@ impl Points {
         eye: Option<Point3<f32>>,
         at: Option<Point3<f32>>,
         background_color: Option<Point3<f32>>,
+        width: Option<u32>,
+        height: Option<u32>,
     ) {
-        let mut renderer = Renderer::new(self.title.as_ref().map(|title| title.as_str()));
+        let mut renderer = Renderer::new(self.title.as_ref().map(|title| title.as_str()), width, height);
 
         renderer.config_camera(eye, at);
 
@@ -307,7 +309,7 @@ impl Points {
         height: Option<u32>,
         path: Option<&str>,
     ) -> Result<()> {
-        let mut renderer = Renderer::new(None);
+        let mut renderer = Renderer::new(None, None, None);
 
         renderer.config_camera(eye, at);
 

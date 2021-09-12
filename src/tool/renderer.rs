@@ -16,10 +16,16 @@ const DEFAULT_EYE: Point3<f32> = Point3::new(0.0f32, 500.0, 1969.0);
 const DEFAULT_AT: Point3<f32> = Point3::new(300.0f32, 500.0, 200.0);
 
 /// The default width of the canvas
-pub static DEFAULT_WIDTH: u32 = 1600u32;
+pub static DEFAULT_WIDTH: u32 = 800u32;
 
 /// The default height of the canvas
-pub static DEFAULT_HEIGHT: u32 = 1200u32;
+pub static DEFAULT_HEIGHT: u32 = 600u32;
+
+/// The default width of PNG file
+pub static DEFAULT_WIDTH_PNG: u32 = 1600u32;
+
+/// The default height of PNG file
+pub static DEFAULT_HEIGHT_PNG: u32 = 1200u32;
 
 /// The default corner's coordinate of the canvas
 pub static DEFAULT_CORNER: u32 = 0u32;
@@ -40,8 +46,12 @@ pub struct Renderer {
 
 impl Renderer {
     /// Create a new Renderer with specific name and default window's and camera's configuration.
-    pub fn new(title: Option<&str>) -> Self {
-        let mut window = Window::new(title.unwrap_or(DEFAULT_TITLE));
+    pub fn new(title: Option<&str>, width: Option<u32>, height: Option<u32>) -> Self {
+        let mut window = Window::new_with_size(
+            title.unwrap_or(DEFAULT_TITLE),
+            width.unwrap_or(DEFAULT_WIDTH),
+            height.unwrap_or(DEFAULT_HEIGHT),
+        );
 
         window.set_light(Light::StickToCamera);
         window.set_point_size(1.0); // <-- change here
@@ -141,13 +151,13 @@ impl Renderer {
             &mut buf,
             x.unwrap_or(DEFAULT_CORNER) as usize,
             y.unwrap_or(DEFAULT_CORNER) as usize,
-            width.unwrap_or(DEFAULT_WIDTH) as usize,
-            height.unwrap_or(DEFAULT_HEIGHT) as usize,
+            width.unwrap_or(DEFAULT_WIDTH_PNG) as usize,
+            height.unwrap_or(DEFAULT_HEIGHT_PNG) as usize,
         );
 
         let img_opt = ImageBuffer::from_vec(
-            width.unwrap_or(DEFAULT_WIDTH),
-            height.unwrap_or(DEFAULT_HEIGHT),
+            width.unwrap_or(DEFAULT_WIDTH_PNG),
+            height.unwrap_or(DEFAULT_HEIGHT_PNG),
             buf,
         );
         let img: ImageBuffer<Rgb<u8>, Vec<u8>> =
@@ -176,11 +186,6 @@ impl Renderer {
         }
     }
 
-    fn update_eye_at(&mut self, runtime_eye: Point3<f32>, runtime_at: Point3<f32>) {
-        self.current_eye = runtime_eye;
-        self.current_at = runtime_at;
-    }
-
     fn is_update(&self, runtime_eye: &Point3<f32>, runtime_at: &Point3<f32>) -> bool {
         self.is_eye_update(runtime_eye) || self.is_at_update(runtime_at)
     }
@@ -191,6 +196,11 @@ impl Renderer {
 
     fn is_at_update(&self, runtime_at: &Point3<f32>) -> bool {
         !is_relative_eq(runtime_at, &self.current_at)
+    }
+
+    fn update_eye_at(&mut self, runtime_eye: Point3<f32>, runtime_at: Point3<f32>) {
+        self.current_eye = runtime_eye;
+        self.current_at = runtime_at;
     }
 }
 
