@@ -4,7 +4,7 @@ extern crate iswr;
 // use std::env;
 extern crate clap;
 use clap::{App, Arg};
-use iswr::{errors::*, params::Params, points, reader};
+use iswr::{errors::*, interpolate::*, params::Params, points, reader};
 // use std::io::{self, Write};
 
 // use std::path::{ PathBuf };
@@ -211,10 +211,8 @@ fn interpolate(
     output_dir: Option<&str>,
     exists_output_dir: bool,
 ) -> Result<()> {
-    let mut prev =
-        reader::read(prev_frame_dir).chain_err(|| "Problem with the input of prev frame")?;
-    let mut next =
-        reader::read(next_frame_dir).chain_err(|| "Problem with the input of next frame")?;
+    let prev = reader::read(prev_frame_dir).chain_err(|| "Problem with the input of prev frame")?;
+    let next = reader::read(next_frame_dir).chain_err(|| "Problem with the input of next frame")?;
 
     let mut end_result = points::Points::new();
     let mut end_reference_unmapped = points::Points::new();
@@ -222,15 +220,17 @@ fn interpolate(
 
     if method == "closest_with_ratio_average_points_recovery" {
         if two_way_interpolation {
-            let (mut prev_result, _reference_unmapped, _marked_interpolated_frame) = prev
-                .closest_with_ratio_average_points_recovery(
+            let (mut prev_result, _reference_unmapped, _marked_interpolated_frame) =
+                closest_with_ratio_average_points_recovery(
+                    prev.clone(),
                     next.clone(),
                     params.clone(),
                     exists_output_dir,
                 ); //sum of first 3 must equal 1
 
-            let (mut result, reference_unmapped, marked_interpolated_frame) = next
-                .closest_with_ratio_average_points_recovery(
+            let (mut result, reference_unmapped, marked_interpolated_frame) =
+                closest_with_ratio_average_points_recovery(
+                    next,
                     prev,
                     params.clone(),
                     exists_output_dir,
@@ -241,8 +241,9 @@ fn interpolate(
             end_reference_unmapped = reference_unmapped;
             end_marked_interpolated_frame = marked_interpolated_frame;
         } else {
-            let (result, reference_unmapped, marked_interpolated_frame) = prev
-                .closest_with_ratio_average_points_recovery(
+            let (result, reference_unmapped, marked_interpolated_frame) =
+                closest_with_ratio_average_points_recovery(
+                    prev,
                     next,
                     params.clone(),
                     exists_output_dir,

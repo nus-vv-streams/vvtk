@@ -28,7 +28,9 @@ mod materials;
 mod methods;
 mod tool;
 
-pub use materials::{color, coordinate, params, ply_dir, points};
+pub use materials::{
+    color, coordinate, interpolate, interpolate_controller, params, ply_dir, point, points,
+};
 pub use methods::{filter, transform};
 pub use ply_dir::PlyDir;
 pub use tool::{reader, renderer};
