@@ -1,6 +1,7 @@
 // use nalgebra::Point3;
 
-use crate::points::{Point, Points};
+use crate::point::Point;
+use crate::points::Points;
 
 use crate::color::PointColor;
 use std::collections::HashMap;

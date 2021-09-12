@@ -1,7 +1,8 @@
 extern crate ply_rs;
 
 use crate::errors::*;
-use crate::points::{Point, Points};
+use crate::point::Point;
+use crate::points::Points;
 use ply_rs::parser;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};

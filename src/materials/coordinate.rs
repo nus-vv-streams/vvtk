@@ -1,5 +1,5 @@
 use crate::color::PointColor;
-use crate::points::Point;
+use crate::point::Point;
 
 use nalgebra::Point3;
 
