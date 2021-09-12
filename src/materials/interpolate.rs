@@ -57,8 +57,6 @@ pub fn closest_with_ratio_average_points_recovery(
         interpolated_points = parallel_query_closests(
             &data_copy,
             &arc_tree,
-            arc_params.threads,
-            arc_params.options_for_nearest,
             arc_next_points,
             &arc_params,
             &mut prev_points.reference_frame,

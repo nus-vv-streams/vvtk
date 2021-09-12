@@ -101,19 +101,17 @@ pub fn run_threads(
 pub fn parallel_query_closests(
     data_copy: &[Point],
     kd_tree: &Arc<kiddo::KdTree<f32, usize, 3_usize>>,
-    threads: usize,
-    options_for_nearest: usize,
     next_points: Arc<Points>,
     params: &Arc<Params>,
     reference_frame: &mut Vec<Point>,
 ) -> Vec<Point> {
-    let mut slices = data_copy.chunks((data_copy.len() as f32 / threads as f32).ceil() as usize);
+    let mut slices = data_copy.chunks((data_copy.len() as f32 / params.threads as f32).ceil() as usize);
 
     run_threads(
-        threads,
+        params.threads,
         &mut slices,
         kd_tree,
-        options_for_nearest,
+        params.options_for_nearest,
         next_points,
         params,
         reference_frame,
