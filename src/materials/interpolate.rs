@@ -6,27 +6,32 @@ use std::sync::Arc;
 
 use crate::Instant;
 
+
+
+pub fn two_norm(a: &[f32], b: &[f32]) -> f32 {
+    let mut sum: f32 = 0.0;
+    for i in 0..a.len() {
+        sum += (a[i] - b[i]).powi(2);
+    }
+    sum.sqrt()
+}
+
 /// Computes Chebyshev Distance for 2 given points
 ///
 /// # Arguments
 /// * `a` - the first point
 /// * `b` - the second point
 ///
-pub fn inf_norm(a: &[f32; 3], b: &[f32; 3]) -> f32 {
-    let max: f32;
-    let dx = (a[0] - b[0]).abs();
-    let dy = (a[1] - b[1]).abs();
-    let dz = (a[2] - b[2]).abs();
-    if dx > dy {
-        max = dx;
-    } else {
-        max = dy;
+pub fn inf_norm(a: &[f32], b: &[f32]) -> f32 {
+    let mut max: f32 = f32::MIN;
+    for i in 0..a.len() {
+        let diff = (a[i] - b[i]).abs();
+        if diff > max {
+            max = diff;
+        }
     }
-    if max > dz {
-        max
-    } else {
-        dz
-    }
+
+    max
 }
 
 /// Point to point interolation method

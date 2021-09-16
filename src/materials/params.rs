@@ -1,8 +1,8 @@
 // use kiddo::distance::squared_euclidean;
 // use kiddo::KdTree;
-// use crate::points::inf_norm;
+use crate::interpolate::inf_norm;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 /// Struct containing all settings needed to execute interpolation
 pub struct Params {
     /// Weightage to penalize coordinate delta
@@ -33,6 +33,8 @@ pub struct Params {
     pub prev_weight: f32,
     /// Weight for next frame when averaging points to get interpolated point
     pub next_weight: f32,
+    /// Distance function for use in interpolation
+    pub dist_func: fn(&[f32], &[f32]) -> f32,
 }
 
 impl Params {
@@ -53,6 +55,7 @@ impl Params {
             scale_col_delta: 1.0,
             prev_weight: 0.5,
             next_weight: 0.5,
+            dist_func: inf_norm
         }
     }
 }
