@@ -4,6 +4,8 @@ use crate::points::*;
 use std::sync::*;
 use std::thread;
 
+type PairVecPoint = (Vec<Point>, Vec<Point>);
+
 /// Spawns a single thread to compute the next "chunk" of closest points
 pub fn setup_run_indiv_thread_closest_points(
     tx: mpsc::Sender<(Vec<Point>, Vec<Point>)>,
@@ -60,8 +62,8 @@ pub fn run_threads(
 
     for _i in 0..threads {
         let (tx, rx): (
-            mpsc::Sender<(Vec<Point>, Vec<Point>)>,
-            mpsc::Receiver<(Vec<Point>, Vec<Point>)>,
+            mpsc::Sender<PairVecPoint>,
+            mpsc::Receiver<PairVecPoint>,
         ) = mpsc::channel();
         vrx.push(rx);
         let handle = setup_run_indiv_thread_closest_points(
