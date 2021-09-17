@@ -8,7 +8,7 @@ use std::thread;
 pub fn setup_run_indiv_thread_closest_points(
     tx: mpsc::Sender<(Vec<Point>, Vec<Point>)>,
     slices: &mut std::slice::Chunks<Point>,
-    kd_tree: Arc<kiddo::KdTree<f32, usize, 3_usize>>,
+    kd_tree: Arc<kiddo::KdTree<f32, usize, {kdtree_dim()}>>,
     options_for_nearest: usize,
     next_points: Arc<Points>,
     params: Arc<Params>,
@@ -30,7 +30,7 @@ pub fn setup_run_indiv_thread_closest_points(
         let mut closests: Vec<Point> = Vec::with_capacity(100);
         for s in &slice {
             let nearests =
-                s.method_of_neighbour_query(&kd_tree, options_for_nearest, params.density_radius);
+                s.method_of_neighbour_query(&kd_tree, options_for_nearest, params.density_radius, params.dist_func);
             let p = s.get_average_closest(&next_points, &nearests, &mut refer, &params);
             closests.push(p);
         }
@@ -43,7 +43,7 @@ pub fn setup_run_indiv_thread_closest_points(
 pub fn run_threads(
     threads: usize,
     slices: &mut std::slice::Chunks<Point>,
-    kd_tree: &Arc<kiddo::KdTree<f32, usize, 3_usize>>,
+    kd_tree: &Arc<kiddo::KdTree<f32, usize, {kdtree_dim()}>>,
     options_for_nearest: usize,
     next_points: Arc<Points>,
     params: &Arc<Params>,
@@ -97,10 +97,22 @@ pub fn run_threads(
     result
 }
 
+#[cfg(feature = "dim_3")]
+/// Returns dimension of kdtree in use for interpolation
+pub const fn kdtree_dim() -> usize{
+    3_usize
+}
+
+#[cfg(feature = "dim_6")]
+/// Returns dimension of kdtree in use for interpolation
+pub const fn kdtree_dim() -> usize{
+    6_usize
+}
+
 /// Wrapper function for run_threads(). Slices the given Points into t chunks where t is the number of threads to be used.
 pub fn parallel_query_closests(
     data_copy: &[Point],
-    kd_tree: &Arc<kiddo::KdTree<f32, usize, 3_usize>>,
+    kd_tree: &Arc<kiddo::KdTree<f32, usize, {kdtree_dim()}>>,
     next_points: Arc<Points>,
     params: &Arc<Params>,
     reference_frame: &mut Vec<Point>,

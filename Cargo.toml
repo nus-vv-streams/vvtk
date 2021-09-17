@@ -17,9 +17,11 @@ categories = ["command-line-utilities"]
 debug = true
 
 [features]
-default = ["by_radius"]
+default = ["by_radius", "dim_6"] #by_knn #by_radius #dim_3 #dim_6
 by_radius = []
 by_knn = []
+dim_3 = []
+dim_6 = []
 
 [lib]
 name = "iswr"

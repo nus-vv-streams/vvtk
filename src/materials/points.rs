@@ -16,6 +16,7 @@ use crate::coordinate::Coordinate;
 use crate::filter::FilterProducer;
 use crate::tool::renderer::Renderer;
 use crate::transform::TransformProducer;
+use crate::interpolate_controller::kdtree_dim;
 
 use ply_rs::ply::{
     Addable, DefaultElement, ElementDef, Encoding, Ply, Property, PropertyDef, PropertyType,
@@ -178,7 +179,8 @@ impl Points {
         Ok(())
     }
 
-    /// Constructs and returns a kdtree from a class of Points
+    #[cfg(feature = "dim_3")]
+    /// Constructs and returns a 3D kdtree from a class of Points
     pub fn to_kdtree(self) -> KdTree<f32, usize, 3> {
         let mut kdtree: KdTree<f32, usize, 3> = KdTree::with_capacity(64).unwrap();
         let mut shuffled_points = self.data;
@@ -198,18 +200,43 @@ impl Points {
         kdtree
     }
 
+    #[cfg(feature = "dim_6")]
+    /// Constructs and returns a 6D kdtree from a class of Points
+    pub fn to_kdtree(self) -> KdTree<f32, usize, 6> {
+        let mut kdtree: KdTree<f32, usize, 6> = KdTree::with_capacity(64).unwrap();
+        let mut shuffled_points = self.data;
+        shuffled_points.shuffle(&mut thread_rng());
+        for point in &shuffled_points {
+            kdtree
+                .add(
+                    &[
+                        point.point_coord.x,
+                        point.point_coord.y,
+                        point.point_coord.z,
+                        point.point_color.red as f32,
+                        point.point_color.green as f32,
+                        point.point_color.blue as f32
+                    ],
+                    point.index,
+                )
+                .unwrap();
+        }
+        kdtree
+    }
+
     /// Highlights unmapped points as Green in the reference frame
     pub fn mark_unmapped_points(
         &mut self,
-        kd_tree: Arc<kiddo::KdTree<f32, usize, 3_usize>>,
+        kd_tree: Arc<kiddo::KdTree<f32, usize, {kdtree_dim()}>>,
         exists_output_dir: bool,
+        dist_func: for<'r, 's> fn(&'r [f32], &'s [f32]) -> f32
     ) {
         let mut mapped_points = 0;
         let mut all_unmapped: bool = true;
 
         for point in self.reference_frame.clone().iter_mut() {
             if point.mapping == 0 {
-                let k_nearest_indices = point.get_nearest_neighbours(&kd_tree, 3);
+                let k_nearest_indices = point.get_nearest_neighbours(&kd_tree, 3, dist_func);
                 for idx in &k_nearest_indices {
                     if self.reference_frame[*idx].mapping != 0 {
                         all_unmapped = false;

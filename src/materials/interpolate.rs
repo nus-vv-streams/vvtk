@@ -86,7 +86,7 @@ pub fn closest_with_ratio_average_points_recovery(
     }
 
     if arc_params.show_unmapped_points {
-        prev_points.mark_unmapped_points(arc_tree, exists_output_dir);
+        prev_points.mark_unmapped_points(arc_tree, exists_output_dir, arc_params.dist_func);
     }
 
     /////////////
