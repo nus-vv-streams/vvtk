@@ -138,14 +138,12 @@ fn run() -> Result<()> {
     //  println!("show unmapped points: {}", show_unmapped_points);
     //  println!("interpolation method: {}", method);
 
-    let dist_func_name = matches
-    .value_of("dist_func")
-    .unwrap_or("inf_norm");
-     let dist_func: for<'r, 's> fn(&'r [f32], &'s [f32]) -> f32;
+    let dist_func_name = matches.value_of("dist_func").unwrap_or("inf_norm");
+    let dist_func: for<'r, 's> fn(&'r [f32], &'s [f32]) -> f32;
     match dist_func_name {
         "inf_norm" => dist_func = inf_norm,
         "two_norm" => dist_func = two_norm,
-        _=> dist_func = inf_norm
+        _ => dist_func = inf_norm,
     }
     params.dist_func = dist_func;
 

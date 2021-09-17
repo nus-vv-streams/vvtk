@@ -14,9 +14,9 @@ use nalgebra::Point3;
 use crate::color::{Color, PointColor};
 use crate::coordinate::Coordinate;
 use crate::filter::FilterProducer;
+use crate::interpolate_controller::kdtree_dim;
 use crate::tool::renderer::Renderer;
 use crate::transform::TransformProducer;
-use crate::interpolate_controller::kdtree_dim;
 
 use ply_rs::ply::{
     Addable, DefaultElement, ElementDef, Encoding, Ply, Property, PropertyDef, PropertyType,
@@ -215,7 +215,7 @@ impl Points {
                         point.point_coord.z,
                         point.point_color.red as f32,
                         point.point_color.green as f32,
-                        point.point_color.blue as f32
+                        point.point_color.blue as f32,
                     ],
                     point.index,
                 )
@@ -227,9 +227,9 @@ impl Points {
     /// Highlights unmapped points as Green in the reference frame
     pub fn mark_unmapped_points(
         &mut self,
-        kd_tree: Arc<kiddo::KdTree<f32, usize, {kdtree_dim()}>>,
+        kd_tree: Arc<kiddo::KdTree<f32, usize, { kdtree_dim() }>>,
         exists_output_dir: bool,
-        dist_func: for<'r, 's> fn(&'r [f32], &'s [f32]) -> f32
+        dist_func: for<'r, 's> fn(&'r [f32], &'s [f32]) -> f32,
     ) {
         let mut mapped_points = 0;
         let mut all_unmapped: bool = true;

@@ -7,8 +7,8 @@ use crate::coordinate::PointCoordinate;
 // use crate::interpolate::inf_norm;
 use crate::params::Params;
 // use kiddo::distance::squared_euclidean;
-use std::f32::consts::PI;
 use crate::interpolate_controller::kdtree_dim;
+use std::f32::consts::PI;
 
 #[derive(Debug, Clone)]
 /// Structure presenting a point
@@ -74,33 +74,31 @@ impl Point {
     }
 
     #[cfg(feature = "dim_3")]
-    pub fn get_point(&self) -> [f32;3]{
+    pub fn get_point(&self) -> [f32; 3] {
         [self.point_coord.x, self.point_coord.y, self.point_coord.z]
     }
 
     #[cfg(feature = "dim_6")]
-    pub fn get_point(&self) -> [f32;6]{
-        [self.point_coord.x, 
-                self.point_coord.y, 
-                self.point_coord.z,
-                self.point_color.red as f32,
-                self.point_color.green as f32,
-                self.point_color.blue as f32]
+    pub fn get_point(&self) -> [f32; 6] {
+        [
+            self.point_coord.x,
+            self.point_coord.y,
+            self.point_coord.z,
+            self.point_color.red as f32,
+            self.point_color.green as f32,
+            self.point_color.blue as f32,
+        ]
     }
 
     /// Returns neighbouring points within a given radius
     pub fn get_radius_neghbours(
         &self,
-        kd_tree: &Arc<kiddo::KdTree<f32, usize, {kdtree_dim()}>>,
+        kd_tree: &Arc<kiddo::KdTree<f32, usize, { kdtree_dim() }>>,
         radius: f32,
-        dist_func: for<'r, 's> fn(&'r [f32], &'s [f32]) -> f32
+        dist_func: for<'r, 's> fn(&'r [f32], &'s [f32]) -> f32,
     ) -> Vec<usize> {
         kd_tree
-            .within_unsorted(
-                &self.get_point(),
-                radius,
-                &dist_func,
-            )
+            .within_unsorted(&self.get_point(), radius, &dist_func)
             .unwrap()
             .into_iter()
             .map(|found| *found.1)
@@ -110,16 +108,12 @@ impl Point {
     /// Returns k neighbouring points
     pub fn get_nearest_neighbours(
         &self,
-        kd_tree: &Arc<kiddo::KdTree<f32, usize, {kdtree_dim()}>>,
+        kd_tree: &Arc<kiddo::KdTree<f32, usize, { kdtree_dim() }>>,
         quantity: usize,
-        dist_func: for<'r, 's> fn(&'r [f32], &'s [f32]) -> f32
+        dist_func: for<'r, 's> fn(&'r [f32], &'s [f32]) -> f32,
     ) -> Vec<usize> {
         kd_tree
-            .nearest(
-                &self.get_point(),
-                quantity,
-                &dist_func,
-            )
+            .nearest(&self.get_point(), quantity, &dist_func)
             .unwrap()
             .into_iter()
             .map(|found| *found.1)
@@ -221,10 +215,10 @@ impl Point {
     #[cfg(feature = "by_knn")]
     pub fn method_of_neighbour_query(
         &self,
-        kd_tree: &Arc<kiddo::KdTree<f32, usize, {kdtree_dim()}>>,
+        kd_tree: &Arc<kiddo::KdTree<f32, usize, { kdtree_dim() }>>,
         options_for_nearest: usize,
         radius: f32,
-        dist_func: for<'r, 's> fn(&'r [f32], &'s [f32]) -> f32
+        dist_func: for<'r, 's> fn(&'r [f32], &'s [f32]) -> f32,
     ) -> Vec<usize> {
         self.get_nearest_neighbours(kd_tree, options_for_nearest, dist_func)
     }
@@ -233,10 +227,10 @@ impl Point {
     /// queries neighbours by radius
     pub fn method_of_neighbour_query(
         &self,
-        kd_tree: &Arc<kiddo::KdTree<f32, usize, {kdtree_dim()}>>,
+        kd_tree: &Arc<kiddo::KdTree<f32, usize, { kdtree_dim() }>>,
         _options_for_nearest: usize,
         radius: f32,
-        dist_func: for<'r, 's> fn(&'r [f32], &'s [f32]) -> f32
+        dist_func: for<'r, 's> fn(&'r [f32], &'s [f32]) -> f32,
     ) -> Vec<usize> {
         // let mut x = Vec::new(); x.push(self.index); if self.index + 1 < kd_tree.size() {x.push(self.index + 1);}
         // x

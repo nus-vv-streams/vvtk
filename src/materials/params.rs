@@ -55,7 +55,7 @@ impl Params {
             scale_col_delta: 1.0,
             prev_weight: 0.5,
             next_weight: 0.5,
-            dist_func: inf_norm
+            dist_func: inf_norm,
         }
     }
 }
