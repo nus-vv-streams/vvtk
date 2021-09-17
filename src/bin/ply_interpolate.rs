@@ -160,13 +160,13 @@ fn run() -> Result<()> {
 
     params.scale_coor_delta = matches
         .value_of("scale_coor_delta")
-        .unwrap_or("1.0")
+        .unwrap_or("1010.0")
         .parse::<f32>()
         .unwrap();
 
     params.scale_col_delta = matches
         .value_of("scale_col_delta")
-        .unwrap_or("1.0")
+        .unwrap_or("256.0")
         .parse::<f32>()
         .unwrap();
 

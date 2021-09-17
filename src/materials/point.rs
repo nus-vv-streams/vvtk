@@ -150,11 +150,13 @@ impl Point {
         another_point_mapping: u16,
         params: &Arc<Params>,
     ) -> f32 {
-        let max_coor: f32 = 3.0 * params.scale_coor_delta.powi(2);
-        let scale_coor = max_coor.sqrt();
+        // let max_coor: f32 = 3.0 * params.scale_coor_delta.powi(2);
+        // let scale_coor = max_coor.sqrt();
+        let scale_coor: f32 = 3.0_f32.sqrt() * params.scale_coor_delta;
 
-        let max_col: f32 = 3.0 * params.scale_col_delta.powi(2);
-        let scale_col = max_col.sqrt();
+        // let max_col: f32 = 3.0 * params.scale_col_delta.powi(2);
+        // let scale_col = max_col.sqrt();
+        let scale_col: f32 = 3.0_f32.sqrt() * params.scale_col_delta;
 
         self.get_coord_delta(another_point) * params.penalize_coor / scale_coor
             + self.get_color_delta(another_point) * params.penalize_col / scale_col
