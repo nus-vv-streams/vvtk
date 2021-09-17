@@ -68,7 +68,8 @@ fn run() -> Result<()> {
     let remain = matches.value_of("remain").unwrap_or(transform::DEFAULT_KEY);
     let form = matches.value_of("form");
     let output = matches.value_of("output");
-    let data = reader::read(input).chain_err(|| "Problem with the input")?;
+    let ply = reader::read(input).chain_err(|| "Problem with the input")?;
+    let data = ply.get_points();
     let filter_methods = filter::get_collection();
     let transform_methods = transform::get_collection();
 

@@ -61,10 +61,7 @@ pub fn run_threads(
     // let now = Instant::now();
 
     for _i in 0..threads {
-        let (tx, rx): (
-            mpsc::Sender<PairVecPoint>,
-            mpsc::Receiver<PairVecPoint>,
-        ) = mpsc::channel();
+        let (tx, rx): (mpsc::Sender<PairVecPoint>, mpsc::Receiver<PairVecPoint>) = mpsc::channel();
         vrx.push(rx);
         let handle = setup_run_indiv_thread_closest_points(
             tx,

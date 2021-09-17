@@ -2,7 +2,7 @@
 extern crate error_chain;
 extern crate iswr;
 use clap::{App, Arg};
-use iswr::{errors::*, reader};
+use iswr::{errors::*, reader, renderer::Renderer};
 
 // cargo run --release --bin test | cargo run --release --bin ply_view -- --eye=100,100,100
 quick_main!(run);
@@ -76,7 +76,6 @@ fn run() -> Result<()> {
                 .long("output")
                 .takes_value(true)
                 .multiple(false)
-                .required(true)
                 .help("File directory for output"),
         )
         .get_matches();
@@ -126,9 +125,13 @@ fn run() -> Result<()> {
     let input = matches.value_of("input");
     let output = matches.value_of("output");
 
-    reader::read(input)
-        .chain_err(|| "Problem with the input")?
-        .save_to_png(eye, at, x, y, width, height, output)?;
+    let mut ply = reader::read(input).chain_err(|| "Problem with the input")?;
+
+    let mut renderer = Renderer::new(None, None, None);
+
+    renderer.config_camera(eye, at);
+
+    renderer.save_to_png(&mut ply, x, y, width, height, output)?;
 
     Ok(())
 }

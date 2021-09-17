@@ -7,10 +7,17 @@ use kiss3d::point_renderer::PointRenderer;
 use kiss3d::window::Window;
 use nalgebra::Point3;
 
+use crate::reader::read;
+use std::sync::mpsc::channel;
+use std::sync::Arc;
+
 use kiss3d::camera::Camera;
 
+use crate::ply::Ply;
+use crate::ply_dir::PlyDir;
 use crate::points::Points;
 use std::path::Path;
+use std::path::PathBuf;
 
 const DEFAULT_EYE: Point3<f32> = Point3::new(0.0f32, 500.0, 1969.0);
 const DEFAULT_AT: Point3<f32> = Point3::new(300.0f32, 500.0, 200.0);
@@ -96,6 +103,11 @@ impl Renderer {
             .set_background_color(color.x / 256.0, color.y / 256.0, color.z / 256.0);
     }
 
+    /// Set title of the window
+    pub fn set_title(&mut self, new_title: Option<&str>) {
+        self.window.set_title(new_title.unwrap_or(DEFAULT_TITLE))
+    }
+
     /// Open the window and render the frame
     pub fn render_frame(&mut self, data: &Points) {
         for point in &data.data {
@@ -115,6 +127,40 @@ impl Renderer {
         }
     }
 
+    pub fn render_video(&mut self, ply_dir: PlyDir) -> Result<()> {
+        let len = ply_dir.count();
+        let paths = Arc::new(ply_dir.get_paths());
+
+        let (tx, rx) = channel();
+        let (paths_clone, tx) = (paths, tx);
+
+        std::thread::spawn(move || {
+            let mut index: usize = 0;
+            loop {
+                index += 1;
+                let frame = read(paths_clone[index % len].to_str());
+                tx.send(frame).unwrap();
+            }
+        });
+
+        let mut frame;
+
+        while self.render() {
+            frame = rx.recv().unwrap();
+            match frame {
+                Ok(f) => {
+                    self.render_frame(f.get_points_as_ref());
+                }
+                Err(e) => {
+                    eprintln!("Problem with reading file:\n    {}", e);
+                    continue;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Render a ply file to png format
     ///
     /// # Arguments
@@ -125,14 +171,16 @@ impl Renderer {
     /// * `path` - the path to save the png file
     pub fn save_to_png(
         &mut self,
-        data: &Points,
+        ply: &mut Ply,
         x: Option<u32>,
         y: Option<u32>,
         width: Option<u32>,
         height: Option<u32>,
-        path: Option<&str>,
+        output: Option<&str>,
     ) -> Result<()> {
         use kiss3d::renderer::Renderer;
+
+        let data = ply.get_points_as_ref();
 
         let mut pr = PointRenderer::new();
         for point in &data.data {
@@ -164,9 +212,21 @@ impl Renderer {
             img_opt.chain_err(|| "Buffer created from window was not big enough for image")?;
         let img = flip_vertical(&img);
 
-        let img_path = Path::new(path.chain_err(|| "No output found")?);
+        let mut path_in_ply: Option<&Path> = None;
+        let mut p: PathBuf;
+        if ply.get_title().is_some() {
+            p = PathBuf::from(ply.get_title().unwrap());
+            p.set_extension("png");
+            path_in_ply = Some(p.as_path());
+        }
+
+        let img_path = output
+            .map(|p| Path::new(p))
+            .or(path_in_ply)
+            .chain_err(|| "No output found")?;
+
         img.save(img_path)
-            .map(|_| println!("Image saved to {}", path.unwrap()))
+            .map(|_| println!("Image saved to {:?}", img_path))
             .chain_err(|| "Cannot save image")?;
 
         Ok(())

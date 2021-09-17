@@ -78,7 +78,7 @@ pub fn closest_with_ratio_average_points_recovery(
         println!("interpolation time: {}", now.elapsed().as_millis());
     }
 
-    let mut point_data = Points::of(None, interpolated_points);
+    let mut point_data = Points::of(interpolated_points);
     if arc_params.compute_frame_delta {
         prev_points.frame_delta(point_data.clone());
     }
@@ -103,7 +103,7 @@ pub fn closest_with_ratio_average_points_recovery(
 
     (
         point_data,
-        Points::of(None, prev_points.reference_frame.clone()),
+        Points::of(prev_points.reference_frame.clone()),
         marked_interpolated_frame,
     )
 }

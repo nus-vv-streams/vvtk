@@ -1,12 +1,14 @@
 extern crate ply_rs;
 
 use crate::errors::*;
+use crate::ply::Ply;
 use crate::point::Point;
 use crate::points::Points;
 use ply_rs::parser;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::path::Path;
+use std::path::PathBuf;
 
 /// Read any form of ply file and return the collections of points.
 ///
@@ -19,28 +21,25 @@ use std::path::Path;
 ///
 /// reader::read(Some("path/to/your/ply/file")).unwrap().reader();
 /// ```
-pub fn read(input: Option<&str>) -> Result<Points> {
+pub fn read(input: Option<&str>) -> Result<Ply> {
     let stdin = io::stdin();
-    let mut file_name: Option<String> = None;
+    let mut file_name: Option<PathBuf> = None;
 
     let result_buf_read: Result<Box<dyn BufRead>> = match input {
         Some(path) => {
-            let path = Path::new(path);
-            let is_ply_file = path.extension().filter(|e| e.to_str() == Some("ply"));
+            let path_buf = PathBuf::from(path);
 
-            file_name = path
-                .file_name()
-                .map(|name| name.to_owned().into_string().unwrap());
-
-            match is_ply_file {
-                Some(_) => Ok(Box::new(BufReader::new(File::open(path)?))),
-                None => bail!(format!(
+            if !is_ply_file(&path_buf) {
+                bail!(format!(
                     "{}{}{}",
                     "Extension of file: ",
                     input.unwrap(),
                     " expected to be .ply"
-                )),
+                ))
             }
+
+            file_name = Some(path_buf);
+            Ok(Box::new(BufReader::new(File::open(path)?)))
         }
         None => Ok(Box::new(stdin.lock())),
     };
@@ -68,5 +67,18 @@ pub fn read(input: Option<&str>) -> Result<Points> {
         item.set_index(idx);
     }
 
-    Ok(Points::of(file_name, points_list))
+    Ok(Ply::of(file_name, Points::of(points_list)))
+}
+
+/// Check if PathBuf's extension exist and equal "ply"
+fn is_ply_file(path_buf: &Path) -> bool {
+    if path_buf
+        .extension()
+        .filter(|e| e.to_str() == Some("ply"))
+        .is_none()
+    {
+        return false;
+    }
+
+    true
 }

@@ -21,3 +21,6 @@ pub mod interpolate;
 
 /// Module handling individual Point
 pub mod point;
+
+/// Module handling PLY
+pub mod ply;
