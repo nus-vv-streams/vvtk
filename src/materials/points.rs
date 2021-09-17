@@ -34,8 +34,6 @@ use crate::interpolate::inf_norm;
 #[derive(Clone)]
 /// Class of Points containing all necessary metadata
 pub struct Points {
-    /// Name of the points
-    pub(crate) title: Option<String>,
     /// Data is a vector of type Point, storing all coordinate and colour data
     pub data: Vec<Point>,
     /// Stores the coordinate delta between the next and prev frames
@@ -56,7 +54,6 @@ impl Points {
     /// Creates new instance of Points
     pub fn new() -> Self {
         Points {
-            title: None,
             data: Vec::new(),
             delta_pos_vector: Vec::new(),
             delta_colours: Vec::new(),
@@ -70,9 +67,8 @@ impl Points {
     }
 
     /// Creates new instance of Points given a vector of Point
-    pub fn of(title: Option<String>, data: Vec<Point>) -> Self {
+    pub fn of(data: Vec<Point>) -> Self {
         Points {
-            title,
             data,
             delta_pos_vector: Vec::new(),
             delta_colours: Vec::new(),
@@ -134,49 +130,26 @@ impl Points {
 
     /// Wrapper function to render current Points with default eye and at positions
     pub fn render(&self) {
-        self.do_render(None, None, None, None, None)
+        self.do_render(None, None, None, None, None, None)
     }
 
     /// Render the frame with configable eye, at and background color
     pub fn do_render(
         &self,
+        title: Option<String>,
         eye: Option<Point3<f32>>,
         at: Option<Point3<f32>>,
         background_color: Option<Point3<f32>>,
         width: Option<u32>,
         height: Option<u32>,
     ) {
-        let mut renderer = Renderer::new(
-            self.title.as_ref().map(|title| title.as_str()),
-            width,
-            height,
-        );
+        let mut renderer = Renderer::new(title.as_deref(), width, height);
 
         renderer.config_camera(eye, at);
 
         renderer.config_background_color(background_color);
 
         renderer.render_image(self);
-    }
-
-    /// Save the ply file to png
-    pub fn save_to_png(
-        &self,
-        eye: Option<Point3<f32>>,
-        at: Option<Point3<f32>>,
-        x: Option<u32>,
-        y: Option<u32>,
-        width: Option<u32>,
-        height: Option<u32>,
-        path: Option<&str>,
-    ) -> Result<()> {
-        let mut renderer = Renderer::new(None, None, None);
-
-        renderer.config_camera(eye, at);
-
-        renderer.save_to_png(self, x, y, width, height, path)?;
-
-        Ok(())
     }
 
     #[cfg(feature = "dim_3")]

@@ -225,8 +225,12 @@ fn interpolate(
     output_dir: Option<&str>,
     exists_output_dir: bool,
 ) -> Result<()> {
-    let prev = reader::read(prev_frame_dir).chain_err(|| "Problem with the input of prev frame")?;
-    let next = reader::read(next_frame_dir).chain_err(|| "Problem with the input of next frame")?;
+    let prev = reader::read(prev_frame_dir)
+        .chain_err(|| "Problem with the input of prev frame")?
+        .get_points();
+    let next = reader::read(next_frame_dir)
+        .chain_err(|| "Problem with the input of next frame")?
+        .get_points();
 
     let mut end_result = points::Points::new();
     let mut end_reference_unmapped = points::Points::new();

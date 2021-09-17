@@ -39,8 +39,9 @@ fn run() -> Result<()> {
     let form = matches.value_of("form");
     let output = matches.value_of("output");
 
-    reader::read(input)
-        .chain_err(|| "Problem with the input")?
+    let ply = reader::read(input).chain_err(|| "Problem with the input")?;
+
+    ply.get_points()
         .write(form, output)
         .chain_err(|| "Problem with the output")?;
 

@@ -2,7 +2,7 @@
 extern crate error_chain;
 extern crate iswr;
 use clap::{App, Arg};
-use iswr::{errors::*, ply_dir::PlyDir, reader::read};
+use iswr::{errors::*, ply_dir::PlyDir, reader::read, renderer::Renderer};
 use std::path::Path;
 
 quick_main!(run);
@@ -110,23 +110,42 @@ fn run() -> Result<()> {
         None => None,
     };
 
+    // let mut renderer = Renderer::new(None, width, height);
+    // renderer.config_camera(eye, at);
+    // renderer.config_background_color(background_color);
+
+    let config_rederer_with_title = |r: &mut Renderer| {
+        r.config_camera(eye, at);
+        r.config_background_color(background_color);
+    };
+
     match input {
         Some(path) => {
             let new_path = Path::new(&path);
             if new_path.is_file() {
-                read(input)
-                    .chain_err(|| format!("{}{}", "Problem with the input: ", input.unwrap()))?
-                    .do_render(eye, at, background_color, width, height);
+                let ply = read(input)
+                    .chain_err(|| format!("{}{}", "Problem with the input: ", input.unwrap()))?;
+
+                let mut renderer = Renderer::new(ply.get_title(), width, height);
+                config_rederer_with_title(&mut renderer);
+                renderer.render_image(&ply.get_points());
             } else if new_path.is_dir() {
-                PlyDir::new(path).play_with_camera(eye, at, background_color, width, height)?;
+                let ply_dir = PlyDir::new(path);
+
+                let mut renderer = Renderer::new(ply_dir.get_title(), width, height);
+                config_rederer_with_title(&mut renderer);
+                renderer
+                    .render_video(ply_dir)
+                    .chain_err(|| "Something went wrong")?;
             } else {
                 eprintln!("No such file or dir {}", path)
             }
         }
         None => {
-            read(input)
-                .chain_err(|| "Problem with the input")?
-                .do_render(eye, at, background_color, width, height);
+            let ply = read(input).chain_err(|| "Problem with the input")?;
+            let mut renderer = Renderer::new(ply.get_title(), width, height);
+            config_rederer_with_title(&mut renderer);
+            renderer.render_image(ply.get_points_as_ref());
         }
     };
 
