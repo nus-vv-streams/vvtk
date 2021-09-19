@@ -2,7 +2,7 @@
 extern crate error_chain;
 extern crate iswr;
 use clap::{App, Arg};
-use iswr::{errors::*, reader};
+use iswr::{errors::*, reader, writer};
 
 quick_main!(run);
 
@@ -41,9 +41,11 @@ fn run() -> Result<()> {
 
     let ply = reader::read(input).chain_err(|| "Problem with the input")?;
 
-    ply.get_points()
-        .write(form, output)
-        .chain_err(|| "Problem with the output")?;
+    // ply.get_points()
+    //     .write(form, output)
+    //     .chain_err(|| "Problem with the output")?;
+
+    writer::write(ply.get_points(), form, output).chain_err(|| "Problem with the output")?;
 
     Ok(())
 }

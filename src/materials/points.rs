@@ -15,19 +15,10 @@ use crate::color::{Color, PointColor};
 use crate::coordinate::Coordinate;
 use crate::filter::FilterProducer;
 use crate::interpolate_controller::kdtree_dim;
-use crate::tool::renderer::Renderer;
+
 use crate::transform::TransformProducer;
 
-use ply_rs::ply::{
-    Addable, DefaultElement, ElementDef, Encoding, Ply, Property, PropertyDef, PropertyType,
-    ScalarType,
-};
-
-use ply_rs::writer::Writer;
 use std::f32::consts::PI;
-use std::fs::File;
-use std::io::{self, Write};
-use std::path::Path;
 
 use crate::interpolate::inf_norm;
 
@@ -126,30 +117,6 @@ impl Points {
         }
 
         (Coordinate::new(coords), Color::new(colors))
-    }
-
-    /// Wrapper function to render current Points with default eye and at positions
-    pub fn render(&self) {
-        self.do_render(None, None, None, None, None, None)
-    }
-
-    /// Render the frame with specific eye, at and background color
-    pub fn do_render(
-        &self,
-        title: Option<String>,
-        eye: Option<Point3<f32>>,
-        at: Option<Point3<f32>>,
-        background_color: Option<Point3<f32>>,
-        width: Option<u32>,
-        height: Option<u32>,
-    ) {
-        let mut renderer = Renderer::new(title.as_deref(), width, height);
-
-        renderer.config_camera(eye, at);
-
-        renderer.config_background_color(background_color);
-
-        renderer.render_image(self);
     }
 
     #[cfg(feature = "dim_3")]
@@ -353,74 +320,6 @@ impl Points {
         Ok(res)
     }
 
-    /// Write a ply file to hard drive
-    pub fn write(self, form: Option<&str>, output: Option<&str>) -> Result<()> {
-        let encoding = match form {
-            Some("ascii") => Some(Encoding::Ascii),
-            Some("binary") => Some(Encoding::BinaryLittleEndian),
-            Some(&_) => None,
-            None => Some(Encoding::Ascii),
-        };
-
-        let mut buf = Vec::<u8>::new();
-
-        let mut ply = {
-            let mut ply = Ply::<DefaultElement>::new();
-            ply.header.encoding = encoding.chain_err(|| "Invalid ply encoding form")?;
-            ply.header.comments.push("A beautiful comment!".to_string());
-
-            let mut point_element = ElementDef::new("vertex".to_string());
-            let p = PropertyDef::new("x".to_string(), PropertyType::Scalar(ScalarType::Float));
-            point_element.properties.add(p);
-            let p = PropertyDef::new("y".to_string(), PropertyType::Scalar(ScalarType::Float));
-            point_element.properties.add(p);
-            let p = PropertyDef::new("z".to_string(), PropertyType::Scalar(ScalarType::Float));
-            point_element.properties.add(p);
-            let p = PropertyDef::new("red".to_string(), PropertyType::Scalar(ScalarType::UChar));
-            point_element.properties.add(p);
-            let p = PropertyDef::new("green".to_string(), PropertyType::Scalar(ScalarType::UChar));
-            point_element.properties.add(p);
-            let p = PropertyDef::new("blue".to_string(), PropertyType::Scalar(ScalarType::UChar));
-            point_element.properties.add(p);
-            ply.header.elements.add(point_element);
-
-            let mut points = Vec::new();
-
-            for entry in self.get_data() {
-                let coord = entry.get_coord();
-                let color = entry.get_color();
-
-                let mut point = DefaultElement::new();
-                point.insert("x".to_string(), Property::Float(coord.x));
-                point.insert("y".to_string(), Property::Float(coord.y));
-                point.insert("z".to_string(), Property::Float(coord.z));
-                point.insert("red".to_string(), Property::UChar(color.red));
-                point.insert("green".to_string(), Property::UChar(color.green));
-                point.insert("blue".to_string(), Property::UChar(color.blue));
-                points.push(point);
-            }
-
-            ply.payload.insert("vertex".to_string(), points);
-            ply.make_consistent().unwrap();
-            ply
-        };
-
-        let w = Writer::new();
-        w.write_ply(&mut buf, &mut ply).unwrap();
-
-        match output {
-            Some(path) => {
-                File::create(Path::new(path))
-                    .chain_err(|| "Cannot create path")?
-                    .write_all(&buf)?;
-            }
-            None => {
-                io::stdout().write_all(&buf)?;
-            }
-        };
-
-        Ok(())
-    }
 }
 
 impl IntoIterator for Points {
