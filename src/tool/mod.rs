@@ -8,3 +8,9 @@ pub mod renderer;
 pub mod writer;
 
 pub mod fat;
+
+/// Module for setup and running of interpolation process
+pub mod interpolate_controller;
+
+/// Module handling interpolation
+pub mod interpolate;

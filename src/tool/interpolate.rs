@@ -32,7 +32,7 @@ pub fn inf_norm(a: &[f32], b: &[f32]) -> f32 {
     max
 }
 
-/// Point to point interolation method
+/// Point to point interpolation method
 pub fn closest_with_ratio_average_points_recovery(
     mut prev_points: Points,
     next_points: Points,
