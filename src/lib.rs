@@ -28,11 +28,9 @@ mod materials;
 mod methods;
 mod tool;
 
-pub use materials::{
-    color, coordinate, params, ply, ply_dir, point, points,
-};
+pub use materials::{color, coordinate, params, ply, ply_dir, point, points};
 pub use methods::{filter, transform};
 pub use ply_dir::PlyDir;
-pub use tool::{fat, reader, renderer, writer, interpolate, interpolate_controller};
+pub use tool::{fat, interpolate, interpolate_controller, reader, renderer, writer};
 
 use std::time::Instant;
