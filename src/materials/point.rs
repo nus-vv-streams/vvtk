@@ -105,7 +105,7 @@ impl Point {
             .collect()
     }
 
-    /// Returns k neighbouring points
+    /// Returns k neighboring points
     pub fn get_nearest_neighbours(
         &self,
         kd_tree: &Arc<kiddo::KdTree<f32, usize, { kdtree_dim() }>>,

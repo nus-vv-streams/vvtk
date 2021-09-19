@@ -40,6 +40,9 @@ pub static DEFAULT_CORNER: u32 = 0u32;
 /// The default name of the canvas
 pub static DEFAULT_TITLE: &str = "In Summer We Render";
 
+/// The default output of method save_to_png
+pub static DEFAULT_PNG_OUTPUT: &str = "output.png";
+
 pub static DEFAULT_EPSILON: f32 = 10.0f32;
 // let mut current_eye_try: Point3<f32> = DEFAULT_EYE;
 
@@ -223,7 +226,7 @@ impl Renderer {
         let img_path = output
             .map(|p| Path::new(p))
             .or(path_in_ply)
-            .chain_err(|| "No output found")?;
+            .unwrap_or(Path::new(DEFAULT_PNG_OUTPUT));
 
         img.save(img_path)
             .map(|_| println!("Image saved to {:?}", img_path))

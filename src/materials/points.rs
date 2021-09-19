@@ -76,7 +76,7 @@ impl Points {
         }
     }
 
-    /// Returns lengtb of stored data
+    /// Returns length of stored data
     pub fn len(&self) -> usize {
         self.data.len()
     }
@@ -116,7 +116,7 @@ impl Points {
         )
     }
 
-    /// Returns new instances of Coordiante and Colour portions of stored data as a tuple
+    /// Returns new instances of Coordinate and Colour portions of stored data as a tuple
     pub fn get_coords_cols(self) -> (Coordinate, Color) {
         let mut coords = Vec::new();
         let mut colors = Vec::new();
@@ -133,7 +133,7 @@ impl Points {
         self.do_render(None, None, None, None, None, None)
     }
 
-    /// Render the frame with configable eye, at and background color
+    /// Render the frame with specific eye, at and background color
     pub fn do_render(
         &self,
         title: Option<String>,
@@ -237,7 +237,7 @@ impl Points {
         }
     }
 
-    /// Highlihgts points in close range to cracks as Red in the interpolated frame
+    /// Highlights points in close range to cracks as Red in the interpolated frame
     pub fn mark_points_near_cracks(
         &mut self,
         point_data: &Points,
