@@ -10,8 +10,8 @@ use ply_rs::ply::{
 use ply_rs::writer::Writer;
 
 use std::fs::File;
-use std::path::Path;
 use std::io::{self, Write};
+use std::path::Path;
 
 /// Write a ply file to hard drive
 pub fn write(written_points: Points, form: Option<&str>, output: Option<&str>) -> Result<()> {

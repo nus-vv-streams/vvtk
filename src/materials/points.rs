@@ -1,5 +1,3 @@
-use crate::errors::*;
-
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
@@ -13,10 +11,7 @@ use nalgebra::Point3;
 
 use crate::color::{Color, PointColor};
 use crate::coordinate::Coordinate;
-use crate::filter::FilterProducer;
 use crate::interpolate_controller::kdtree_dim;
-
-use crate::transform::TransformProducer;
 
 use std::f32::consts::PI;
 
@@ -296,30 +291,6 @@ impl Points {
     pub fn get_delta_colours(&self) -> Vec<Point3<f32>> {
         self.delta_colours.clone()
     }
-
-    /// Filter and transform points
-    pub fn fat(
-        &self,
-        filter_producer: Option<&FilterProducer>,
-        transform_producer: Option<&TransformProducer>,
-        transform_producer_remain: Option<&TransformProducer>,
-    ) -> Result<Points> {
-        let mut res = Points::new();
-        let filter = filter_producer.chain_err(|| "Filter method not found")?(self);
-        let change = transform_producer.chain_err(|| "Transform method not found")?(self);
-        let change_remain =
-            transform_producer_remain.chain_err(|| "Transform method for remain not found")?(self);
-
-        for point in &self.data {
-            if filter(point) {
-                res.add(change(point))
-            } else {
-                res.add(change_remain(point))
-            }
-        }
-        Ok(res)
-    }
-
 }
 
 impl IntoIterator for Points {

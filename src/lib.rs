@@ -33,6 +33,6 @@ pub use materials::{
 };
 pub use methods::{filter, transform};
 pub use ply_dir::PlyDir;
-pub use tool::{reader, renderer, writer};
+pub use tool::{fat, reader, renderer, writer};
 
 use std::time::Instant;

@@ -6,3 +6,5 @@ pub mod renderer;
 
 /// Writer writes data to hard drive
 pub mod writer;
+
+pub mod fat;
