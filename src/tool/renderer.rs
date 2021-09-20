@@ -126,8 +126,8 @@ impl Renderer {
             );
         }
         // self.update_and_print_info();
-        let mut ui = self.window.conrod_ui_mut().set_widgets();
-        gui(&mut ui, ids, app)
+        // let mut ui = self.window.conrod_ui_mut().set_widgets();
+        gui(ids, app, self);
     }
 
     /// Open the window and render the frame many times
@@ -248,6 +248,10 @@ impl Renderer {
         Ok(())
     }
 
+    pub fn get_eye_at_info(&self) -> (Point3<f32>, Point3<f32>) {
+        (self.first_person.eye(), self.first_person.at())
+    }
+
     /// Print out curr
     pub fn update_and_print_info(&mut self) {
         let runtime_eye = self.first_person.eye();
@@ -349,16 +353,21 @@ impl DemoApp {
     /// Simple constructor for the `DemoApp`.
     pub fn new() -> Self {
         DemoApp {
-            information_button_color: conrod::color::WHITE,
-            canvas_h: 300.0,
-            text_edit: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\n\nUt enim ad minim veniam...".to_string(),
+            information_button_color: conrod::color::BLACK,
+            canvas_h: 70.0,
+            text_edit: "".to_string(),
         }
     }
 }
 
 /// Instantiate a GUI demonstrating every widget available in conrod.
-pub fn gui(ui: &mut conrod::UiCell, ids: &Ids, app: &mut DemoApp) {
+pub fn gui(ids: &Ids, app: &mut DemoApp, renderer: &mut Renderer) {
     use conrod::{widget, Colorable, Labelable, Sizeable, Widget};
+
+    let (eye_pos, at_pos) = renderer.get_eye_at_info();
+    app.text_edit = format!("The eye's position is {}\nlooking at {}", eye_pos, at_pos);
+
+    let ui = &mut renderer.window.conrod_ui_mut().set_widgets();
 
     const MARGIN: conrod::Scalar = 10.0;
     const INFO_SIZE: conrod::Scalar = 40.0;
@@ -395,7 +404,7 @@ pub fn gui(ui: &mut conrod::UiCell, ids: &Ids, app: &mut DemoApp) {
         app.canvas_h = if is_white {
             300.0
         } else {
-            100.0
+            70.0
         };
     }
 
