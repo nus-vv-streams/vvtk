@@ -29,7 +29,7 @@ path = "src/lib.rs"
 
 [dependencies]
 ply-rs = { git = "https://github.com/hungkhoaitay/ply-rs", version = "0.1.3" }
-kiss3d = { git = "https://github.com/nus-mmsys/kiss3d", version = "0.31.0" } #"0.31.0"
+kiss3d = { git = "https://github.com/nus-mmsys/kiss3d", version = "0.31.0", features = [ "conrod" ] } #"0.31.0"
 nalgebra = "0.26.2"
 kiddo =  {git = "https://github.com/giterator/kiddo"}  #"0.1.4" 
 typenum = "1.13.0"

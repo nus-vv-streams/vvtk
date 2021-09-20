@@ -19,6 +19,11 @@ use crate::points::Points;
 use std::path::Path;
 use std::path::PathBuf;
 
+use kiss3d::conrod;
+use kiss3d::conrod::color::Color;
+use kiss3d::conrod::position::Positionable;
+use kiss3d::conrod::widget_ids;
+
 const DEFAULT_EYE: Point3<f32> = Point3::new(0.0f32, 500.0, 1969.0);
 const DEFAULT_AT: Point3<f32> = Point3::new(300.0f32, 500.0, 200.0);
 
@@ -74,14 +79,14 @@ impl Renderer {
         }
     }
 
-    /// Set the size of points
-    pub fn set_point_size(&mut self, point_size: f32) {
-        self.window.set_point_size(point_size)
-    }
-
     /// Render with default camera
     pub fn render(&mut self) -> bool {
         self.window.render_with_camera(&mut self.first_person)
+    }
+
+    /// Set the size of points
+    pub fn set_point_size(&mut self, point_size: f32) {
+        self.window.set_point_size(point_size)
     }
 
     /// Config the camera
@@ -112,7 +117,7 @@ impl Renderer {
     }
 
     /// Open the window and render the frame
-    pub fn render_frame(&mut self, data: &Points) {
+    pub fn render_frame(&mut self, data: &Points, ids: &Ids, app: &mut DemoApp) {
         for point in &data.data {
             self.window.draw_point_with_size(
                 &point.get_coord().get_point3(),
@@ -120,13 +125,18 @@ impl Renderer {
                 point.point_size,
             );
         }
-        self.update_and_print_info();
+        // self.update_and_print_info();
+        let mut ui = self.window.conrod_ui_mut().set_widgets();
+        gui(&mut ui, ids, app)
     }
 
     /// Open the window and render the frame many times
     pub fn render_image(&mut self, data: &Points) {
+        self.window.conrod_ui_mut().theme = theme();
+        let ids = Ids::new(self.window.conrod_ui_mut().widget_id_generator());
+        let mut app = DemoApp::new();
         while self.render() {
-            self.render_frame(data);
+            self.render_frame(data, &ids, &mut app);
         }
     }
 
@@ -147,12 +157,15 @@ impl Renderer {
         });
 
         let mut frame;
+        self.window.conrod_ui_mut().theme = theme();
+        let ids = Ids::new(self.window.conrod_ui_mut().widget_id_generator());
+        let mut app = DemoApp::new();
 
         while self.render() {
             frame = rx.recv().unwrap();
             match frame {
                 Ok(f) => {
-                    self.render_frame(f.get_points_as_ref());
+                    self.render_frame(f.get_points_as_ref(), &ids, &mut app);
                 }
                 Err(e) => {
                     eprintln!("Problem with reading file:\n    {}", e);
@@ -281,4 +294,118 @@ fn is_relative_eq(point1: &Point3<f32>, point2: &Point3<f32>) -> bool {
     relative_eq!(point1.x, point2.x, epsilon = DEFAULT_EPSILON)
         && relative_eq!(point1.y, point2.y, epsilon = DEFAULT_EPSILON)
         && relative_eq!(point1.z, point2.z, epsilon = DEFAULT_EPSILON)
+}
+
+/// =======================================================================================
+
+/*
+ *
+ * This is he example taken from conrods' repository.
+ *
+ */
+/// A set of reasonable stylistic defaults that works for the `gui` below.
+pub fn theme() -> conrod::Theme {
+    use conrod::position::{Align, Direction, Padding, Position, Relative};
+    conrod::Theme {
+        name: "Demo Theme".to_string(),
+        padding: Padding::none(),
+        x_position: Position::Relative(Relative::Align(Align::Start), None),
+        y_position: Position::Relative(Relative::Direction(Direction::Backwards, 20.0), None),
+        background_color: conrod::color::DARK_CHARCOAL,
+        shape_color: conrod::color::LIGHT_CHARCOAL,
+        border_color: conrod::color::BLACK,
+        border_width: 0.0,
+        label_color: conrod::color::WHITE,
+        font_id: None,
+        font_size_large: 26,
+        font_size_medium: 18,
+        font_size_small: 12,
+        widget_styling: conrod::theme::StyleMap::default(),
+        mouse_drag_threshold: 0.0,
+        double_click_threshold: std::time::Duration::from_millis(500),
+    }
+}
+
+// Generate a unique `WidgetId` for each widget.
+widget_ids! {
+    pub struct Ids {
+        canvas,
+        toggle,
+        text_edit,
+    }
+}
+
+pub const WIN_W: u32 = 600;
+pub const WIN_H: u32 = 420;
+
+/// A demonstration of some application state we want to control with a conrod GUI.
+pub struct DemoApp {
+    information_button_color: conrod::Color,
+    canvas_h: conrod::Scalar,
+    text_edit: String,
+}
+
+impl DemoApp {
+    /// Simple constructor for the `DemoApp`.
+    pub fn new() -> Self {
+        DemoApp {
+            information_button_color: conrod::color::WHITE,
+            canvas_h: 300.0,
+            text_edit: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\n\nUt enim ad minim veniam...".to_string(),
+        }
+    }
+}
+
+/// Instantiate a GUI demonstrating every widget available in conrod.
+pub fn gui(ui: &mut conrod::UiCell, ids: &Ids, app: &mut DemoApp) {
+    use conrod::{widget, Colorable, Labelable, Sizeable, Widget};
+
+    const MARGIN: conrod::Scalar = 10.0;
+    const INFO_SIZE: conrod::Scalar = 40.0;
+    const TITLE_SIZE: conrod::FontSize = 42;
+
+    widget::Canvas::new()
+        .pad(MARGIN)
+        .align_right()
+        .align_top()
+        .w(300.0)
+        .h(app.canvas_h)
+        .scroll_kids_vertically()
+        .set(ids.canvas, ui);
+
+    let is_white = app.information_button_color == conrod::color::WHITE;
+    let label = if is_white { "info" } else { "info" };
+    for is_white in widget::Toggle::new(is_white)
+        .label(label)
+        .label_color(if is_white {
+            conrod::color::WHITE
+        } else {
+            conrod::color::LIGHT_CHARCOAL
+        })
+        .top_right_with_margin_on(ids.canvas, 0.0)
+        .w_h(INFO_SIZE, INFO_SIZE)
+        .set(ids.toggle, ui)
+    {
+        app.information_button_color = if is_white {
+            conrod::color::WHITE
+        } else {
+            conrod::color::BLACK
+        };
+
+        app.canvas_h = if is_white {
+            300.0
+        } else {
+            100.0
+        };
+    }
+
+    for string in widget::TextEdit::new(&app.text_edit)
+        .down_from(ids.toggle, 60.0)
+        .align_middle_x_of(ids.canvas)
+        .padded_w_of(ids.canvas, MARGIN)
+        .h(100.0)
+        .set(ids.text_edit, ui)
+    {
+        app.text_edit = string;
+    }
 }
