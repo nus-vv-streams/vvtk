@@ -13,12 +13,6 @@ pub mod ply_dir;
 /// Module handling points
 pub mod points;
 
-/// Module for setup and running of interpolation process
-pub mod interpolate_controller;
-
-/// Module handling interpolation
-pub mod interpolate;
-
 /// Module handling individual Point
 pub mod point;
 

@@ -41,41 +41,6 @@ impl PlyDir {
         self.paths
     }
 
-    /// Open the window and play 3D video with specific camera
-    pub fn play_with_camera(self, renderer: &mut renderer::Renderer) -> Result<(), std::io::Error> {
-        let len = self.count();
-        let paths = Arc::new(self.paths);
-
-        let (tx, rx) = channel();
-        let (paths_clone, tx) = (paths, tx);
-
-        std::thread::spawn(move || {
-            let mut index: usize = 0;
-            loop {
-                index += 1;
-                let frame = reader::read(paths_clone[index % len].to_str());
-                tx.send(frame).unwrap();
-            }
-        });
-
-        let mut frame;
-
-        while renderer.render() {
-            frame = rx.recv().unwrap();
-            match frame {
-                Ok(f) => {
-                    renderer.render_frame(f.get_points_as_ref());
-                }
-                Err(e) => {
-                    eprintln!("Problem with reading file:\n    {}", e);
-                    continue;
-                }
-            }
-        }
-
-        Ok(())
-    }
-
     // pub fn write_to_ble(self, new_dir: &str) {
     //     std::fs::create_dir(new_dir).unwrap();
 

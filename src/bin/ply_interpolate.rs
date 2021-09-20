@@ -4,7 +4,7 @@ extern crate iswr;
 // use std::env;
 extern crate clap;
 use clap::{App, Arg};
-use iswr::{errors::*, interpolate::*, params::Params, points, reader};
+use iswr::{errors::*, interpolate::*, params::Params, points, reader, writer};
 // use std::io::{self, Write};
 
 // use std::path::{ PathBuf };
@@ -286,13 +286,17 @@ fn interpolate(
     }
 
     if !exists_output_dir {
-        output
-            .write(None, None)
-            .chain_err(|| "Problem with the output")?;
+        // output
+        //     .write(None, None)
+        //     .chain_err(|| "Problem with the output")?;
+
+        writer::write(output, None, None).chain_err(|| "Problem with the output")?;
     } else {
-        output
-            .write(None, output_dir)
-            .chain_err(|| "Problem with the output")?;
+        // output
+        //     .write(None, output_dir)
+        //     .chain_err(|| "Problem with the output")?;
+
+        writer::write(output, None, output_dir).chain_err(|| "Problem with the output")?;
     }
 
     Ok(())

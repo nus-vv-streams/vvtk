@@ -2,7 +2,7 @@
 extern crate error_chain;
 extern crate iswr;
 use clap::{App, Arg};
-use iswr::{errors::*, filter, reader, transform};
+use iswr::{errors::*, fat, filter, reader, transform, writer};
 
 quick_main!(run);
 
@@ -73,14 +73,15 @@ fn run() -> Result<()> {
     let filter_methods = filter::get_collection();
     let transform_methods = transform::get_collection();
 
-    data.fat(
+    let output_points = fat::fat(
+        &data,
         filter_methods.get(filter),
         transform_methods.get(transform),
         transform_methods.get(remain),
     )
-    .chain_err(|| "Problem with the Filter & Transform methods")?
-    .write(form, output)
-    .chain_err(|| "Problem with the output")?;
+    .chain_err(|| "Problem with the Filter & Transform methods")?;
+
+    writer::write(output_points, form, output).chain_err(|| "Problem with the output")?;
 
     Ok(())
 }
