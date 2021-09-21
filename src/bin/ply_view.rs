@@ -2,7 +2,7 @@
 extern crate error_chain;
 extern crate iswr;
 use clap::{App, Arg};
-use iswr::{errors::*, ply_dir::PlyDir, reader::read, renderer::Renderer};
+use iswr::{errors::*, PlyDir, reader::read, renderer::Renderer};
 use std::path::Path;
 
 quick_main!(run);

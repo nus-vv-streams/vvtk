@@ -24,15 +24,20 @@ pub use errors::*;
 #[macro_use]
 extern crate approx;
 
-mod materials;
-mod methods;
-mod tool;
+mod io;
+/// Module handling PLY
+mod ply;
+/// Module handling directory of ply files
+mod ply_dir;
+mod pointcloud;
+mod processing;
+mod render;
 
-pub use materials::{color, coordinate, params, ply, ply_dir, point, points};
-pub use methods::{filter, transform};
+pub use filter_and_transform::{fat, filter, transform};
+pub use io::{reader, writer};
 pub use ply_dir::PlyDir;
-pub use tool::{
-    fat, gui, gui_states, interpolate, interpolate_controller, reader, renderer, writer,
-};
+pub use pointcloud::{color, coordinate, params, point, points};
+pub use processing::{filter_and_transform, interpolate, interpolate_controller};
+pub use render::{gui, gui_states, renderer};
 
 use std::time::Instant;
