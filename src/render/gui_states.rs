@@ -30,6 +30,14 @@ impl State {
     pub fn get_canvas_w_h(&self) -> (conrod::Scalar, conrod::Scalar) {
         self.canvas_w_h
     }
+
+    pub fn switch_state(&mut self) {
+        if self.is_opening() {
+            *self = close_state()
+        } else {
+            *self = open_state()
+        }
+    }
 }
 
 pub fn open_state() -> State {

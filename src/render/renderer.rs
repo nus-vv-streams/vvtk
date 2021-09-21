@@ -19,6 +19,9 @@ use crate::points::Points;
 use std::path::Path;
 use std::path::PathBuf;
 
+use kiss3d::conrod::event::{Event, Input};
+use kiss3d::conrod::input::{Button, Key};
+
 use crate::gui;
 
 const DEFAULT_EYE: Point3<f32> = Point3::new(0.0f32, 500.0, 1969.0);
@@ -153,14 +156,32 @@ impl Renderer {
             }
         });
 
-        let mut frame;
+        let mut frame = Ok(Ply::nothing());
         self.window.conrod_ui_mut().theme = gui::theme();
         let ids = gui::Ids::new(self.window.conrod_ui_mut().widget_id_generator());
         let mut app = gui::InfoBar::new_closed_state();
 
+        let mut is_stop = false;
+
         while self.render() {
-            frame = rx.recv().unwrap();
-            match frame {
+            for event in self.window.conrod_ui().global_input().events() {
+                match *event {
+                    Event::Raw(Input::Press(Button::Keyboard(Key::Space))) => {
+                        if is_stop {
+                            is_stop = false
+                        } else {
+                            is_stop = true
+                        }
+                    },
+                    _ => {}
+                }
+            }
+
+            if !is_stop {
+                frame = rx.recv().unwrap();
+            }
+            
+            match &frame {
                 Ok(f) => {
                     self.render_frame(f.get_points_as_ref(), &ids, &mut app);
                 }

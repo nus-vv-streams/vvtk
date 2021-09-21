@@ -1,4 +1,6 @@
 use kiss3d::conrod;
+use kiss3d::conrod::event::{Event, Input};
+use kiss3d::conrod::input::{Button, Key};
 use kiss3d::conrod::position::Positionable;
 use kiss3d::conrod::widget_ids;
 
@@ -49,6 +51,8 @@ pub fn gui(ids: &Ids, app: &mut InfoBar, renderer: &mut Renderer) {
 
     let ui = &mut renderer.window.conrod_ui_mut().set_widgets();
 
+    // ui.handle_event(event: event::Input)
+
     let (canvas_w, canvas_h) = app.state.get_canvas_w_h();
 
     widget::Canvas::new()
@@ -59,16 +63,24 @@ pub fn gui(ids: &Ids, app: &mut InfoBar, renderer: &mut Renderer) {
         .scroll_kids_vertically()
         .set(ids.canvas, ui);
 
+    for event in ui.global_input().events() {
+        match *event {
+            Event::Raw(Input::Press(Button::Keyboard(Key::I))) => app.state.switch_state(),
+            _ => {}
+        }
+    }
+
     let is_open = app.state.is_opening();
 
-    for is_opening in widget::Toggle::new(is_open)
+    let info_button = widget::Toggle::new(is_open)
         .label(INFO_BUTTON_LABEL)
         .medium_font(ui)
         .label_color(*app.state.get_info_button_color())
         .top_right_with_margin_on(ids.canvas, 0.0)
         .w_h(INFO_BUTTON_SIZE, INFO_BUTTON_SIZE)
-        .set(ids.toggle, ui)
-    {
+        .set(ids.toggle, ui);
+
+    for is_opening in info_button {
         app.state = if is_opening {
             open_state()
         } else {
