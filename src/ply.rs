@@ -25,4 +25,8 @@ impl Ply {
             .map(|title| title.file_name().unwrap().to_str())
             .flatten()
     }
+
+    pub fn nothing() -> Self {
+        Ply { title: None, points: Points::default()}
+    }
 }
