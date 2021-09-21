@@ -7,14 +7,8 @@ pub mod coordinate;
 /// Module handling too many arguments error
 pub mod params;
 
-/// Module handling directory of ply files
-pub mod ply_dir;
-
 /// Module handling points
 pub mod points;
 
 /// Module handling individual Point
 pub mod point;
-
-/// Module handling PLY
-pub mod ply;
