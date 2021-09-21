@@ -31,6 +31,8 @@ mod tool;
 pub use materials::{color, coordinate, params, ply, ply_dir, point, points};
 pub use methods::{filter, transform};
 pub use ply_dir::PlyDir;
-pub use tool::{fat, interpolate, interpolate_controller, reader, renderer, writer};
+pub use tool::{
+    fat, gui, gui_states, interpolate, interpolate_controller, reader, renderer, writer,
+};
 
 use std::time::Instant;
