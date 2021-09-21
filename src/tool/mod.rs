@@ -14,3 +14,9 @@ pub mod interpolate_controller;
 
 /// Module handling interpolation
 pub mod interpolate;
+
+/// Module handling GUI for renderer
+pub mod gui;
+
+/// Module handling GUI's states
+pub mod gui_states;

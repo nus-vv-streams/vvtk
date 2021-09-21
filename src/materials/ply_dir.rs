@@ -1,8 +1,4 @@
 use std::path::Path;
-use std::sync::mpsc::channel;
-use std::sync::Arc;
-
-use crate::tool::{reader, renderer};
 use std::path::PathBuf;
 
 /// Structure representing a directory containing ply files
