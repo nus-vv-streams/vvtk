@@ -241,6 +241,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "clipboard"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25a904646c0340239dcf7c51677b33928bf24fdf424b79a57909c0109075b2e7"
+dependencies = [
+ "clipboard-win",
+ "objc",
+ "objc-foundation",
+ "objc_id",
+ "x11-clipboard 0.3.3",
+]
+
+[[package]]
 name = "clipboard-win"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -341,7 +354,7 @@ dependencies = [
  "objc_id",
  "smithay-clipboard",
  "wayland-client 0.23.6",
- "x11-clipboard",
+ "x11-clipboard 0.5.2",
 ]
 
 [[package]]
@@ -849,6 +862,7 @@ version = "0.1.0"
 dependencies = [
  "approx 0.5.0",
  "clap",
+ "clipboard",
  "error-chain",
  "image",
  "kiddo",
@@ -2531,11 +2545,20 @@ dependencies = [
 
 [[package]]
 name = "x11-clipboard"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "89bd49c06c9eb5d98e6ba6536cf64ac9f7ee3a009b2f53996d405b3944f6bcea"
+dependencies = [
+ "xcb 0.8.2",
+]
+
+[[package]]
+name = "x11-clipboard"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b397ace6e980510de59a4fe3d4c758dffab231d6d747ce9fa1aba6b6035d5f32"
 dependencies = [
- "xcb",
+ "xcb 0.9.0",
 ]
 
 [[package]]
@@ -2548,6 +2571,16 @@ dependencies = [
  "libc",
  "maybe-uninit",
  "pkg-config",
+]
+
+[[package]]
+name = "xcb"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e917a3f24142e9ff8be2414e36c649d47d6cc2ba81f16201cdef96e533e02de"
+dependencies = [
+ "libc",
+ "log",
 ]
 
 [[package]]
