@@ -114,7 +114,7 @@ fn run() -> Result<()> {
     // renderer.config_camera(eye, at);
     // renderer.config_background_color(background_color);
 
-    let config_rederer_with_title = |r: &mut Renderer| {
+    let config_renderer_with_title = |r: &mut Renderer| {
         r.config_camera(eye, at);
         r.config_background_color(background_color);
     };
@@ -127,13 +127,13 @@ fn run() -> Result<()> {
                     .chain_err(|| format!("{}{}", "Problem with the input: ", input.unwrap()))?;
 
                 let mut renderer = Renderer::new(ply.get_title(), width, height);
-                config_rederer_with_title(&mut renderer);
+                config_renderer_with_title(&mut renderer);
                 renderer.render_image(&ply.get_points());
             } else if new_path.is_dir() {
                 let ply_dir = PlyDir::new(path);
 
                 let mut renderer = Renderer::new(ply_dir.get_title(), width, height);
-                config_rederer_with_title(&mut renderer);
+                config_renderer_with_title(&mut renderer);
                 renderer
                     .render_video(ply_dir)
                     .chain_err(|| "Something went wrong")?;
@@ -144,7 +144,7 @@ fn run() -> Result<()> {
         None => {
             let ply = read(input).chain_err(|| "Problem with the input")?;
             let mut renderer = Renderer::new(ply.get_title(), width, height);
-            config_rederer_with_title(&mut renderer);
+            config_renderer_with_title(&mut renderer);
             renderer.render_image(ply.get_points_as_ref());
         }
     };
