@@ -131,6 +131,8 @@ fn run() -> Result<()> {
 
     renderer.config_camera(eye, at);
 
+    renderer.render();
+
     renderer.save_to_png(&mut ply, x, y, width, height, output)?;
 
     Ok(())
