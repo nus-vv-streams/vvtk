@@ -4,9 +4,9 @@ use image::{imageops::flip_vertical, ImageBuffer, Rgb};
 use kiss3d::camera::ArcBall;
 use kiss3d::light::Light;
 use kiss3d::point_renderer::PointRenderer;
-use kiss3d::window::Window;
 use kiss3d::window::CanvasSetup;
 use kiss3d::window::NumSamples;
+use kiss3d::window::Window;
 use nalgebra::Point3;
 
 use crate::reader::read;
@@ -68,7 +68,10 @@ impl Renderer {
             title.unwrap_or(DEFAULT_TITLE),
             width.unwrap_or(DEFAULT_WIDTH),
             height.unwrap_or(DEFAULT_HEIGHT),
-            CanvasSetup { vsync: true, samples: NumSamples::Four },
+            CanvasSetup {
+                vsync: true,
+                samples: NumSamples::Four,
+            },
         );
 
         window.set_light(Light::StickToCamera);
@@ -175,7 +178,7 @@ impl Renderer {
                         } else {
                             is_stop = true
                         }
-                    },
+                    }
                     _ => {}
                 }
             }
@@ -183,7 +186,7 @@ impl Renderer {
             if !is_stop {
                 frame = rx.recv().unwrap();
             }
-            
+
             match &frame {
                 Ok(f) => {
                     self.render_frame(f.get_points_as_ref(), &ids, &mut app);
@@ -245,7 +248,7 @@ impl Renderer {
             height.unwrap_or(DEFAULT_HEIGHT_PNG),
             buf,
         );
-        
+
         let img: ImageBuffer<Rgb<u8>, Vec<u8>> =
             img_opt.chain_err(|| "Buffer created from window was not big enough for image")?;
         let img = flip_vertical(&img);

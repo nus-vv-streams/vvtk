@@ -27,6 +27,9 @@ impl Ply {
     }
 
     pub fn nothing() -> Self {
-        Ply { title: None, points: Points::default()}
+        Ply {
+            title: None,
+            points: Points::default(),
+        }
     }
 }

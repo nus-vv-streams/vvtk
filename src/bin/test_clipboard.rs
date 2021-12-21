@@ -1,8 +1,8 @@
-extern crate iswr;
 extern crate clipboard;
+extern crate iswr;
 
-use clipboard::ClipboardProvider;
 use clipboard::ClipboardContext;
+use clipboard::ClipboardProvider;
 
 #[macro_use]
 extern crate error_chain;
