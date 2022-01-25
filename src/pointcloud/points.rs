@@ -84,22 +84,12 @@ impl PointCloud {
 
     /// Returns new instance of Colour portion of stored data
     pub fn get_colors(self) -> Color {
-        Color::new(
-            self.data
-                .into_iter()
-                .map(|point| point.color)
-                .collect(),
-        )
+        Color::new(self.data.into_iter().map(|point| point.color).collect())
     }
 
     /// Returns new instance of Coordinate portion of stored data
     pub fn get_coords(self) -> Coordinate {
-        Coordinate::new(
-            self.data
-                .into_iter()
-                .map(|point| point.coord)
-                .collect(),
-        )
+        Coordinate::new(self.data.into_iter().map(|point| point.coord).collect())
     }
 
     /// Returns new instances of Coordinate and Colour portions of stored data as a tuple
@@ -121,14 +111,7 @@ impl PointCloud {
         shuffled_points.shuffle(&mut thread_rng());
         for point in &shuffled_points {
             kdtree
-                .add(
-                    &[
-                        point.coord.x,
-                        point.coord.y,
-                        point.coord.z,
-                    ],
-                    point.index,
-                )
+                .add(&[point.coord.x, point.coord.y, point.coord.z], point.index)
                 .unwrap();
         }
         kdtree
