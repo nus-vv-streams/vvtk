@@ -1,6 +1,6 @@
 use crate::errors::*;
 
-use crate::points::Points;
+use crate::points::PointCloud;
 
 use ply_rs::ply::{
     Addable, DefaultElement, ElementDef, Encoding, Ply, Property, PropertyDef, PropertyType,
@@ -14,7 +14,7 @@ use std::io::{self, Write};
 use std::path::Path;
 
 /// Write a ply file to hard drive
-pub fn write(written_points: Points, form: Option<&str>, output: Option<&str>) -> Result<()> {
+pub fn write(written_points: PointCloud, form: Option<&str>, output: Option<&str>) -> Result<()> {
     let encoding = match form {
         Some("ascii") => Some(Encoding::Ascii),
         Some("binary") => Some(Encoding::BinaryLittleEndian),

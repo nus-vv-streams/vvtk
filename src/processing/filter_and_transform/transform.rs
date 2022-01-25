@@ -1,7 +1,7 @@
 // use nalgebra::Point3;
 
 use crate::point::Point;
-use crate::points::Points;
+use crate::points::PointCloud;
 
 use crate::color::PointColor;
 use std::collections::HashMap;
@@ -10,7 +10,7 @@ use std::collections::HashMap;
 pub type TransformFn = Box<dyn Fn(&Point) -> Point>;
 
 /// The function object that produce the `TransformFn`
-pub type TransformProducer = Box<dyn Fn(&Points) -> TransformFn>;
+pub type TransformProducer = Box<dyn Fn(&PointCloud) -> TransformFn>;
 
 /// The default key of the hashmap of `TransformFn`
 /// Return a key `do_nothing`
@@ -18,16 +18,16 @@ pub const DEFAULT_KEY: &str = "default";
 
 /// The `TransformProducer` producing the `TransformFn` that doesn't change the point
 pub fn do_nothing() -> TransformProducer {
-    Box::new(move |_points: &Points| Box::new(move |point: &Point| point.clone()))
+    Box::new(move |_points: &PointCloud| Box::new(move |point: &Point| point.clone()))
 }
 
 /// The `TransformProducer` producing the `TransformFn` that make the point green
 pub fn all_green() -> TransformProducer {
-    Box::new(move |_points: &Points| {
+    Box::new(move |_points: &PointCloud| {
         Box::new(move |point: &Point| {
             let mut res = point.clone();
-            res.point_color = PointColor::new_default();
-            res.point_color.green = 255;
+            res.color = PointColor::new_default();
+            res.color.green = 255;
 
             res
         })
@@ -36,11 +36,11 @@ pub fn all_green() -> TransformProducer {
 
 /// The `TransformProducer` producing the `TransformFn` that make the point red
 pub fn all_red() -> TransformProducer {
-    Box::new(move |_points: &Points| {
+    Box::new(move |_points: &PointCloud| {
         Box::new(move |point: &Point| {
             let mut res = point.clone();
-            res.point_color = PointColor::new_default();
-            res.point_color.red = 255;
+            res.color = PointColor::new_default();
+            res.color.red = 255;
 
             res
         })
@@ -49,7 +49,7 @@ pub fn all_red() -> TransformProducer {
 
 /// The `TransformProducer` producing the `TransformFn` that make the point larger (point's size = 2)
 pub fn point_size_2() -> TransformProducer {
-    Box::new(move |_points: &Points| {
+    Box::new(move |_points: &PointCloud| {
         Box::new(move |point: &Point| {
             let mut res = point.clone();
             res.point_size = 2.0;

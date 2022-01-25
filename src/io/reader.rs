@@ -3,7 +3,7 @@ extern crate ply_rs;
 use crate::errors::*;
 use crate::ply::Ply;
 use crate::point::Point;
-use crate::points::Points;
+use crate::points::PointCloud;
 use ply_rs::parser;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
@@ -67,7 +67,7 @@ pub fn read(input: Option<&str>) -> Result<Ply> {
         item.set_index(idx);
     }
 
-    Ok(Ply::of(file_name, Points::of(points_list)))
+    Ok(Ply::of(file_name, PointCloud::of(points_list)))
 }
 
 /// Check if PathBuf's extension exist and equal "ply"

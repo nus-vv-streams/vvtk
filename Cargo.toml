@@ -17,7 +17,7 @@ categories = ["command-line-utilities"]
 debug = true
 
 [features]
-default = ["by_radius", "dim_6"] #by_knn #by_radius #dim_3 #dim_6
+#default = ["by_radius", "dim_6"] #by_knn #by_radius #dim_3 #dim_6
 by_radius = []
 by_knn = []
 dim_3 = []
@@ -31,7 +31,8 @@ path = "src/lib.rs"
 ply-rs = { git = "https://github.com/hungkhoaitay/ply-rs", version = "0.1.3" }
 kiss3d = { git = "https://github.com/nus-mmsys/kiss3d", version = "0.31.0", features = [ "conrod" ] } #"0.31.0"
 nalgebra = "0.26.2"
-kiddo =  {git = "https://github.com/giterator/kiddo"}  #"0.1.4" 
+# kiddo =  {git = "https://github.com/giterator/kiddo"}  #"0.1.4" 
+kiddo = "0.2.3"
 typenum = "1.13.0"
 rand = "0.8.3"
 lab = "0.10.0"

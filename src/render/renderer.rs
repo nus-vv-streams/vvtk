@@ -17,7 +17,7 @@ use kiss3d::camera::Camera;
 
 use crate::ply::Ply;
 use crate::ply_dir::PlyDir;
-use crate::points::Points;
+use crate::points::PointCloud;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -123,7 +123,7 @@ impl Renderer {
     }
 
     /// Open the window and render the frame
-    pub fn render_frame(&mut self, data: &Points, ids: &gui::Ids, app: &mut gui::InfoBar) {
+    pub fn render_frame(&mut self, data: &PointCloud, ids: &gui::Ids, app: &mut gui::InfoBar) {
         for point in &data.data {
             self.window.draw_point_with_size(
                 &point.get_coord().get_point3(),
@@ -137,7 +137,7 @@ impl Renderer {
     }
 
     /// Open the window and render the frame many times
-    pub fn render_image(&mut self, data: &Points) {
+    pub fn render_image(&mut self, data: &PointCloud) {
         self.window.conrod_ui_mut().theme = gui::theme();
         let ids = gui::Ids::new(self.window.conrod_ui_mut().widget_id_generator());
         let mut app = gui::InfoBar::new_closed_state();

@@ -11,7 +11,7 @@ use nalgebra::Point3;
 
 use crate::color::{Color, PointColor};
 use crate::coordinate::Coordinate;
-use crate::interpolate_controller::kdtree_dim;
+// use crate::interpolate_controller::kdtree_dim;
 
 use std::f32::consts::PI;
 
@@ -19,7 +19,7 @@ use crate::interpolate::inf_norm;
 
 #[derive(Clone)]
 /// Class of Points containing all necessary metadata
-pub struct Points {
+pub struct PointCloud {
     /// Data is a vector of type Point, storing all coordinate and colour data
     pub data: Vec<Point>,
     /// Stores the coordinate delta between the next and prev frames
@@ -30,16 +30,16 @@ pub struct Points {
     pub reference_frame: Vec<Point>,
 }
 
-impl Default for Points {
+impl Default for PointCloud {
     fn default() -> Self {
-        Points::new()
+        PointCloud::new()
     }
 }
 
-impl Points {
-    /// Creates new instance of Points
+impl PointCloud {
+    /// Creates new instance of PointCloud
     pub fn new() -> Self {
-        Points {
+        PointCloud {
             data: Vec::new(),
             delta_pos_vector: Vec::new(),
             delta_colours: Vec::new(),
@@ -52,9 +52,9 @@ impl Points {
         self.data.push(elem);
     }
 
-    /// Creates new instance of Points given a vector of Point
+    /// Creates new instance of PointCloud given a vector of Point
     pub fn of(data: Vec<Point>) -> Self {
-        Points {
+        PointCloud {
             data,
             delta_pos_vector: Vec::new(),
             delta_colours: Vec::new(),
@@ -87,7 +87,7 @@ impl Points {
         Color::new(
             self.data
                 .into_iter()
-                .map(|point| point.point_color)
+                .map(|point| point.color)
                 .collect(),
         )
     }
@@ -97,7 +97,7 @@ impl Points {
         Coordinate::new(
             self.data
                 .into_iter()
-                .map(|point| point.point_coord)
+                .map(|point| point.coord)
                 .collect(),
         )
     }
@@ -107,26 +107,25 @@ impl Points {
         let mut coords = Vec::new();
         let mut colors = Vec::new();
         for point in self.data {
-            coords.push(point.point_coord);
-            colors.push(point.point_color);
+            coords.push(point.coord);
+            colors.push(point.color);
         }
 
         (Coordinate::new(coords), Color::new(colors))
     }
 
-    #[cfg(feature = "dim_3")]
-    /// Constructs and returns a 3D kdtree from a class of Points
+    /// Constructs and returns a 3D kdtree from a class of PointCloud
     pub fn to_kdtree(self) -> KdTree<f32, usize, 3> {
-        let mut kdtree: KdTree<f32, usize, 3> = KdTree::with_capacity(64).unwrap();
+        let mut kdtree: KdTree<f32, usize, 3> = KdTree::with_per_node_capacity(64).unwrap();
         let mut shuffled_points = self.data;
         shuffled_points.shuffle(&mut thread_rng());
         for point in &shuffled_points {
             kdtree
                 .add(
                     &[
-                        point.point_coord.x,
-                        point.point_coord.y,
-                        point.point_coord.z,
+                        point.coord.x,
+                        point.coord.y,
+                        point.coord.z,
                     ],
                     point.index,
                 )
@@ -135,22 +134,21 @@ impl Points {
         kdtree
     }
 
-    #[cfg(feature = "dim_6")]
-    /// Constructs and returns a 6D kdtree from a class of Points
-    pub fn to_kdtree(self) -> KdTree<f32, usize, 6> {
-        let mut kdtree: KdTree<f32, usize, 6> = KdTree::with_capacity(64).unwrap();
+    /// Constructs and returns a 6D kdtree from a class of PointCloud
+    pub fn to_6dtree(self) -> KdTree<f32, usize, 6> {
+        let mut kdtree: KdTree<f32, usize, 6> = KdTree::with_per_node_capacity(64).unwrap();
         let mut shuffled_points = self.data;
         shuffled_points.shuffle(&mut thread_rng());
         for point in &shuffled_points {
             kdtree
                 .add(
                     &[
-                        point.point_coord.x,
-                        point.point_coord.y,
-                        point.point_coord.z,
-                        point.point_color.red as f32,
-                        point.point_color.green as f32,
-                        point.point_color.blue as f32,
+                        point.coord.x,
+                        point.coord.y,
+                        point.coord.z,
+                        point.color.red as f32,
+                        point.color.green as f32,
+                        point.color.blue as f32,
                     ],
                     point.index,
                 )
@@ -162,9 +160,9 @@ impl Points {
     /// Highlights unmapped points as Green in the reference frame
     pub fn mark_unmapped_points(
         &mut self,
-        kd_tree: Arc<kiddo::KdTree<f32, usize, { kdtree_dim() }>>,
+        kd_tree: Arc<kiddo::KdTree<f32, usize, 3>>,
         exists_output_dir: bool,
-        dist_func: for<'r, 's> fn(&'r [f32], &'s [f32]) -> f32,
+        dist_func: for<'r, 's> fn(&'r [f32; 3], &'s [f32; 3]) -> f32,
     ) {
         let mut mapped_points = 0;
         let mut all_unmapped: bool = true;
@@ -180,7 +178,7 @@ impl Points {
 
                 if all_unmapped {
                     for idx in k_nearest_indices {
-                        self.reference_frame[idx].point_color = PointColor::new(0, 255, 0);
+                        self.reference_frame[idx].color = PointColor::new(0, 255, 0);
                     }
                 }
 
@@ -202,9 +200,9 @@ impl Points {
     /// Highlights points in close range to cracks as Red in the interpolated frame
     pub fn mark_points_near_cracks(
         &mut self,
-        point_data: &Points,
+        point_data: &PointCloud,
         exists_output_dir: bool,
-    ) -> Points {
+    ) -> PointCloud {
         let mut marked_interpolated_frame = point_data.clone();
 
         let mut points_near_cracks = 0;
@@ -212,7 +210,7 @@ impl Points {
         for idx in 0..point_data.data.len() {
             marked_interpolated_frame.data[idx].point_size = 1.0;
             if point_data.data[idx].near_crack {
-                marked_interpolated_frame.data[idx].point_color = PointColor::new(255, 0, 0);
+                marked_interpolated_frame.data[idx].color = PointColor::new(255, 0, 0);
                 points_near_cracks += 1;
             }
         }
@@ -232,9 +230,9 @@ impl Points {
             let density = interpolated_kd_tree
                 .within_unsorted(
                     &[
-                        self.data[idx].point_coord.x,
-                        self.data[idx].point_coord.y,
-                        self.data[idx].point_coord.z,
+                        self.data[idx].coord.x,
+                        self.data[idx].coord.y,
+                        self.data[idx].coord.z,
                     ],
                     radius,
                     &inf_norm,
@@ -252,7 +250,7 @@ impl Points {
 
     /// Accepts argument of points in case this function is called in main before any interpolation function is called i.e. will be used to calculate a simple delta
     /// this function is also called in each of the interpolation functions, taking in the vector of closest points i.e. fn can be used in 2 ways
-    pub fn frame_delta(&mut self, prev: Points) {
+    pub fn frame_delta(&mut self, prev: PointCloud) {
         let (next_coordinates_obj, next_colours_obj) = self.clone().get_coords_cols();
 
         let next_coordinates = next_coordinates_obj.get_borrow_data();
@@ -293,7 +291,7 @@ impl Points {
     }
 }
 
-impl IntoIterator for Points {
+impl IntoIterator for PointCloud {
     type Item = Point;
     type IntoIter = std::vec::IntoIter<Self::Item>;
 

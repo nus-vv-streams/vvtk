@@ -1,4 +1,4 @@
-use crate::points::Points;
+use crate::points::PointCloud;
 use ply_rs::ply;
 use std::sync::Arc;
 // use std::thread;
@@ -7,14 +7,14 @@ use crate::coordinate::PointCoordinate;
 // use crate::interpolate::inf_norm;
 use crate::params::Params;
 // use kiddo::distance::squared_euclidean;
-use crate::interpolate_controller::kdtree_dim;
+// use crate::interpolate_controller::kdtree_dim;
 use std::f32::consts::PI;
 
 #[derive(Debug, Clone)]
 /// Structure presenting a point
 pub struct Point {
-    pub(crate) point_coord: PointCoordinate,
-    pub(crate) point_color: PointColor,
+    pub(crate) coord: PointCoordinate,
+    pub(crate) color: PointColor,
     pub(crate) mapping: u16,
     pub(crate) index: usize,
     pub(crate) point_density: f32,
@@ -24,14 +24,14 @@ pub struct Point {
 
 impl PartialEq for Point {
     fn eq(&self, other: &Self) -> bool {
-        self.point_coord == other.point_coord && self.point_color == other.point_color
+        self.coord == other.coord && self.color == other.color
     }
 }
 
 impl Point {
     pub(crate) fn new(
-        point_coord: PointCoordinate,
-        point_color: PointColor,
+        coord: PointCoordinate,
+        color: PointColor,
         mapping: u16,
         index: usize,
         point_density: f32,
@@ -39,8 +39,8 @@ impl Point {
         near_crack: bool,
     ) -> Self {
         Point {
-            point_coord,
-            point_color,
+            coord,
+            color,
             mapping,
             index,
             point_density,
@@ -51,8 +51,8 @@ impl Point {
 
     pub(crate) fn new_default() -> Self {
         Point {
-            point_coord: PointCoordinate::new_default(),
-            point_color: PointColor::new_default(),
+            coord: PointCoordinate::new_default(),
+            color: PointColor::new_default(),
             mapping: 0,
             index: 0,
             point_density: 0.0,
@@ -62,40 +62,38 @@ impl Point {
     }
 
     pub(crate) fn get_coord(&self) -> &PointCoordinate {
-        &self.point_coord
+        &self.coord
     }
 
     pub(crate) fn get_color(&self) -> &PointColor {
-        &self.point_color
+        &self.color
     }
 
     pub(crate) fn set_index(&mut self, idx: usize) {
         self.index = idx;
     }
 
-    #[cfg(feature = "dim_3")]
     pub fn get_point(&self) -> [f32; 3] {
-        [self.point_coord.x, self.point_coord.y, self.point_coord.z]
+        [self.coord.x, self.coord.y, self.coord.z]
     }
 
-    #[cfg(feature = "dim_6")]
-    pub fn get_point(&self) -> [f32; 6] {
+    pub fn get_6dpoint(&self) -> [f32; 6] {
         [
-            self.point_coord.x,
-            self.point_coord.y,
-            self.point_coord.z,
-            self.point_color.red as f32,
-            self.point_color.green as f32,
-            self.point_color.blue as f32,
+            self.coord.x,
+            self.coord.y,
+            self.coord.z,
+            self.color.red as f32,
+            self.color.green as f32,
+            self.color.blue as f32,
         ]
     }
 
     /// Returns neighbouring points within a given radius
     pub fn get_radius_neghbours(
         &self,
-        kd_tree: &Arc<kiddo::KdTree<f32, usize, { kdtree_dim() }>>,
+        kd_tree: &Arc<kiddo::KdTree<f32, usize, 3>>,
         radius: f32,
-        dist_func: for<'r, 's> fn(&'r [f32], &'s [f32]) -> f32,
+        dist_func: for<'r, 's> fn(&'r [f32; 3], &'s [f32; 3]) -> f32,
     ) -> Vec<usize> {
         kd_tree
             .within_unsorted(&self.get_point(), radius, &dist_func)
@@ -108,9 +106,9 @@ impl Point {
     /// Returns k neighboring points
     pub fn get_nearest_neighbours(
         &self,
-        kd_tree: &Arc<kiddo::KdTree<f32, usize, { kdtree_dim() }>>,
+        kd_tree: &Arc<kiddo::KdTree<f32, usize, 3>>,
         quantity: usize,
-        dist_func: for<'r, 's> fn(&'r [f32], &'s [f32]) -> f32,
+        dist_func: for<'r, 's> fn(&'r [f32; 3], &'s [f32; 3]) -> f32,
     ) -> Vec<usize> {
         kd_tree
             .nearest(&self.get_point(), quantity, &dist_func)
@@ -123,10 +121,10 @@ impl Point {
     /// Returns a Point whose coordinates and colours are the average of 2 given points
     pub fn get_average(&self, another_point: &Point, prev_weight: f32, next_weight: f32) -> Point {
         Point::new(
-            self.point_coord
-                .get_average(&another_point.point_coord, prev_weight, next_weight),
-            self.point_color
-                .get_average(&another_point.point_color, prev_weight, next_weight),
+            self.coord
+                .get_average(&another_point.coord, prev_weight, next_weight),
+            self.color
+                .get_average(&another_point.color, prev_weight, next_weight),
             0,
             another_point.index,
             another_point.point_density,
@@ -136,11 +134,11 @@ impl Point {
     }
 
     fn get_coord_delta(&self, another_point: &Point) -> f32 {
-        self.point_coord.get_coord_delta(&another_point.point_coord)
+        self.coord.get_coord_delta(&another_point.coord)
     }
 
     fn get_color_delta(&self, another_point: &Point) -> f32 {
-        self.point_color.get_color_delta(&another_point.point_color)
+        self.color.get_color_delta(&another_point.color)
     }
 
     ///penalization
@@ -165,7 +163,7 @@ impl Point {
 
     fn get_closest(
         &self,
-        next_points: &Arc<Points>,
+        next_points: &Arc<PointCloud>,
         k_nearest_indices: &[usize],
         reference_frame: &mut Vec<Point>,
         params: &Arc<Params>,
@@ -199,7 +197,7 @@ impl Point {
 
     pub fn get_average_closest(
         &self,
-        next_points: &Arc<Points>,
+        next_points: &Arc<PointCloud>,
         k_nearest_indices: &[usize],
         reference_frame: &mut Vec<Point>,
         params: &Arc<Params>,
@@ -214,13 +212,13 @@ impl Point {
         // self.clone()
     }
 
-    #[cfg(feature = "by_knn")]
     pub fn method_of_neighbour_query(
         &self,
-        kd_tree: &Arc<kiddo::KdTree<f32, usize, { kdtree_dim() }>>,
+        // kd_tree: &Arc<kiddo::KdTree<f32, usize, { kdtree_dim() }>>,
+        kd_tree: &Arc<kiddo::KdTree<f32, usize, 3>>,
         options_for_nearest: usize,
-        radius: f32,
-        dist_func: for<'r, 's> fn(&'r [f32], &'s [f32]) -> f32,
+        _radius: f32,
+        dist_func: for<'r, 's> fn(&'r [f32; 3], &'s [f32; 3]) -> f32,
     ) -> Vec<usize> {
         self.get_nearest_neighbours(kd_tree, options_for_nearest, dist_func)
     }
@@ -248,12 +246,12 @@ impl ply::PropertyAccess for Point {
 
     fn set_property(&mut self, key: &String, property: ply::Property) {
         match (key.as_str(), property) {
-            ("x", ply::Property::Float(v)) => self.point_coord.x = v,
-            ("y", ply::Property::Float(v)) => self.point_coord.y = v,
-            ("z", ply::Property::Float(v)) => self.point_coord.z = v,
-            ("red", ply::Property::UChar(v)) => self.point_color.red = v,
-            ("green", ply::Property::UChar(v)) => self.point_color.green = v,
-            ("blue", ply::Property::UChar(v)) => self.point_color.blue = v,
+            ("x", ply::Property::Float(v)) => self.coord.x = v,
+            ("y", ply::Property::Float(v)) => self.coord.y = v,
+            ("z", ply::Property::Float(v)) => self.coord.z = v,
+            ("red", ply::Property::UChar(v)) => self.color.red = v,
+            ("green", ply::Property::UChar(v)) => self.color.green = v,
+            ("blue", ply::Property::UChar(v)) => self.color.blue = v,
             (k, _) => panic!("Vertex: Unexpected key/value combination: key: {}", k),
         }
     }

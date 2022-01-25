@@ -139,7 +139,7 @@ fn run() -> Result<()> {
     //  println!("interpolation method: {}", method);
 
     let dist_func_name = matches.value_of("dist_func").unwrap_or("inf_norm");
-    let dist_func: for<'r, 's> fn(&'r [f32], &'s [f32]) -> f32;
+    let dist_func: for<'r, 's> fn(&'r [f32; 3], &'s [f32; 3]) -> f32;
     match dist_func_name {
         "inf_norm" => dist_func = inf_norm,
         "two_norm" => dist_func = two_norm,
@@ -232,9 +232,9 @@ fn interpolate(
         .chain_err(|| "Problem with the input of next frame")?
         .get_points();
 
-    let mut end_result = points::Points::new();
-    let mut end_reference_unmapped = points::Points::new();
-    let mut end_marked_interpolated_frame = points::Points::new();
+    let mut end_result = points::PointCloud::new();
+    let mut end_reference_unmapped = points::PointCloud::new();
+    let mut end_marked_interpolated_frame = points::PointCloud::new();
 
     if method == "closest_with_ratio_average_points_recovery" {
         if two_way_interpolation {

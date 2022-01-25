@@ -1,12 +1,12 @@
 use crate::interpolate_controller::*;
 use crate::params::Params;
 use crate::point::Point;
-use crate::points::Points;
+use crate::points::PointCloud;
 use std::sync::Arc;
 
 use crate::Instant;
 
-pub fn two_norm(a: &[f32], b: &[f32]) -> f32 {
+pub fn two_norm(a: &[f32; 3], b: &[f32; 3]) -> f32 {
     let mut sum: f32 = 0.0;
     for i in 0..a.len() {
         sum += (a[i] - b[i]).powi(2);
@@ -20,7 +20,7 @@ pub fn two_norm(a: &[f32], b: &[f32]) -> f32 {
 /// * `a` - the first point
 /// * `b` - the second point
 ///
-pub fn inf_norm(a: &[f32], b: &[f32]) -> f32 {
+pub fn inf_norm(a: &[f32; 3], b: &[f32; 3]) -> f32 {
     let mut max: f32 = f32::MIN;
     for i in 0..a.len() {
         let diff = (a[i] - b[i]).abs();
@@ -34,11 +34,11 @@ pub fn inf_norm(a: &[f32], b: &[f32]) -> f32 {
 
 /// Point to point interpolation method
 pub fn closest_with_ratio_average_points_recovery(
-    mut prev_points: Points,
-    next_points: Points,
+    mut prev_points: PointCloud,
+    next_points: PointCloud,
     params: Params,
     exists_output_dir: bool,
-) -> (Points, Points, Points) {
+) -> (PointCloud, PointCloud, PointCloud) {
     //start time
     let now = Instant::now();
     prev_points.reference_frame = next_points.data.clone();
@@ -78,7 +78,7 @@ pub fn closest_with_ratio_average_points_recovery(
         println!("interpolation time: {}", now.elapsed().as_millis());
     }
 
-    let mut point_data = Points::of(interpolated_points);
+    let mut point_data = PointCloud::of(interpolated_points);
     if arc_params.compute_frame_delta {
         prev_points.frame_delta(point_data.clone());
     }
@@ -95,7 +95,7 @@ pub fn closest_with_ratio_average_points_recovery(
         point_data.adjust_point_sizes(arc_params.density_radius);
     }
 
-    let mut marked_interpolated_frame = Points::new();
+    let mut marked_interpolated_frame = PointCloud::new();
     if arc_params.resize_near_cracks && arc_params.mark_enlarged {
         marked_interpolated_frame =
             prev_points.mark_points_near_cracks(&point_data, exists_output_dir);
@@ -103,7 +103,7 @@ pub fn closest_with_ratio_average_points_recovery(
 
     (
         point_data,
-        Points::of(prev_points.reference_frame.clone()),
+        PointCloud::of(prev_points.reference_frame.clone()),
         marked_interpolated_frame,
     )
 }

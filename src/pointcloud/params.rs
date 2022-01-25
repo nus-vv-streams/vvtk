@@ -34,7 +34,7 @@ pub struct Params {
     /// Weight for next frame when averaging points to get interpolated point
     pub next_weight: f32,
     /// Distance function for use in interpolation
-    pub dist_func: fn(&[f32], &[f32]) -> f32,
+    pub dist_func: fn(&[f32; 3], &[f32; 3]) -> f32,
 }
 
 impl Params {
