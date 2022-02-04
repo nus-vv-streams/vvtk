@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate error_chain;
-extern crate iswr;
+extern crate vivotk;
 use clap::{App, Arg};
-use iswr::{errors::*, fat, filter, reader, transform, writer};
+use vivotk::{errors::*, seq::fat, seq::filter, io::reader, seq::map, io::writer};
 
 quick_main!(run);
 
@@ -64,14 +64,14 @@ fn run() -> Result<()> {
     let filter = matches.value_of("filter").unwrap_or(filter::DEFAULT_KEY);
     let transform = matches
         .value_of("transform")
-        .unwrap_or(transform::DEFAULT_KEY);
-    let remain = matches.value_of("remain").unwrap_or(transform::DEFAULT_KEY);
+        .unwrap_or(map::DEFAULT_KEY);
+    let remain = matches.value_of("remain").unwrap_or(map::DEFAULT_KEY);
     let form = matches.value_of("form");
     let output = matches.value_of("output");
     let ply = reader::read(input).chain_err(|| "Problem with the input")?;
     let data = ply.get_points();
     let filter_methods = filter::get_collection();
-    let transform_methods = transform::get_collection();
+    let transform_methods = map::get_collection();
 
     let output_points = fat::fat(
         &data,

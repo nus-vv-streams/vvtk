@@ -9,7 +9,7 @@ use kiss3d::window::NumSamples;
 use kiss3d::window::Window;
 use nalgebra::Point3;
 
-use crate::reader::read;
+use crate::io::reader::read;
 use std::sync::mpsc::channel;
 use std::sync::Arc;
 
@@ -17,7 +17,7 @@ use kiss3d::camera::Camera;
 
 use crate::ply::Ply;
 use crate::ply_dir::PlyDir;
-use crate::points::PointCloud;
+use crate::pointcloud::PointCloud;
 use std::path::Path;
 use std::path::PathBuf;
 

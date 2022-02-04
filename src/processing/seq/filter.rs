@@ -1,5 +1,5 @@
 use crate::point::Point;
-use crate::points::PointCloud;
+use crate::pointcloud::PointCloud;
 use std::collections::HashMap;
 
 /// The function object that check if the point satifies the condition

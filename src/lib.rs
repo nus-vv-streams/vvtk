@@ -1,10 +1,5 @@
-//! # in-summer-we-render
-//!
-//! In summer, we render
-//!
-//! [Github](https://github.com/hungkhoaitay/in-summer-we-render)
-
-//#![warn(missing_docs)]
+//! # Vivo Toolkit
+//#[warn(missing_docs)]
 
 #[macro_use]
 extern crate error_chain;
@@ -24,20 +19,24 @@ pub use errors::*;
 #[macro_use]
 extern crate approx;
 
-mod io;
+pub mod io;
 /// Module handling PLY
-mod ply;
+pub mod ply;
 /// Module handling directory of ply files
-mod ply_dir;
-mod pointcloud;
-mod processing;
-mod render;
+pub mod ply_dir;
+pub mod pointcloud;
+pub mod processing;
+pub mod render;
+pub mod point;
 
-pub use filter_and_transform::{fat, filter, transform};
-pub use io::{reader, writer};
+// re-export 
 pub use ply_dir::PlyDir;
-pub use pointcloud::{color, coordinate, params, point, points};
-pub use processing::{filter_and_transform, interpolate, interpolate_controller};
+pub use processing::seq; // interpolate, interpolate_controller};
 pub use render::{gui, gui_states, renderer};
+
+// unused
+// pub use pointcloud::point;
+// pub use seq::{fat, filter, transform};
+// pub use io::{reader, writer};
 
 use std::time::Instant;

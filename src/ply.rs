@@ -1,4 +1,4 @@
-use crate::points::PointCloud;
+use crate::pointcloud::PointCloud;
 use std::path::PathBuf;
 
 pub struct Ply {

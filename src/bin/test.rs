@@ -1,9 +1,9 @@
-extern crate iswr;
+extern crate vivotk;
 
 #[macro_use]
 extern crate error_chain;
 
-use iswr::errors::*;
+use vivotk::errors::*;
 
 quick_main!(run);
 

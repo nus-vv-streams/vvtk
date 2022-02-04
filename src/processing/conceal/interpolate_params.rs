@@ -1,10 +1,10 @@
 // use kiddo::distance::squared_euclidean;
 // use kiddo::KdTree;
-use crate::interpolate::inf_norm;
+use crate::processing::conceal::interpolate::inf_norm;
 
 #[derive(Clone)]
 /// Struct containing all settings needed to execute interpolation
-pub struct Params {
+pub struct InterpolateParams {
     /// Weightage to penalize coordinate delta
     pub penalize_coor: f32,
     /// Weightage to penalize colour delta
@@ -14,7 +14,7 @@ pub struct Params {
     /// Radius to determine point density and potentially query nearest neighbours
     pub density_radius: f32,
     /// Number of neighbours to query
-    pub options_for_nearest: usize,
+    pub neighborhood_size: usize,
     /// Flag to trigger highlighting of points with a mapping count of 0
     pub show_unmapped_points: bool,
     /// Flag to resize points in close range to cracks
@@ -37,15 +37,15 @@ pub struct Params {
     pub dist_func: fn(&[f32; 3], &[f32; 3]) -> f32,
 }
 
-impl Params {
+impl InterpolateParams {
     /// Create a new instance of type Params
     pub fn new() -> Self {
-        Params {
+        InterpolateParams {
             penalize_coor: 0.0,
             penalize_col: 0.0,
             penalize_mapped: 0.0,
             density_radius: 0.0,
-            options_for_nearest: 0,
+            neighborhood_size: 0,
             show_unmapped_points: false,
             resize_near_cracks: false,
             mark_enlarged: false,
@@ -60,7 +60,7 @@ impl Params {
     }
 }
 
-impl Default for Params {
+impl Default for InterpolateParams {
     fn default() -> Self {
         Self::new()
     }

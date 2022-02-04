@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate error_chain;
-extern crate iswr;
+extern crate vivotk;
 use clap::{App, Arg};
-use iswr::{errors::*, reader, renderer::Renderer};
+use vivotk::{errors::*, io::reader, renderer::Renderer};
 
 // cargo run --release --bin test | cargo run --release --bin ply_view -- --eye=100,100,100
 quick_main!(run);

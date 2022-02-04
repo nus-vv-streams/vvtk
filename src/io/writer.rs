@@ -1,6 +1,6 @@
 use crate::errors::*;
 
-use crate::points::PointCloud;
+use crate::pointcloud::PointCloud;
 
 use ply_rs::ply::{
     Addable, DefaultElement, ElementDef, Encoding, Ply, Property, PropertyDef, PropertyType,
@@ -54,9 +54,9 @@ pub fn write(written_points: PointCloud, form: Option<&str>, output: Option<&str
             point.insert("x".to_string(), Property::Float(coord.x));
             point.insert("y".to_string(), Property::Float(coord.y));
             point.insert("z".to_string(), Property::Float(coord.z));
-            point.insert("red".to_string(), Property::UChar(color.red));
-            point.insert("green".to_string(), Property::UChar(color.green));
-            point.insert("blue".to_string(), Property::UChar(color.blue));
+            point.insert("red".to_string(), Property::UChar(color.r));
+            point.insert("green".to_string(), Property::UChar(color.g));
+            point.insert("blue".to_string(), Property::UChar(color.b));
             points.push(point);
         }
 

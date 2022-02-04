@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate error_chain;
-extern crate iswr;
+extern crate vivotk;
 use clap::{App, Arg};
-use iswr::{errors::*, reader::read, renderer::Renderer, PlyDir};
+use vivotk::{errors::*, io::reader::read, renderer::Renderer, PlyDir};
 use std::path::Path;
 
 quick_main!(run);

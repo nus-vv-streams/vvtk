@@ -1,15 +1,15 @@
 [package]
-name = "in-summer-we-render"
+name = "vivotk"
 version = "0.1.0"
 authors = ["weitsang <weitsang@nus.edu.sg>", "hungkhoaitay <e0550385@u.nus.edu>", "giterator <e0552200@u.nus.edu>"]
 edition = "2018"
 
 description = "This project aims to design and develop a set of robust and high performance Unix CLI tools for analyzing, processing, debugging, and viewing 3D point clouds using Rust"
 readme = "README.md"
-repository = "https://github.com/hungkhoaitay/in-summer-we-render"
+repository = "https://github.com/nus-mmsys/vitotk"
 
 license = "Apache-2.0"
-keywords = ["3D", "ISWR"]
+keywords = ["3D", "Point Cloud", "Volumetric Video"]
 categories = ["command-line-utilities"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -24,7 +24,7 @@ dim_3 = []
 dim_6 = []
 
 [lib]
-name = "iswr"
+name = "vivotk"
 path = "src/lib.rs"
 
 [dependencies]
@@ -45,17 +45,17 @@ clipboard = "0.5.0"
 [[bin]]
 name = "ply_to_ply"
 
-[[bin]]
-name = "ply_view"
+#[[bin]]
+#name = "ply_view"
 
-[[bin]]
-name = "ply_to_png"
-
-[[bin]]
-name = "ply_interpolate"
-
-[[bin]]
-name = "ply_fat"
-
-[[bin]]
-name = "test"
+#[[bin]]
+#name = "ply_to_png"
+#
+#[[bin]]
+#name = "ply_interpolate"
+#
+#[[bin]]
+#name = "ply_fat"
+#
+#[[bin]]
+#name = "test"

@@ -1,11 +1,15 @@
 #[macro_use]
 extern crate error_chain;
-extern crate iswr;
+extern crate vivotk;
 // use std::env;
 extern crate clap;
 use clap::{App, Arg};
-use iswr::{errors::*, interpolate::*, params::Params, points, reader, writer};
-// use std::io::{self, Write};
+use vivotk::errors::*;
+use vivotk::pointcloud::PointCloud;
+use vivotk::processing::conceal::interpolate::*;
+use vivotk::processing::conceal::interpolate_params::InterpolateParams;
+use vivotk::processing::conceal::concealed_pointcloud::ConcealedPointCloud as ConcealedPointCloud;
+use vivotk::io::{reader, writer}; 
 
 // use std::path::{ PathBuf };
 
@@ -125,7 +129,7 @@ fn run() -> Result<()> {
         .value_of("method")
         .unwrap_or("closest_with_ratio_average_points_recovery");
 
-    let mut params: Params = Params::new();
+    let mut params: InterpolateParams = InterpolateParams::new();
     params.show_unmapped_points = matches.is_present("unmapped");
     params.mark_enlarged = matches.is_present("mark_enlarged");
     params.compute_frame_delta = matches.is_present("frame_delta");
@@ -199,7 +203,7 @@ fn run() -> Result<()> {
         .unwrap_or("2.0")
         .parse::<f32>()
         .unwrap();
-    params.options_for_nearest = matches
+    params.neighborhood_size = matches
         .value_of("nearest_points")
         .unwrap_or("10")
         .parse::<usize>()
@@ -221,7 +225,7 @@ fn interpolate(
     next_frame_dir: Option<&str>,
     method: &str,
     two_way_interpolation: bool,
-    params: Params,
+    params: InterpolateParams,
     output_dir: Option<&str>,
     exists_output_dir: bool,
 ) -> Result<()> {
@@ -232,44 +236,37 @@ fn interpolate(
         .chain_err(|| "Problem with the input of next frame")?
         .get_points();
 
-    let mut end_result = points::PointCloud::new();
-    let mut end_reference_unmapped = points::PointCloud::new();
-    let mut end_marked_interpolated_frame = points::PointCloud::new();
+    let mut end_result = PointCloud::new();
+
+    let prev_pc = ConcealedPointCloud::new_from_point_cloud(prev);
+    let next_pc = ConcealedPointCloud::new_from_point_cloud(next);
 
     if method == "closest_with_ratio_average_points_recovery" {
         if two_way_interpolation {
-            let (mut prev_result, _reference_unmapped, _marked_interpolated_frame) =
+            let (_interpolated_pc, prev_pc, next_pc) =
                 closest_with_ratio_average_points_recovery(
-                    prev.clone(),
-                    next.clone(),
+                    prev_pc,
+                    next_pc,
                     params.clone(),
-                    exists_output_dir,
                 ); //sum of first 3 must equal 1
 
-            let (mut result, reference_unmapped, marked_interpolated_frame) =
+            let (mut interpolated_pc, _prev_pc, _next_pc) = 
                 closest_with_ratio_average_points_recovery(
-                    next,
-                    prev,
+                    prev_pc,
+                    next_pc,
                     params.clone(),
-                    exists_output_dir,
                 ); //sum of first 3 must equal 1
 
-            result.data.append(&mut prev_result.data);
-            end_result = result;
-            end_reference_unmapped = reference_unmapped;
-            end_marked_interpolated_frame = marked_interpolated_frame;
+            end_result.data.append(&mut interpolated_pc.pc.data);
         } else {
-            let (result, reference_unmapped, marked_interpolated_frame) =
+            let (mut interpolated_pc, _prev_pc, _next_pc) = 
                 closest_with_ratio_average_points_recovery(
-                    prev,
-                    next,
+                    prev_pc,
+                    next_pc,
                     params.clone(),
-                    exists_output_dir,
                 ); //sum of first 3 must equal 1
 
-            end_result = result;
-            end_reference_unmapped = reference_unmapped;
-            end_marked_interpolated_frame = marked_interpolated_frame;
+            end_result.data.append(&mut interpolated_pc.pc.data);
         }
     }
 
@@ -277,13 +274,7 @@ fn interpolate(
 
     //output block
 
-    if params.show_unmapped_points {
-        output = end_reference_unmapped;
-    } else if params.mark_enlarged {
-        output = end_marked_interpolated_frame;
-    } else {
-        output = end_result;
-    }
+    output = end_result;
 
     if !exists_output_dir {
         // output

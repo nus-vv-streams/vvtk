@@ -2,7 +2,7 @@
 pub mod filter;
 
 /// Transform the points
-pub mod transform;
+pub mod map;
 
 /// Filter and Transform Points
 pub mod fat;

@@ -1,9 +1,9 @@
 use crate::errors::*;
 
-use crate::points::PointCloud;
+use crate::pointcloud::PointCloud;
 
-use crate::filter::FilterProducer;
-use crate::transform::TransformProducer;
+use crate::seq::filter::FilterProducer;
+use crate::seq::map::TransformProducer;
 
 /// Filter and transform points
 pub fn fat(

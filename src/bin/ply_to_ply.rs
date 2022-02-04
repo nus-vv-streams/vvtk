@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate error_chain;
-extern crate iswr;
+extern crate vivotk;
 use clap::{App, Arg};
-use iswr::{errors::*, reader, writer};
+use vivotk::{errors::*, io::reader, io::writer};
 
 quick_main!(run);
 

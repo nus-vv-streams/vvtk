@@ -1,5 +1,5 @@
 extern crate clipboard;
-extern crate iswr;
+extern crate vivotk;
 
 use clipboard::ClipboardContext;
 use clipboard::ClipboardProvider;
@@ -7,7 +7,7 @@ use clipboard::ClipboardProvider;
 #[macro_use]
 extern crate error_chain;
 
-use iswr::errors::*;
+use vivotk::errors::*;
 
 quick_main!(run);
 

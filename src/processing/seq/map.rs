@@ -1,9 +1,7 @@
-// use nalgebra::Point3;
-
 use crate::point::Point;
-use crate::points::PointCloud;
+use crate::pointcloud::PointCloud;
 
-use crate::color::PointColor;
+// use crate::color::PointColor;
 use std::collections::HashMap;
 
 /// The function object that transform one point to another
@@ -25,11 +23,7 @@ pub fn do_nothing() -> TransformProducer {
 pub fn all_green() -> TransformProducer {
     Box::new(move |_points: &PointCloud| {
         Box::new(move |point: &Point| {
-            let mut res = point.clone();
-            res.color = PointColor::new_default();
-            res.color.green = 255;
-
-            res
+            point.clone().set_color(0, 0, 255)
         })
     })
 }
@@ -38,11 +32,7 @@ pub fn all_green() -> TransformProducer {
 pub fn all_red() -> TransformProducer {
     Box::new(move |_points: &PointCloud| {
         Box::new(move |point: &Point| {
-            let mut res = point.clone();
-            res.color = PointColor::new_default();
-            res.color.red = 255;
-
-            res
+            point.clone().set_color(255, 0, 0)
         })
     })
 }
@@ -51,9 +41,7 @@ pub fn all_red() -> TransformProducer {
 pub fn point_size_2() -> TransformProducer {
     Box::new(move |_points: &PointCloud| {
         Box::new(move |point: &Point| {
-            let mut res = point.clone();
-            res.point_size = 2.0;
-            res
+            point.clone().set_size(2.0)
         })
     })
 }

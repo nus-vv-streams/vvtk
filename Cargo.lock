@@ -892,24 +892,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "in-summer-we-render"
-version = "0.1.0"
-dependencies = [
- "approx 0.5.1",
- "clap",
- "clipboard",
- "error-chain",
- "image",
- "kiddo",
- "kiss3d",
- "lab",
- "nalgebra",
- "ply-rs",
- "rand",
- "typenum",
-]
-
-[[package]]
 name = "indexmap"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2289,6 +2271,24 @@ name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
+
+[[package]]
+name = "vivotk"
+version = "0.1.0"
+dependencies = [
+ "approx 0.5.1",
+ "clap",
+ "clipboard",
+ "error-chain",
+ "image",
+ "kiddo",
+ "kiss3d",
+ "lab",
+ "nalgebra",
+ "ply-rs",
+ "rand",
+ "typenum",
+]
 
 [[package]]
 name = "void"

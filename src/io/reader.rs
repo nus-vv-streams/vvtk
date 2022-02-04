@@ -1,14 +1,32 @@
 extern crate ply_rs;
-
+use ply_rs::ply;
 use crate::errors::*;
 use crate::ply::Ply;
 use crate::point::Point;
-use crate::points::PointCloud;
+use crate::pointcloud::PointCloud;
 use ply_rs::parser;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::path::Path;
 use std::path::PathBuf;
+
+impl ply::PropertyAccess for Point {
+    fn new() -> Self {
+        Point::new_default()
+    }
+
+    fn set_property(&mut self, key: &String, property: ply::Property) {
+        match (key.as_str(), property) {
+            ("x", ply::Property::Float(v)) => self.coord.x = v,
+            ("y", ply::Property::Float(v)) => self.coord.y = v,
+            ("z", ply::Property::Float(v)) => self.coord.z = v,
+            ("r", ply::Property::UChar(v)) => self.color.r = v,
+            ("g", ply::Property::UChar(v)) => self.color.g = v,
+            ("b", ply::Property::UChar(v)) => self.color.b = v,
+            (k, _) => panic!("Vertex: Unexpected key/value combination: key: {}", k),
+        }
+    }
+}
 
 /// Read any form of ply file and return the collections of points.
 ///
