@@ -12,10 +12,9 @@ fn run() -> Result<()> {
         .about("View a ply frame or play a ply video")
         .arg(
             Arg::with_name("input")
-                .short("i")
-                .long("input")
                 .takes_value(true)
                 .multiple(false)
+                .required(true)
                 .help("File directory for data"),
         )
         .arg(
