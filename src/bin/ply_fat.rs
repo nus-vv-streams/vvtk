@@ -2,7 +2,7 @@
 extern crate error_chain;
 extern crate vivotk;
 use clap::{App, Arg};
-use vivotk::{errors::*, seq::fat, seq::filter, io::reader, seq::map, io::writer};
+use vivotk::{errors::*, io::reader, io::writer, seq::fat, seq::filter, seq::map};
 
 quick_main!(run);
 
@@ -62,9 +62,7 @@ fn run() -> Result<()> {
 
     let input = matches.value_of("input");
     let filter = matches.value_of("filter").unwrap_or(filter::DEFAULT_KEY);
-    let transform = matches
-        .value_of("transform")
-        .unwrap_or(map::DEFAULT_KEY);
+    let transform = matches.value_of("transform").unwrap_or(map::DEFAULT_KEY);
     let remain = matches.value_of("remain").unwrap_or(map::DEFAULT_KEY);
     let form = matches.value_of("form");
     let output = matches.value_of("output");

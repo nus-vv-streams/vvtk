@@ -14,7 +14,6 @@ use std::sync::*;
 //use crate::coordinate::Coordinate;
 // use crate::interpolate_controller::kdtree_dim;
 
-
 #[derive(Clone)]
 pub struct ConcealedPointCloud {
     pub pc: PointCloud,
@@ -28,11 +27,7 @@ pub struct ConcealedPointCloud {
 
 impl Point {
     ///penalization
-    fn get_difference(
-        &self,
-        another_point: &Point,
-        params: &Arc<InterpolateParams>,
-        ) -> f32 {
+    fn get_difference(&self, another_point: &Point, params: &Arc<InterpolateParams>) -> f32 {
         // let max_coor: f32 = 3.0 * params.scale_coor_delta.powi(2);
         // let scale_coor = max_coor.sqrt();
         let scale_coor: f32 = 3.0_f32.sqrt() * params.scale_coor_delta;
@@ -45,15 +40,16 @@ impl Point {
             + self.get_color_delta(another_point) * params.penalize_col / scale_col
     }
 
-    /// Return the index of the point from a set P that is closest 
-    /// to this point.  P is given as an array of indices into PointCloud 
+    /// Return the index of the point from a set P that is closest
+    /// to this point.  P is given as an array of indices into PointCloud
     /// object.
-    /// 
-    fn get_closest_index(&self,
+    ///
+    fn get_closest_index(
+        &self,
         points: &Arc<PointCloud>,
         indices: &[usize],
         params: &Arc<InterpolateParams>,
-        ) -> usize {
+    ) -> usize {
         let mut min: f32 = f32::MAX;
         let mut min_idx = indices[indices.len() - 1];
 
@@ -74,8 +70,7 @@ impl Point {
         points: &Arc<PointCloud>,
         indices: &[usize],
         params: &Arc<InterpolateParams>,
-        ) -> Point {
-
+    ) -> Point {
         if indices.is_empty() {
             return self.clone();
         }
@@ -83,8 +78,8 @@ impl Point {
         let idx = self.get_closest_index(points, indices, params);
         let p = &points.data[idx];
         self.get_weighted_average(p, params.prev_weight)
-            // p.clone()
-            // self.clone()
+        // p.clone()
+        // self.clone()
     }
 
     pub fn method_of_neighbour_query(
@@ -94,11 +89,11 @@ impl Point {
         options_for_nearest: usize,
         _radius: f32,
         dist_func: for<'r, 's> fn(&'r [f32; 3], &'s [f32; 3]) -> f32,
-        ) -> Vec<usize> {
+    ) -> Vec<usize> {
         self.get_nearest_neighbours(kd_tree, options_for_nearest, dist_func)
     }
 
-#[cfg(feature = "by_radius")]
+    #[cfg(feature = "by_radius")]
     /// queries neighbours by radius
     pub fn method_of_neighbour_query(
         &self,
@@ -106,7 +101,7 @@ impl Point {
         _options_for_nearest: usize,
         radius: f32,
         dist_func: for<'r, 's> fn(&'r [f32], &'s [f32]) -> f32,
-        ) -> Vec<usize> {
+    ) -> Vec<usize> {
         // let mut x = Vec::new(); x.push(self.index); if self.index + 1 < kd_tree.size() {x.push(self.index + 1);}
         // x
 
@@ -119,29 +114,29 @@ impl Point {
         kd_tree: &Arc<kiddo::KdTree<f32, usize, 3>>,
         radius: f32,
         dist_func: for<'r, 's> fn(&'r [f32; 3], &'s [f32; 3]) -> f32,
-        ) -> Vec<usize> {
+    ) -> Vec<usize> {
         kd_tree
-        .within_unsorted(&self.get_point(), radius, &dist_func)
-        .unwrap()
-        .into_iter()
-        .map(|found| *found.1)
-        .collect()
-        }
-    
-        /// Returns k neighboring points
-        pub fn get_nearest_neighbours(
+            .within_unsorted(&self.get_point(), radius, &dist_func)
+            .unwrap()
+            .into_iter()
+            .map(|found| *found.1)
+            .collect()
+    }
+
+    /// Returns k neighboring points
+    pub fn get_nearest_neighbours(
         &self,
         kd_tree: &Arc<kiddo::KdTree<f32, usize, 3>>,
         quantity: usize,
         dist_func: for<'r, 's> fn(&'r [f32; 3], &'s [f32; 3]) -> f32,
-        ) -> Vec<usize> {
+    ) -> Vec<usize> {
         kd_tree
-        .nearest(&self.get_point(), quantity, &dist_func)
-        .unwrap()
-        .into_iter()
-        .map(|found| *found.1)
-        .collect()
-        }
+            .nearest(&self.get_point(), quantity, &dist_func)
+            .unwrap()
+            .into_iter()
+            .map(|found| *found.1)
+            .collect()
+    }
 }
 
 impl ConcealedPointCloud {
@@ -174,5 +169,4 @@ impl ConcealedPointCloud {
             reference_frame: Vec::new(),
         }
     }
-
 }

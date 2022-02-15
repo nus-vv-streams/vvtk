@@ -72,6 +72,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.53"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94a45b455c14666b85fc40a019e8ab9eb75e3a124e05494f5397122bc9eb06e0"
+
+[[package]]
 name = "approx"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2276,7 +2282,9 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 name = "vivotk"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "approx 0.5.1",
+ "byteorder",
  "clap",
  "clipboard",
  "error-chain",
@@ -2287,6 +2295,7 @@ dependencies = [
  "nalgebra",
  "ply-rs",
  "rand",
+ "thiserror",
  "typenum",
 ]
 

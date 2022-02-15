@@ -22,28 +22,20 @@ pub fn do_nothing() -> TransformProducer {
 /// The `TransformProducer` producing the `TransformFn` that make the point green
 pub fn all_green() -> TransformProducer {
     Box::new(move |_points: &PointCloud| {
-        Box::new(move |point: &Point| {
-            point.clone().set_color(0, 0, 255)
-        })
+        Box::new(move |point: &Point| point.clone().set_color(0, 0, 255))
     })
 }
 
 /// The `TransformProducer` producing the `TransformFn` that make the point red
 pub fn all_red() -> TransformProducer {
     Box::new(move |_points: &PointCloud| {
-        Box::new(move |point: &Point| {
-            point.clone().set_color(255, 0, 0)
-        })
+        Box::new(move |point: &Point| point.clone().set_color(255, 0, 0))
     })
 }
 
 /// The `TransformProducer` producing the `TransformFn` that make the point larger (point's size = 2)
 pub fn point_size_2() -> TransformProducer {
-    Box::new(move |_points: &PointCloud| {
-        Box::new(move |point: &Point| {
-            point.clone().set_size(2.0)
-        })
-    })
+    Box::new(move |_points: &PointCloud| Box::new(move |point: &Point| point.clone().set_size(2.0)))
 }
 
 /// Return the Hashmap of all `TransformProducer`

@@ -2,8 +2,8 @@
 extern crate error_chain;
 extern crate vivotk;
 use clap::{App, Arg};
-use vivotk::{errors::*, io::reader::read, renderer::Renderer, PlyDir};
 use std::path::Path;
+use vivotk::{errors::*, io::reader::read, renderer::Renderer, PlyDir};
 
 quick_main!(run);
 
