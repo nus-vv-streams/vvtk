@@ -11,7 +11,7 @@
 //!
 //! fn main() -> Result<(), PCDReadError> {
 //!     let reader_pcd = read_pcd("VERSION .7 ...".as_bytes())?;
-//!     println!("{}", reader_pcd.data.len());
+//!     println!("{}", reader_pcd.data().len());
 //!     Ok(())
 //! }
 //! ```
@@ -21,7 +21,7 @@
 //!
 //! fn main() -> Result<(), PCDReadError> {
 //!     let file_pcd = read_pcd_file("example.pcd")?;
-//!     println!("{}", file_pcd.data.len());
+//!     println!("{}", file_pcd.data().len());
 //!     Ok(())
 //! }
 //! ```

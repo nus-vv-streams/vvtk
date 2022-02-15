@@ -13,33 +13,40 @@ use thiserror::Error;
 
 type Result<T> = std::result::Result<T, PCDReadError>;
 
+/// Convenience function to read [PointCloudData] directly from a file given the path
 pub fn read_pcd_file<P: AsRef<Path>>(p: P) -> Result<PointCloudData> {
     let file = File::open(p).map_err(PCDReadError::IOError)?;
     let reader = BufReader::new(file);
     Parser::new(reader).parse()
 }
 
+/// Attempts to parse a [PointCloudData] from the reader
 pub fn read_pcd<R: Read>(r: R) -> Result<PointCloudData> {
     let reader = BufReader::new(r);
     Parser::new(reader).parse()
 }
 
+/// Represents possible error scenarios when attempting to parse a point cloud data format file.
 #[derive(Error, Debug)]
 pub enum PCDReadError {
+    /// For ease of conversion from IO errors to PCDReadError.
+    /// Note that error can still be due to an invalid encoding of PCD
+    /// E.g. attempting to access the next line when there are no more lines.
     #[error(transparent)]
     IOError(#[from] std::io::Error),
-    #[error("Invalid header while parsing {prefix:?}. {error_msg:?}\n\t{actual_line:?}")]
+    /// Represents an error with the header type of the file.
+    #[error("Invalid header while parsing {section:?}. {error_msg:?}\n\t{actual_line:?}")]
     InvalidHeader {
-        prefix: String,
+        /// The portion of the header where the error is encountered
+        section: String,
+        /// A custom error messaging describing the error
         error_msg: String,
+        /// The line which caused the error
         actual_line: String,
     },
+    /// Represents an error with the data of the file.
     #[error("Invalid data: {0}")]
     InvalidData(String),
-    #[error(transparent)]
-    ParseDataError(#[from] anyhow::Error),
-    #[error("Unexpected end of file")]
-    EndOfFile,
 }
 
 struct Parser<R: BufRead> {
@@ -67,14 +74,8 @@ impl<R: BufRead> Parser<R> {
         let viewpoint = self.parse_viewpoint()?;
         let points = self.parse_points()?;
 
-        Ok(PCDHeader {
-            version,
-            fields,
-            width,
-            height,
-            viewpoint,
-            points,
-        })
+        PCDHeader::new(version, fields, width, height, viewpoint, points)
+            .map_err(|s| self.header_err("", s))
     }
 
     fn parse_header_version(&mut self) -> Result<PCDVersion> {
@@ -190,10 +191,10 @@ impl<R: BufRead> Parser<R> {
     fn parse_ascii_data(self, header: PCDHeader) -> Result<PointCloudData> {
         use byteorder::{NativeEndian, WriteBytesExt};
 
-        let size = Self::calculate_point_cloud_size_in_bytes(&header);
+        let size = header.buffer_size();
         let mut buffer = Vec::with_capacity(size as usize);
 
-        let data_per_line = header.fields.iter().fold(0, |acc, field| acc + field.count);
+        let data_per_line = header.data_per_line();
 
         for line in self.reader.lines() {
             let line = line.map_err(PCDReadError::IOError)?;
@@ -209,57 +210,57 @@ impl<R: BufRead> Parser<R> {
 
             use PCDFieldSize::*;
             use PCDFieldType::*;
-            use PCDReadError::ParseDataError;
+            use PCDReadError::InvalidData;
             let mut index = 0;
-            for field in &header.fields {
-                for _ in 0..field.count {
-                    match (field.size, field.field_type) {
+            for field in header.fields() {
+                for _ in 0..field.count() {
+                    match (field.size(), field.field_type()) {
                         (One, Unsigned) => buffer.write_u8(
                             data[index]
                                 .parse::<u8>()
-                                .map_err(|e| ParseDataError(e.into()))?,
+                                .map_err(|e| InvalidData(e.to_string()))?,
                         ),
                         (One, Signed) => buffer.write_i8(
                             data[index]
                                 .parse::<i8>()
-                                .map_err(|e| ParseDataError(e.into()))?,
+                                .map_err(|e| InvalidData(e.to_string()))?,
                         ),
                         (Two, Unsigned) => buffer.write_u16::<NativeEndian>(
                             data[index]
                                 .parse::<u16>()
-                                .map_err(|e| ParseDataError(e.into()))?,
+                                .map_err(|e| InvalidData(e.to_string()))?,
                         ),
                         (Two, Signed) => buffer.write_i16::<NativeEndian>(
                             data[index]
                                 .parse::<i16>()
-                                .map_err(|e| ParseDataError(e.into()))?,
+                                .map_err(|e| InvalidData(e.to_string()))?,
                         ),
                         (Four, Unsigned) => buffer.write_u32::<NativeEndian>(
                             data[index]
                                 .parse::<u32>()
-                                .map_err(|e| ParseDataError(e.into()))?,
+                                .map_err(|e| InvalidData(e.to_string()))?,
                         ),
                         (Four, Signed) => buffer.write_i32::<NativeEndian>(
                             data[index]
                                 .parse::<i32>()
-                                .map_err(|e| ParseDataError(e.into()))?,
+                                .map_err(|e| InvalidData(e.to_string()))?,
                         ),
                         (Four, Float) => buffer.write_f32::<NativeEndian>(
                             data[index]
                                 .parse::<f32>()
-                                .map_err(|e| ParseDataError(e.into()))?,
+                                .map_err(|e| InvalidData(e.to_string()))?,
                         ),
                         (Eight, Float) => buffer.write_f64::<NativeEndian>(
                             data[index]
                                 .parse::<f64>()
-                                .map_err(|e| ParseDataError(e.into()))?,
+                                .map_err(|e| InvalidData(e.to_string()))?,
                         ),
                         _ => {
                             return Err(PCDReadError::InvalidHeader {
-                                prefix: "FIELDS".to_string(),
+                                section: "FIELDS".to_string(),
                                 error_msg: format!(
                                     "Invalid size and field type combination ({:?}, {:?})",
-                                    field.size, field.field_type
+                                    field.size(), field.field_type()
                                 ),
                                 actual_line: line,
                             })
@@ -270,41 +271,17 @@ impl<R: BufRead> Parser<R> {
             }
         }
 
-        Ok(PointCloudData {
-            header,
-            data: buffer,
-        })
+        PointCloudData::new(header, buffer)
+            .map_err(PCDReadError::InvalidData)
     }
 
     fn parse_binary_data(mut self, header: PCDHeader) -> Result<PointCloudData> {
-        let size = Self::calculate_point_cloud_size_in_bytes(&header);
         let mut buffer = vec![];
         self.reader
             .read_to_end(&mut buffer)
             .map_err(PCDReadError::IOError)?;
-
-        if buffer.len() as u64 != size {
-            return Err(PCDReadError::InvalidData(format!(
-                "Expected to read {} bytes, got {} instead",
-                size,
-                buffer.len()
-            )));
-        }
-
-        Ok(PointCloudData {
-            header,
-            data: buffer,
-        })
-    }
-
-    fn calculate_point_cloud_size_in_bytes(header: &PCDHeader) -> u64 {
-        let mut size_per_point = 0;
-        for field in &header.fields {
-            let field_size = u8::from(field.size) as u64;
-            size_per_point += field_size * field.count;
-        }
-
-        size_per_point * header.points
+        PointCloudData::new(header, buffer)
+            .map_err(PCDReadError::InvalidData)
     }
 
     fn strip_line_prefix(&mut self, prefix: &str) -> Result<&str> {
@@ -319,19 +296,19 @@ impl<R: BufRead> Parser<R> {
         self.line.clear();
         self.reader
             .read_line(&mut self.line)
-            .map_err(|_| PCDReadError::EndOfFile)?;
+            .map_err(PCDReadError::IOError)?;
         while self.line.starts_with('#') || self.line.is_empty() {
             self.line.clear();
             self.reader
                 .read_line(&mut self.line)
-                .map_err(|_| PCDReadError::EndOfFile)?;
+                .map_err(PCDReadError::IOError)?;
         }
         Ok(())
     }
 
-    fn header_err(&self, prefix: &str, error_msg: String) -> PCDReadError {
+    fn header_err(&self, section: &str, error_msg: String) -> PCDReadError {
         PCDReadError::InvalidHeader {
-            prefix: prefix.to_string(),
+            section: section.to_string(),
             error_msg,
             actual_line: self.line.clone(),
         }
@@ -347,9 +324,7 @@ mod tests {
     use std::io::{BufReader, Cursor};
 
     fn expected_header() -> PCDHeader {
-        PCDHeader {
-            version: PCDVersion::V0_7,
-            fields: vec![
+        PCDHeader::new(PCDVersion::V0_7, vec![
                 PCDField::new("x".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
                 PCDField::new("y".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
                 PCDField::new("z".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
@@ -360,24 +335,20 @@ mod tests {
                     1,
                 )
                 .unwrap(),
-            ],
-            width: 213,
-            height: 1,
-            viewpoint: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-            points: 213,
-        }
+            ], 213,1,[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0], 213,
+        ).unwrap()
     }
 
     fn parse_str(s: &str) -> Parser<BufReader<&[u8]>> {
         Parser::new(BufReader::new(s.as_bytes()))
     }
 
-    fn assert_header_fail<T>(result: Result<T, PCDReadError>, fail_prefix: &str) {
+    fn assert_header_fail<T>(result: Result<T, PCDReadError>, fail_section: &str) {
         match result {
             Ok(_) => panic!("Parsing should fail"),
             Err(e) => match e {
-                PCDReadError::InvalidHeader { prefix, .. } => assert_eq!(&prefix, fail_prefix),
-                _ => panic!("Error should be due to {}", fail_prefix),
+                PCDReadError::InvalidHeader { section, .. } => assert_eq!(&section, fail_section),
+                _ => panic!("Error should be due to {}", fail_section),
             },
         }
     }
@@ -666,8 +637,8 @@ mod tests {
     #[test]
     fn parse_ascii_success() {
         let pcd = read_pcd_file("test_files/pcd/ascii.pcd").unwrap();
-        assert_eq!(pcd.header, expected_header());
-        let mut rdr = Cursor::new(pcd.data);
+        assert_eq!(pcd.header(), &expected_header());
+        let mut rdr = Cursor::new(pcd.data());
 
         // Just read first 3 lines
         let expected = [

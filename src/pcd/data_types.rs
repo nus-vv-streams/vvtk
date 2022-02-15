@@ -1,19 +1,112 @@
 use std::convert::TryFrom;
 use std::str::FromStr;
 
+/// This struct represents a single .pcd file
 pub struct PointCloudData {
-    pub header: PCDHeader,
-    pub data: Vec<u8>,
+    header: PCDHeader,
+    data: Vec<u8>,
+}
+
+impl PointCloudData {
+    pub fn new(header: PCDHeader, data: Vec<u8>) -> Result<Self, String> {
+        if header.buffer_size() != data.len() as u64 {
+            Err(format!(
+                "Expected {} bytes from header data, got {} instead",
+                header.buffer_size(),
+                data.len()
+            ))
+        } else {
+            Ok(Self {
+                header,
+                data
+            })
+        }
+    }
+
+    pub fn header(&self) -> &PCDHeader {
+        &self.header
+    }
+
+    pub fn data(&self) -> &[u8] {
+        &self.data
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PCDHeader {
-    pub version: PCDVersion,
-    pub fields: Vec<PCDField>,
-    pub width: u64,
-    pub height: u64,
-    pub viewpoint: [f32; 7],
-    pub points: u64,
+    version: PCDVersion,
+    fields: Vec<PCDField>,
+    width: u64,
+    height: u64,
+    viewpoint: [f32; 7],
+    points: u64,
+}
+
+impl PCDHeader {
+    pub fn new(version: PCDVersion, fields: Vec<PCDField>, width: u64, height: u64, viewpoint: [f32; 7], points: u64) -> Result<Self, String> {
+        if width.saturating_mul(height) != points {
+            return Err(format!("Width * Height must be equal to number of points. Width: {width} Height: {height} Points: {points}"));
+        }
+
+        Ok(Self {
+            version,
+            fields,
+            width,
+            height,
+            viewpoint,
+            points
+        })
+    }
+
+    pub fn version(&self) -> PCDVersion {
+        self.version
+    }
+
+    pub fn fields(&self) -> &Vec<PCDField> {
+        &self.fields
+    }
+
+    pub fn width(&self) -> u64 {
+        self.width
+    }
+
+    pub fn height(&self) -> u64 {
+        self.height
+    }
+
+    pub fn viewpoint(&self) -> &[f32; 7] {
+        &self.viewpoint
+    }
+
+    pub fn points(&self) -> u64 {
+        self.points
+    }
+
+    /// Calculates the number of bytes that should be present in the
+    /// data portion of the point cloud.
+    pub fn buffer_size(&self) -> u64 {
+        let mut size_per_point = 0;
+        for field in &self.fields {
+            let field_size = u8::from(field.size) as u64;
+            size_per_point += field_size * field.count;
+        }
+
+        size_per_point * self.points
+    }
+
+    /// Calculates the number of data points that should be present per line
+    /// in "ascii" format.
+    ///
+    /// Example: Given the following field section:
+    ///     FIELDS x y z rgb
+    ///     ...
+    ///     COUNT 1 2 3 4
+    ///
+    /// We should expect to see 1 + 2 + 3 + 4 = 10 data points per line
+
+    pub fn data_per_line(&self) -> u64 {
+        self.fields.iter().fold(0, |acc, field| acc + field.count)
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -44,15 +137,12 @@ impl FromStr for PCDVersion {
     }
 }
 
-#[allow(clippy::manual_non_exhaustive)]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct PCDField {
-    pub name: String,
-    pub size: PCDFieldSize,
-    pub field_type: PCDFieldType,
-    pub count: u64,
-    // This fields ensures users cannot create PCDField directly
-    _private: (),
+    name: String,
+    size: PCDFieldSize,
+    field_type: PCDFieldType,
+    count: u64,
 }
 
 impl PCDField {
@@ -78,9 +168,24 @@ impl PCDField {
             name,
             size,
             field_type,
-            count,
-            _private: (),
+            count
         })
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn size(&self) -> PCDFieldSize {
+        self.size
+    }
+
+    pub fn field_type(&self) -> PCDFieldType {
+        self.field_type
+    }
+
+    pub fn count(&self) -> u64 {
+        self.count
     }
 }
 
