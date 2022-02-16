@@ -1,6 +1,4 @@
-use crate::pcd::data_types::{
-    PCDField, PCDFieldDataType, PCDHeader, PCDVersion, PointCloudData,
-};
+use crate::pcd::data_types::{PCDField, PCDFieldDataType, PCDHeader, PCDVersion, PointCloudData};
 use std::convert::TryInto;
 use std::fmt::Debug;
 

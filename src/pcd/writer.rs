@@ -19,7 +19,11 @@ pub fn write_pcd_file<P: AsRef<Path>>(
 }
 
 /// Writes the point cloud into the provided writer
-pub fn write_pcd<W: Write>(pcd: &PointCloudData, data_type: PCDDataType, writer: &mut W) -> IOResult {
+pub fn write_pcd<W: Write>(
+    pcd: &PointCloudData,
+    data_type: PCDDataType,
+    writer: &mut W,
+) -> IOResult {
     Writer::new(pcd, data_type, writer).write()?;
     Ok(())
 }
@@ -157,10 +161,13 @@ impl<'a, W: Write> Writer<'a, W> {
 
 #[cfg(test)]
 mod tests {
-    use std::io::{BufReader, BufWriter};
+    use crate::pcd::{
+        read_pcd, write_pcd, PCDDataType, PCDField, PCDFieldSize, PCDFieldType, PCDHeader,
+        PCDVersion, PointCloudData,
+    };
     use byteorder::{NativeEndian, WriteBytesExt};
     use image::EncodableLayout;
-    use crate::pcd::{PCDDataType, PCDField, PCDFieldSize, PCDFieldType, PCDHeader, PCDVersion, PointCloudData, read_pcd, write_pcd};
+    use std::io::{BufReader, BufWriter};
 
     #[test]
     fn test_write_ascii() {
@@ -186,17 +193,29 @@ mod tests {
             PCDHeader::new(
                 PCDVersion::V0_7,
                 vec![
-                    PCDField::new("x".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
-                    PCDField::new("y".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
-                    PCDField::new("z".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
-                    PCDField::new("rgb".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
+                    PCDField::new("x".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1)
+                        .unwrap(),
+                    PCDField::new("y".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1)
+                        .unwrap(),
+                    PCDField::new("z".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1)
+                        .unwrap(),
+                    PCDField::new(
+                        "rgb".to_string(),
+                        PCDFieldSize::Four,
+                        PCDFieldType::Float,
+                        1,
+                    )
+                    .unwrap(),
                 ],
-            1,
-            1,
-            [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-            1).unwrap(),
-            data
-        ).unwrap();
+                1,
+                1,
+                [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                1,
+            )
+            .unwrap(),
+            data,
+        )
+        .unwrap();
 
         let mut buf = BufWriter::new(Vec::new());
         write_pcd(&pcd, PCDDataType::Ascii, &mut buf).unwrap();
@@ -215,17 +234,29 @@ mod tests {
             PCDHeader::new(
                 PCDVersion::V0_7,
                 vec![
-                    PCDField::new("x".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
-                    PCDField::new("y".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
-                    PCDField::new("z".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
-                    PCDField::new("rgb".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
+                    PCDField::new("x".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1)
+                        .unwrap(),
+                    PCDField::new("y".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1)
+                        .unwrap(),
+                    PCDField::new("z".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1)
+                        .unwrap(),
+                    PCDField::new(
+                        "rgb".to_string(),
+                        PCDFieldSize::Four,
+                        PCDFieldType::Float,
+                        1,
+                    )
+                    .unwrap(),
                 ],
                 1,
                 1,
                 [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-                1).unwrap(),
-            data
-        ).unwrap();
+                1,
+            )
+            .unwrap(),
+            data,
+        )
+        .unwrap();
 
         let mut buf = BufWriter::new(Vec::new());
         write_pcd(&pcd, PCDDataType::Binary, &mut buf).unwrap();
@@ -235,5 +266,4 @@ mod tests {
         assert_eq!(new_pcd.header(), pcd.header());
         assert_eq!(new_pcd.data(), pcd.data());
     }
-
 }

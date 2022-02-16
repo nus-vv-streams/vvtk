@@ -12,7 +12,7 @@ fn run() -> Result<()> {
         .about("Make a png from ply file")
         .arg(
             Arg::with_name("input")
-                .short("i")
+                .short('i')
                 .long("input")
                 .takes_value(true)
                 .multiple(false)
@@ -36,7 +36,7 @@ fn run() -> Result<()> {
         )
         .arg(
             Arg::with_name("x")
-                .short("x")
+                .short('x')
                 .long("x")
                 .use_delimiter(true)
                 .takes_value(true)
@@ -45,7 +45,7 @@ fn run() -> Result<()> {
         )
         .arg(
             Arg::with_name("y")
-                .short("y")
+                .short('y')
                 .long("y")
                 .use_delimiter(true)
                 .takes_value(true)
@@ -54,7 +54,7 @@ fn run() -> Result<()> {
         )
         .arg(
             Arg::with_name("width")
-                .short("w")
+                .short('w')
                 .long("width")
                 .use_delimiter(true)
                 .takes_value(true)
@@ -63,7 +63,7 @@ fn run() -> Result<()> {
         )
         .arg(
             Arg::with_name("height")
-                .short("h")
+                .short('h')
                 .long("height")
                 .use_delimiter(true)
                 .takes_value(true)
@@ -72,7 +72,7 @@ fn run() -> Result<()> {
         )
         .arg(
             Arg::with_name("output")
-                .short("o")
+                .short('o')
                 .long("output")
                 .takes_value(true)
                 .multiple(false)

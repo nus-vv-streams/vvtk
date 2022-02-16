@@ -11,7 +11,7 @@ fn run() -> Result<()> {
         .about("Filter and Transform points")
         .arg(
             Arg::with_name("input")
-                .short("i")
+                .short('i')
                 .long("input")
                 .takes_value(true)
                 .multiple(false)
@@ -27,7 +27,7 @@ fn run() -> Result<()> {
         )
         .arg(
             Arg::with_name("transform")
-                .short("t")
+                .short('t')
                 .long("transform")
                 .takes_value(true)
                 .multiple(false)
@@ -36,7 +36,7 @@ fn run() -> Result<()> {
         )
         .arg(
             Arg::with_name("remain")
-                .short("r")
+                .short('r')
                 .long("remain")
                 .takes_value(true)
                 .multiple(false)
@@ -44,7 +44,7 @@ fn run() -> Result<()> {
         )
         .arg(
             Arg::with_name("form")
-                .short("f")
+                .short('f')
                 .long("form")
                 .takes_value(true)
                 .multiple(false)
@@ -52,7 +52,7 @@ fn run() -> Result<()> {
         )
         .arg(
             Arg::with_name("output")
-                .short("o")
+                .short('o')
                 .long("output")
                 .takes_value(true)
                 .multiple(false)
