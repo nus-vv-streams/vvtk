@@ -7,6 +7,7 @@ use std::sync::*;
 use std::thread;
 use std::thread::JoinHandle;
 
+#[allow(dead_code)]
 type PairVecPoint = (Vec<Point>, Vec<Point>);
 
 /// Spawns a single thread to compute the next "chunk" of closest points

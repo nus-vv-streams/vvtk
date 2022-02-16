@@ -10,52 +10,52 @@ fn run() -> Result<()> {
     let matches = App::new("ply_fat")
         .about("Filter and Transform points")
         .arg(
-            Arg::with_name("input")
+            Arg::new("input")
                 .short('i')
                 .long("input")
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("File directory for data"),
         )
         .arg(
-            Arg::with_name("filter")
+            Arg::new("filter")
                 .long("filter")
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .required(true)
                 .help("Filter method"),
         )
         .arg(
-            Arg::with_name("transform")
+            Arg::new("transform")
                 .short('t')
                 .long("transform")
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .required(true)
                 .help("Transform method"),
         )
         .arg(
-            Arg::with_name("remain")
+            Arg::new("remain")
                 .short('r')
                 .long("remain")
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Transform method"),
         )
         .arg(
-            Arg::with_name("form")
+            Arg::new("form")
                 .short('f')
                 .long("form")
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Form of output (ascii/binary)"),
         )
         .arg(
-            Arg::with_name("output")
+            Arg::new("output")
                 .short('o')
                 .long("output")
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("File directory for output"),
         )
         .get_matches();

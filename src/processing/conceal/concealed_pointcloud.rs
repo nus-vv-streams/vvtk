@@ -153,7 +153,7 @@ impl ConcealedPointCloud {
     /// Creates new instance of PointCloud
     pub fn new_from_point_cloud(pc: PointCloud) -> Self {
         ConcealedPointCloud {
-            pc: pc.clone(),
+            pc,
             delta_pos_vector: Vec::new(),
             delta_colours: Vec::new(),
             reference_frame: Vec::new(),

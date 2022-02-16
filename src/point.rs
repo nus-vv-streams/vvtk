@@ -45,6 +45,7 @@ mod coordinate {
             )
         }
 
+        #[allow(dead_code)]
         /// Return a midpoint of two `Coordinate`s
         pub fn get_average(&self, p: &Coordinate) -> Coordinate {
             Coordinate::new(
@@ -141,6 +142,7 @@ mod color {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 /// Structure presenting a point
 pub struct Point {

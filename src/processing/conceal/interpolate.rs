@@ -4,8 +4,6 @@ use crate::processing::conceal::ConcealedPointCloud;
 use crate::processing::conceal::InterpolateParams;
 use std::sync::Arc;
 
-use crate::Instant;
-
 pub fn two_norm(a: &[f32; 3], b: &[f32; 3]) -> f32 {
     let mut sum: f32 = 0.0;
     for i in 0..a.len() {

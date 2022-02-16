@@ -39,5 +39,3 @@ pub use render::{gui, gui_states, renderer};
 // pub use pointcloud::point;
 // pub use seq::{fat, filter, transform};
 // pub use io::{reader, writer};
-
-use std::time::Instant;
