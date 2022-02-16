@@ -2,8 +2,8 @@
 extern crate error_chain;
 extern crate vivotk;
 use clap::{App, Arg};
-use vivotk::{errors::*, io::reader::read, renderer::Renderer, PlyDir};
 use std::path::Path;
+use vivotk::{errors::*, io::reader::read, renderer::Renderer, PlyDir};
 
 quick_main!(run);
 
@@ -35,7 +35,7 @@ fn run() -> Result<()> {
         )
         .arg(
             Arg::with_name("background")
-                .short("b")
+                .short('b')
                 .long("background")
                 .use_delimiter(true)
                 .takes_value(true)
@@ -44,7 +44,7 @@ fn run() -> Result<()> {
         )
         .arg(
             Arg::with_name("width")
-                .short("w")
+                .short('w')
                 .long("width")
                 .use_delimiter(true)
                 .takes_value(true)
@@ -53,7 +53,7 @@ fn run() -> Result<()> {
         )
         .arg(
             Arg::with_name("height")
-                .short("h")
+                .short('h')
                 .long("height")
                 .use_delimiter(true)
                 .takes_value(true)

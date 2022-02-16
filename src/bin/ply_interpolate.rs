@@ -5,11 +5,11 @@ extern crate vivotk;
 extern crate clap;
 use clap::{App, Arg};
 use vivotk::errors::*;
+use vivotk::io::{reader, writer};
 use vivotk::pointcloud::PointCloud;
+use vivotk::processing::conceal::concealed_pointcloud::ConcealedPointCloud;
 use vivotk::processing::conceal::interpolate::*;
 use vivotk::processing::conceal::interpolate_params::InterpolateParams;
-use vivotk::processing::conceal::concealed_pointcloud::ConcealedPointCloud as ConcealedPointCloud;
-use vivotk::io::{reader, writer}; 
 
 // use std::path::{ PathBuf };
 
@@ -20,14 +20,14 @@ fn run() -> Result<()> {
     let matches = App::new("ply_interpolate")
      .about("Interpolate frame (t1) between 2 ply files (t0 & t2)")
      .arg(Arg::with_name("prev")
-              .short("p")
+              .short('p')
               .long("prev")
               .takes_value(true)
               .multiple(false)
               .required(true)
               .help("File directory for frame t0"))
      .arg(Arg::with_name("next")
-              .short("n")
+              .short('n')
               .long("next")
               .takes_value(true)
               .multiple(false)
@@ -104,7 +104,7 @@ fn run() -> Result<()> {
               .multiple(false)
               .help("Highlights enlarged points as red"))
     .arg(Arg::with_name("threads")
-              .short("t")
+              .short('t')
               .long("threads")
               .takes_value(true)
               .multiple(false)
@@ -115,7 +115,7 @@ fn run() -> Result<()> {
               .multiple(false)
               .help("Computes delta of coordinates and colour between interpolated frame and t2"))
      .arg(Arg::with_name("output")
-              .short("o")
+              .short('o')
               .long("output")
               .takes_value(true)
               .multiple(false)
@@ -244,27 +244,15 @@ fn interpolate(
     if method == "closest_with_ratio_average_points_recovery" {
         if two_way_interpolation {
             let (_interpolated_pc, prev_pc, next_pc) =
-                closest_with_ratio_average_points_recovery(
-                    prev_pc,
-                    next_pc,
-                    params.clone(),
-                ); //sum of first 3 must equal 1
+                closest_with_ratio_average_points_recovery(prev_pc, next_pc, params.clone()); //sum of first 3 must equal 1
 
-            let (mut interpolated_pc, _prev_pc, _next_pc) = 
-                closest_with_ratio_average_points_recovery(
-                    prev_pc,
-                    next_pc,
-                    params.clone(),
-                ); //sum of first 3 must equal 1
+            let (mut interpolated_pc, _prev_pc, _next_pc) =
+                closest_with_ratio_average_points_recovery(prev_pc, next_pc, params.clone()); //sum of first 3 must equal 1
 
             end_result.data.append(&mut interpolated_pc.pc.data);
         } else {
-            let (mut interpolated_pc, _prev_pc, _next_pc) = 
-                closest_with_ratio_average_points_recovery(
-                    prev_pc,
-                    next_pc,
-                    params.clone(),
-                ); //sum of first 3 must equal 1
+            let (mut interpolated_pc, _prev_pc, _next_pc) =
+                closest_with_ratio_average_points_recovery(prev_pc, next_pc, params.clone()); //sum of first 3 must equal 1
 
             end_result.data.append(&mut interpolated_pc.pc.data);
         }

@@ -37,24 +37,22 @@ mod coordinate {
         }
 
         /// Return a midpoint of two `Coordinate`s
-        pub fn get_weighted_average(&self, p: &Coordinate, alpha: f32) 
-            -> Coordinate {
-                Coordinate::new(
-                    (self.x * alpha) + (p.x * (1.0 - alpha)),
-                    (self.y * alpha) + (p.y * (1.0 - alpha)),
-                    (self.z * alpha) + (p.z * (1.0 - alpha)),
-                    )
-            }
+        pub fn get_weighted_average(&self, p: &Coordinate, alpha: f32) -> Coordinate {
+            Coordinate::new(
+                (self.x * alpha) + (p.x * (1.0 - alpha)),
+                (self.y * alpha) + (p.y * (1.0 - alpha)),
+                (self.z * alpha) + (p.z * (1.0 - alpha)),
+            )
+        }
 
         /// Return a midpoint of two `Coordinate`s
-        pub fn get_average(&self, p: &Coordinate) 
-            -> Coordinate {
-                Coordinate::new(
-                    (self.x + p.x) * 0.5,
-                    (self.y + p.y) * 0.5,
-                    (self.z + p.z) * 0.5,
-                    )
-            }
+        pub fn get_average(&self, p: &Coordinate) -> Coordinate {
+            Coordinate::new(
+                (self.x + p.x) * 0.5,
+                (self.y + p.y) * 0.5,
+                (self.z + p.z) * 0.5,
+            )
+        }
 
         /// Return the distance between two `Coordinate`s
         pub fn get_coord_delta(&self, another_point: &Coordinate) -> f32 {
@@ -86,11 +84,7 @@ mod color {
     impl Color {
         /// Return a white `Color` (R = G = B = 0)
         pub fn new_default() -> Self {
-            Color {
-                r: 0,
-                g: 0,
-                b: 0,
-            }
+            Color { r: 0, g: 0, b: 0 }
         }
 
         /// Return a `Color` with specific RGB
@@ -104,15 +98,11 @@ mod color {
                 self.r as f32 / 256.0,
                 self.g as f32 / 256.0,
                 self.b as f32 / 256.0,
-                )
+            )
         }
 
         /// Return a average `Color` of two `Color`s
-        pub fn get_weighted_average(
-            &self,
-            p: &Color,
-            alpha: f32
-            ) -> Color {
+        pub fn get_weighted_average(&self, p: &Color, alpha: f32) -> Color {
             // let lab_of_self = self.to_lab();
             // let lab_of_another = another_point.to_lab();
             // let lab_of_average = Lab {
@@ -133,7 +123,7 @@ mod color {
                 ((self.r as f32 * alpha) + (p.r as f32 * (1.0 - alpha))) as u8,
                 ((self.g as f32 * alpha) + (p.g as f32 * (1.0 - alpha))) as u8,
                 ((self.b as f32 * alpha) + (p.b as f32 * (1.0 - alpha))) as u8,
-                )
+            )
         }
 
         /// Return the difference between two `Color`s
@@ -150,7 +140,6 @@ mod color {
         }
     }
 }
-
 
 #[derive(Debug, Clone)]
 /// Structure presenting a point
@@ -175,7 +164,7 @@ impl Point {
         mapping: u16,
         index: usize,
         point_size: f32,
-        ) -> Self {
+    ) -> Self {
         Point {
             coord,
             color,
@@ -222,8 +211,6 @@ impl Point {
         ]
     }
 
-    
-
     /// Returns a Point whose coordinates and colours are the average of 2 given points
     pub fn get_weighted_average(&self, p: &Point, alpha: f32) -> Point {
         Point::new(
@@ -232,7 +219,7 @@ impl Point {
             0,
             p.index,
             (self.point_size + p.point_size) / 2.0,
-            )
+        )
     }
 
     pub fn get_coord_delta(&self, another_point: &Point) -> f32 {
@@ -245,30 +232,32 @@ impl Point {
 
     /// Add `Color` and `index` to create a `Point`
     pub fn set_color(&self, r: u8, g: u8, b: u8) -> Point {
-        Point::new(self.coord.clone(), color::Color::new(r, g, b), 0, self.index, self.point_size)
+        Point::new(
+            self.coord.clone(),
+            color::Color::new(r, g, b),
+            0,
+            self.index,
+            self.point_size,
+        )
     }
-    
+
     /// Add `Color` and `index` to create a `Point`
     pub fn set_size(&self, size: f32) -> Point {
-        Point::new(self.coord.clone(), self.color.clone(), 0, self.index, size) 
-    }
-    
-    pub fn coord(&self) -> [f32; 3] {
-        [self.coord.x,
-        self.coord.y,
-        self.coord.z,
-        ]
+        Point::new(self.coord.clone(), self.color.clone(), 0, self.index, size)
     }
 
+    pub fn coord(&self) -> [f32; 3] {
+        [self.coord.x, self.coord.y, self.coord.z]
+    }
 
     pub fn coord_and_colors(&self) -> [f32; 6] {
-        [self.coord.x,
-        self.coord.y,
-        self.coord.z,
-        self.color.r as f32,
-        self.color.g as f32,
-        self.color.b as f32,
+        [
+            self.coord.x,
+            self.coord.y,
+            self.coord.z,
+            self.color.r as f32,
+            self.color.g as f32,
+            self.color.b as f32,
         ]
     }
-
 }

@@ -1,7 +1,7 @@
-use crate::processing::conceal::ConcealedPointCloud;
-use crate::processing::conceal::interpolate_controller::*;
-use crate::processing::conceal::InterpolateParams;
 use crate::point::Point;
+use crate::processing::conceal::interpolate_controller::*;
+use crate::processing::conceal::ConcealedPointCloud;
+use crate::processing::conceal::InterpolateParams;
 use std::sync::Arc;
 
 use crate::Instant;
@@ -37,7 +37,11 @@ pub fn closest_with_ratio_average_points_recovery(
     prev: ConcealedPointCloud,
     next: ConcealedPointCloud,
     params: InterpolateParams,
-) -> (ConcealedPointCloud, ConcealedPointCloud, ConcealedPointCloud) {
+) -> (
+    ConcealedPointCloud,
+    ConcealedPointCloud,
+    ConcealedPointCloud,
+) {
     let kd_tree = next.clone().pc.to_kdtree();
     let targets = prev.pc.data.clone();
     let mut interpolated_points: Vec<Point> = Vec::new();
@@ -54,8 +58,5 @@ pub fn closest_with_ratio_average_points_recovery(
             Arc::new(params),
         )
     }
-    (
-        ConcealedPointCloud::of(interpolated_points),
-        prev, next
-    )
+    (ConcealedPointCloud::of(interpolated_points), prev, next)
 }

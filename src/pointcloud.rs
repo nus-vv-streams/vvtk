@@ -34,9 +34,7 @@ impl Default for PointCloud {
 impl PointCloud {
     /// Creates new instance of PointCloud
     pub fn new() -> Self {
-        PointCloud {
-            data: Vec::new(),
-        }
+        PointCloud { data: Vec::new() }
     }
 
     /// Appends new Point to stored data
@@ -46,9 +44,7 @@ impl PointCloud {
 
     /// Creates new instance of PointCloud given a vector of Point
     pub fn of(data: Vec<Point>) -> Self {
-        PointCloud {
-            data,
-        }
+        PointCloud { data }
     }
 
     /// Returns length of stored data
@@ -101,9 +97,7 @@ impl PointCloud {
         let mut shuffled_points = self.data;
         shuffled_points.shuffle(&mut thread_rng());
         for point in &shuffled_points {
-            kdtree
-                .add(&point.coord(),  point.index)
-                .unwrap();
+            kdtree.add(&point.coord(), point.index).unwrap();
         }
         kdtree
     }
@@ -114,9 +108,7 @@ impl PointCloud {
         let mut shuffled_points = self.data;
         shuffled_points.shuffle(&mut thread_rng());
         for point in &shuffled_points {
-            kdtree
-                .add(&point.coord_and_colors(), point.index)
-                .unwrap();
+            kdtree.add(&point.coord_and_colors(), point.index).unwrap();
         }
         kdtree
     }

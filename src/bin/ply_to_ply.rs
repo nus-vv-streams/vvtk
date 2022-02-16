@@ -11,7 +11,7 @@ fn run() -> Result<()> {
         .about("Write data to ply file in ascii or binary form")
         .arg(
             Arg::with_name("input")
-                .short("i")
+                .short('i')
                 .long("input")
                 .takes_value(true)
                 .multiple(false)
@@ -19,7 +19,7 @@ fn run() -> Result<()> {
         )
         .arg(
             Arg::with_name("form")
-                .short("f")
+                .short('f')
                 .long("form")
                 .takes_value(true)
                 .multiple(false)
@@ -27,7 +27,7 @@ fn run() -> Result<()> {
         )
         .arg(
             Arg::with_name("output")
-                .short("o")
+                .short('o')
                 .long("output")
                 .takes_value(true)
                 .multiple(false)
