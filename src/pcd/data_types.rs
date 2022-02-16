@@ -1,4 +1,4 @@
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::str::FromStr;
 
 /// This struct represents a single .pcd file
@@ -16,10 +16,7 @@ impl PointCloudData {
                 data.len()
             ))
         } else {
-            Ok(Self {
-                header,
-                data
-            })
+            Ok(Self { header, data })
         }
     }
 
@@ -32,6 +29,7 @@ impl PointCloudData {
     }
 }
 
+/// Header information for the PCD file
 #[derive(Debug, Clone, PartialEq)]
 pub struct PCDHeader {
     version: PCDVersion,
@@ -43,7 +41,14 @@ pub struct PCDHeader {
 }
 
 impl PCDHeader {
-    pub fn new(version: PCDVersion, fields: Vec<PCDField>, width: u64, height: u64, viewpoint: [f32; 7], points: u64) -> Result<Self, String> {
+    pub fn new(
+        version: PCDVersion,
+        fields: Vec<PCDField>,
+        width: u64,
+        height: u64,
+        viewpoint: [f32; 7],
+        points: u64,
+    ) -> Result<Self, String> {
         if width.saturating_mul(height) != points {
             return Err(format!("Width * Height must be equal to number of points. Width: {width} Height: {height} Points: {points}"));
         }
@@ -54,7 +59,7 @@ impl PCDHeader {
             width,
             height,
             viewpoint,
-            points
+            points,
         })
     }
 
@@ -87,7 +92,7 @@ impl PCDHeader {
     pub fn buffer_size(&self) -> u64 {
         let mut size_per_point = 0;
         for field in &self.fields {
-            let field_size = u8::from(field.size) as u64;
+            let field_size = field.size() as u64;
             size_per_point += field_size * field.count;
         }
 
@@ -109,6 +114,7 @@ impl PCDHeader {
     }
 }
 
+/// Version of the PCD file format
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum PCDVersion {
     V0_6,
@@ -137,11 +143,11 @@ impl FromStr for PCDVersion {
     }
 }
 
+/// The information for each dimension of the point
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct PCDField {
     name: String,
-    size: PCDFieldSize,
-    field_type: PCDFieldType,
+    data_type: PCDFieldDataType,
     count: u64,
 }
 
@@ -152,23 +158,11 @@ impl PCDField {
         field_type: PCDFieldType,
         count: u64,
     ) -> Result<Self, String> {
-        use PCDFieldSize::*;
-        use PCDFieldType::*;
-
-        match (size, field_type) {
-            (One, Signed) | (One, Unsigned) => Ok(()),
-            (Two, Signed) | (Two, Unsigned) => Ok(()),
-            (Four, Signed) | (Four, Unsigned) | (Four, Float) => Ok(()),
-            (Eight, Float) => Ok(()),
-            _ => Err(format!(
-                "Field combination of size: {size:?} and type: {field_type:?} not supported."
-            )),
-        }
-        .map(|_| Self {
+        let data_type = (size, field_type).try_into()?;
+        Ok(Self {
             name,
-            size,
-            field_type,
-            count
+            data_type,
+            count,
         })
     }
 
@@ -176,12 +170,21 @@ impl PCDField {
         &self.name
     }
 
-    pub fn size(&self) -> PCDFieldSize {
-        self.size
+    pub fn data_type(&self) -> PCDFieldDataType {
+        self.data_type
     }
 
-    pub fn field_type(&self) -> PCDFieldType {
-        self.field_type
+    pub fn size(&self) -> u8 {
+        match self.data_type {
+            PCDFieldDataType::U8 => 1,
+            PCDFieldDataType::I8 => 1,
+            PCDFieldDataType::U16 => 2,
+            PCDFieldDataType::I16 => 2,
+            PCDFieldDataType::U32 => 4,
+            PCDFieldDataType::I32 => 4,
+            PCDFieldDataType::F32 => 4,
+            PCDFieldDataType::F64 => 8,
+        }
     }
 
     pub fn count(&self) -> u64 {
@@ -189,6 +192,76 @@ impl PCDField {
     }
 }
 
+/// A valid combination of the [PCDFieldType] and [PCDFieldSize]
+///
+/// Certain combinations have size and field types have no valid representation and
+/// this type guarantees that the point cloud data must contain a valid combination.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum PCDFieldDataType {
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    F32,
+    F64,
+}
+
+impl TryFrom<(PCDFieldSize, PCDFieldType)> for PCDFieldDataType {
+    type Error = String;
+
+    fn try_from((size, field_type): (PCDFieldSize, PCDFieldType)) -> Result<Self, Self::Error> {
+        use PCDFieldSize::*;
+        use PCDFieldType::*;
+
+        match (size, field_type) {
+            (One, Signed) => Ok(Self::I8),
+            (One, Unsigned) => Ok(Self::U8),
+            (Two, Signed) => Ok(Self::I16),
+            (Two, Unsigned) => Ok(Self::U16),
+            (Four, Signed) => Ok(Self::I32),
+            (Four, Unsigned) => Ok(Self::U32),
+            (Four, Float) => Ok(Self::F32),
+            (Eight, Float) => Ok(Self::F64),
+            _ => Err(format!(
+                "Field combination of size: {size:?} and type: {field_type:?} not supported."
+            )),
+        }
+    }
+}
+
+impl From<PCDFieldDataType> for PCDFieldSize {
+    fn from(data: PCDFieldDataType) -> Self {
+        match data {
+            PCDFieldDataType::U8 => Self::One,
+            PCDFieldDataType::I8 => Self::One,
+            PCDFieldDataType::U16 => Self::Two,
+            PCDFieldDataType::I16 => Self::Two,
+            PCDFieldDataType::U32 => Self::Four,
+            PCDFieldDataType::I32 => Self::Four,
+            PCDFieldDataType::F32 => Self::Four,
+            PCDFieldDataType::F64 => Self::Eight,
+        }
+    }
+}
+
+impl From<PCDFieldDataType> for PCDFieldType {
+    fn from(data: PCDFieldDataType) -> Self {
+        match data {
+            PCDFieldDataType::U8 => Self::Unsigned,
+            PCDFieldDataType::I8 => Self::Signed,
+            PCDFieldDataType::U16 => Self::Unsigned,
+            PCDFieldDataType::I16 => Self::Signed,
+            PCDFieldDataType::U32 => Self::Unsigned,
+            PCDFieldDataType::I32 => Self::Signed,
+            PCDFieldDataType::F32 => Self::Float,
+            PCDFieldDataType::F64 => Self::Float,
+        }
+    }
+}
+
+/// The size in bytes of the dimension of the field
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum PCDFieldSize {
     One,
@@ -252,6 +325,7 @@ impl From<PCDFieldSize> for u8 {
     }
 }
 
+/// The type of the dimension of the field
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum PCDFieldType {
     Signed,
@@ -283,6 +357,7 @@ impl FromStr for PCDFieldType {
     }
 }
 
+/// The storage format of the point cloud data file
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum PCDDataType {
     Ascii,

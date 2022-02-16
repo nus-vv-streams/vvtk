@@ -1,5 +1,5 @@
 use crate::pcd::data_types::{
-    PCDField, PCDFieldSize, PCDFieldType, PCDHeader, PCDVersion, PointCloudData,
+    PCDField, PCDFieldDataType, PCDHeader, PCDVersion, PointCloudData,
 };
 use std::convert::TryInto;
 use std::fmt::Debug;
@@ -13,14 +13,23 @@ use thiserror::Error;
 
 type Result<T> = std::result::Result<T, PCDReadError>;
 
-/// Convenience function to read [PointCloudData] directly from a file given the path
+/// Reads [PointCloudData] directly from a file given the path
 pub fn read_pcd_file<P: AsRef<Path>>(p: P) -> Result<PointCloudData> {
     let file = File::open(p).map_err(PCDReadError::IOError)?;
     let reader = BufReader::new(file);
     Parser::new(reader).parse()
 }
 
-/// Attempts to parse a [PointCloudData] from the reader
+/// Parses a [PointCloudData] from the reader
+/// ```no_run
+/// use vivotk::pcd::{PCDReadError, read_pcd};
+///
+/// fn main() -> Result<(), PCDReadError> {
+///     let reader_pcd = read_pcd("VERSION .7 ...".as_bytes())?;
+///     println!("{}", reader_pcd.data().len());
+///     Ok(())
+/// }
+/// ```
 pub fn read_pcd<R: Read>(r: R) -> Result<PointCloudData> {
     let reader = BufReader::new(r);
     Parser::new(reader).parse()
@@ -208,71 +217,59 @@ impl<R: BufRead> Parser<R> {
                 )));
             }
 
-            use PCDFieldSize::*;
-            use PCDFieldType::*;
+            use PCDFieldDataType::*;
             use PCDReadError::InvalidData;
             let mut index = 0;
             for field in header.fields() {
                 for _ in 0..field.count() {
-                    match (field.size(), field.field_type()) {
-                        (One, Unsigned) => buffer.write_u8(
+                    match field.data_type() {
+                        U8 => buffer.write_u8(
                             data[index]
                                 .parse::<u8>()
                                 .map_err(|e| InvalidData(e.to_string()))?,
                         ),
-                        (One, Signed) => buffer.write_i8(
+                        I8 => buffer.write_i8(
                             data[index]
                                 .parse::<i8>()
                                 .map_err(|e| InvalidData(e.to_string()))?,
                         ),
-                        (Two, Unsigned) => buffer.write_u16::<NativeEndian>(
+                        U16 => buffer.write_u16::<NativeEndian>(
                             data[index]
                                 .parse::<u16>()
                                 .map_err(|e| InvalidData(e.to_string()))?,
                         ),
-                        (Two, Signed) => buffer.write_i16::<NativeEndian>(
+                        I16 => buffer.write_i16::<NativeEndian>(
                             data[index]
                                 .parse::<i16>()
                                 .map_err(|e| InvalidData(e.to_string()))?,
                         ),
-                        (Four, Unsigned) => buffer.write_u32::<NativeEndian>(
+                        U32 => buffer.write_u32::<NativeEndian>(
                             data[index]
                                 .parse::<u32>()
                                 .map_err(|e| InvalidData(e.to_string()))?,
                         ),
-                        (Four, Signed) => buffer.write_i32::<NativeEndian>(
+                        I32 => buffer.write_i32::<NativeEndian>(
                             data[index]
                                 .parse::<i32>()
                                 .map_err(|e| InvalidData(e.to_string()))?,
                         ),
-                        (Four, Float) => buffer.write_f32::<NativeEndian>(
+                        F32 => buffer.write_f32::<NativeEndian>(
                             data[index]
                                 .parse::<f32>()
                                 .map_err(|e| InvalidData(e.to_string()))?,
                         ),
-                        (Eight, Float) => buffer.write_f64::<NativeEndian>(
+                        F64 => buffer.write_f64::<NativeEndian>(
                             data[index]
                                 .parse::<f64>()
                                 .map_err(|e| InvalidData(e.to_string()))?,
                         ),
-                        _ => {
-                            return Err(PCDReadError::InvalidHeader {
-                                section: "FIELDS".to_string(),
-                                error_msg: format!(
-                                    "Invalid size and field type combination ({:?}, {:?})",
-                                    field.size(), field.field_type()
-                                ),
-                                actual_line: line,
-                            })
-                        }
                     }?;
                     index += 1;
                 }
             }
         }
 
-        PointCloudData::new(header, buffer)
-            .map_err(PCDReadError::InvalidData)
+        PointCloudData::new(header, buffer).map_err(PCDReadError::InvalidData)
     }
 
     fn parse_binary_data(mut self, header: PCDHeader) -> Result<PointCloudData> {
@@ -280,8 +277,7 @@ impl<R: BufRead> Parser<R> {
         self.reader
             .read_to_end(&mut buffer)
             .map_err(PCDReadError::IOError)?;
-        PointCloudData::new(header, buffer)
-            .map_err(PCDReadError::InvalidData)
+        PointCloudData::new(header, buffer).map_err(PCDReadError::InvalidData)
     }
 
     fn strip_line_prefix(&mut self, prefix: &str) -> Result<&str> {
@@ -324,7 +320,9 @@ mod tests {
     use std::io::{BufReader, Cursor};
 
     fn expected_header() -> PCDHeader {
-        PCDHeader::new(PCDVersion::V0_7, vec![
+        PCDHeader::new(
+            PCDVersion::V0_7,
+            vec![
                 PCDField::new("x".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
                 PCDField::new("y".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
                 PCDField::new("z".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
@@ -335,8 +333,13 @@ mod tests {
                     1,
                 )
                 .unwrap(),
-            ], 213,1,[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0], 213,
-        ).unwrap()
+            ],
+            213,
+            1,
+            [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+            213,
+        )
+        .unwrap()
     }
 
     fn parse_str(s: &str) -> Parser<BufReader<&[u8]>> {
@@ -642,9 +645,8 @@ mod tests {
 
         // Just read first 3 lines
         let expected = [
-            0.93773, 0.33763, 0.0, 4.2108e+06,
-            0.90805, 0.35641, 0.0, 4.2108e+06,
-            0.81915, 0.32, 0.0, 4.2108e+06,
+            0.93773, 0.33763, 0.0, 4.2108e+06, 0.90805, 0.35641, 0.0, 4.2108e+06, 0.81915, 0.32,
+            0.0, 4.2108e+06,
         ];
 
         for val in expected {
