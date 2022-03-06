@@ -48,3 +48,62 @@ The following command will convert all `.ply` files in the `./plys/` directory t
 ```shell
 ply_to_pcd -o ./converted_pcds -s binary ./plys/*
 ```
+
+### `ply_play`
+
+Plays a folder of pcd files in lexicographical order. A window will appear upon running the binary from which you can navigate using your mouse and keyboard. Controls are described further below.
+
+```shell
+Plays a folder of pcd files in lexicographical order
+
+USAGE:
+    ply_play.exe [OPTIONS] <DIRECTORY>
+
+ARGS:
+    <DIRECTORY>    Directory with all the pcd files in lexicographical order
+
+OPTIONS:
+    -f, --fps <FPS>               [default: 30]
+    -h, --height <HEIGHT>         [default: 900]
+        --help                    Print help information
+        --pitch <CAMERA_PITCH>    [default: -20]
+    -w, --width <WIDTH>           [default: 1600]
+    -x, --camera-x <CAMERA_X>     [default: 0]
+    -y, --camera-y <CAMERA_Y>     [default: 0]
+        --yaw <CAMERA_YAW>        [default: -90]
+    -z, --camera-z <CAMERA_Z>     [default: 0]
+```
+
+### Controls
+
+With the main screen focused, 
+
+1. `W` Key - Moves your position to the front
+2. `A` Key - Moves your position to the left
+3. `S` Key - Moves your position to the back
+4. `D` Key - Moves your position to the right
+5. 'Q' Key - Moves your position up
+6. `E` Key - Moves your position down
+7. `Space` Key - Toggles Play/Pause
+8. `LeftArrow` Key - Rewinds by 1 frame
+9. `RightArrow` Key - Advances by 1 frame
+10. `Mouse` Drag - Adjusts camera yaw / pitch
+
+With the secondary window focused,
+
+![Playback Controls Secondary Window](docs/images/playback_controls.png)
+
+The Play/Pause button toggles between play and pause. The slider allows you to navigate to any frame you wish.
+
+The information displayed in the window are:
+
+1. Current Frame / Total Frames
+2. Camera Information - Useful to recreate a certain view through command line arguments
+
+### Example
+
+The following command will play all `.pcd` files in the `./pcds/` directory.
+
+```shell
+ply_play ./pcds
+```
