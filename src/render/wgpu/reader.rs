@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 use crate::pcd::{PointCloudData, read_pcd_file};
-use crate::render::wgpu::renderer::Renderable;
+use crate::render::wgpu::renderable::Renderable;
 
 pub trait RenderReader<T: Renderable> {
     fn get_at(&self, index: usize) -> Option<T>;

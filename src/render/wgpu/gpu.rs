@@ -3,6 +3,7 @@ use winit::window::Window;
 pub struct Gpu {
     pub surface: wgpu::Surface,
     pub device: wgpu::Device,
+    pub adapter: wgpu::Adapter,
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>
@@ -46,8 +47,9 @@ impl Gpu {
             surface,
             device,
             queue,
+            adapter,
             config,
-            size
+            size,
         }
     }
 

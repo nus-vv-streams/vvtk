@@ -49,7 +49,11 @@ winit = "0.26.1"
 wgpu = "0.12.0"
 cgmath = "0.18.0"
 pollster = "0.2.5"
-fltk = "1.2.32"
+egui = "0.16.0"
+egui_winit_platform = "0.13.0"
+egui_wgpu_backend = "0.16.0"
+epi = "0.16.0"
+egui_demo_lib = "0.16.0"
 
 [[bin]]
 name = "ply_to_ply"
