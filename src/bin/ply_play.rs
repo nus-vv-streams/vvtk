@@ -26,6 +26,8 @@ struct Args {
     width: u32,
     #[clap(short, long, default_value_t = 900)]
     height: u32,
+    #[clap(long = "controls")]
+    show_controls: bool
 }
 
 fn main() {
@@ -34,6 +36,6 @@ fn main() {
     let reader = PcdFileReader::from_directory(path);
     let camera = Camera::new((args.camera_x, args.camera_y, args.camera_z), cgmath::Deg(args.camera_yaw), cgmath::Deg(args.camera_pitch));
     let builder = RenderBuilder::new(reader, args.fps, camera, (args.width, args.height));
-    pollster::block_on(builder.play());
+    pollster::block_on(builder.play(args.show_controls));
 
 }

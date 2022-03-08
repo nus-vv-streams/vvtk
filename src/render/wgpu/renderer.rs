@@ -154,7 +154,7 @@ impl<T, U> RenderBuilder<T, U> where T: 'static + Renderable, U: 'static + Rende
         }
     }
 
-    pub async fn play(self) {
+    pub async fn play(self, show_controls: bool) {
         let event_loop = EventLoop::new();
         let window = WindowBuilder::new()
             .with_position(Position::Physical(PhysicalPosition::new(0, 0)))
@@ -171,65 +171,75 @@ impl<T, U> RenderBuilder<T, U> where T: 'static + Renderable, U: 'static + Rende
             MoveTo(usize),
         }
         let sender: Arc<Mutex<Option<Sender<RenderInformation>>>> = Arc::new(Mutex::new(None));
-        let app_sender = sender.clone();
+        if show_controls {
+            let app_sender = sender.clone();
 
-        std::thread::spawn(move || {
-            let window_width = 400;
-            let window_height = 200;
-            let app = app::App::default();
-            let (controls_tx, controls_rx) = app::channel();
-            {
-                *app_sender.lock().unwrap() = Some(controls_tx);
-                drop(app_sender);
-            }
-            let mut wind = fltk::window::Window::new(self.width as i32, self.height as i32 / 2, window_width, window_height, "Playback Controls");
-            let col = fltk::group::Column::new(0, 0, window_width, window_height, "Details");
-            let mut but = Button::new((window_width / 2) - 40, 10, 80, 40, "Play/Pause");
-            let mut slider = fltk::valuator::HorNiceSlider::default().with_size(window_width - 20, 20).center_of_parent();
-            slider.set_minimum(0.);
-            slider.set_maximum(slider_length as f64);
-            slider.set_step(1., 1);
-            slider.set_value(0.);
-            let slider_tx = state_tx.clone();
-            slider.set_callback(move |s| {
-                slider_tx.send(Control::MoveTo(s.value() as usize)).unwrap();
-            });
-            let mut progress = fltk::frame::Frame::default()
-                .with_label(&format!("0/{}", slider_length));
-            let mut camera_position = fltk::frame::Frame::default()
-                .with_size(window_width, 20)
-                .with_label("Camera Position: ")
-                .below_of(&slider, 10);
-            let mut camera_yaw = fltk::frame::Frame::default()
-                .with_size(window_width, 20)
-                .with_label("Camera Yaw: ")
-                .below_of(&camera_position, 10);
-            let mut camera_pitch = fltk::frame::Frame::default()
-                .with_size(window_width, 20)
-                .with_label("Camera Pitch: ")
-                .below_of(&camera_yaw, 10);
-            col.end();
-            wind.end();
-            wind.show();
-            but.set_callback(move |_| {
-                state_tx.send(Control::Toggle).unwrap();
-            });
-
-            while app.wait() {
-                if let Some(info) = controls_rx.recv() {
-                    progress.set_label(&format!("{}/{}", info.current_position, slider_length));
-                    camera_position.set_label(&format!("Camera Position: {:?}", info.camera.position));
-                    camera_yaw.set_label(&format!("Camera Yaw: {:?}", cgmath::Deg::from(info.camera.yaw)));
-                    camera_pitch.set_label(&format!("Camera Pitch: {:?}", cgmath::Deg::from(info.camera.pitch)));
-                    slider.set_value(info.current_position as f64)
+            std::thread::spawn(move || {
+                let window_width = 400;
+                let window_height = 200;
+                let app = app::App::default();
+                let (controls_tx, controls_rx) = app::channel();
+                {
+                    *app_sender.lock().unwrap() = Some(controls_tx);
+                    drop(app_sender);
                 }
+                let mut wind = fltk::window::Window::new(self.width as i32, self.height as i32 / 2, window_width, window_height, "Playback Controls");
+                let col = fltk::group::Column::new(0, 0, window_width, window_height, "Details");
+                let mut but = Button::new((window_width / 2) - 40, 10, 80, 40, "Play/Pause");
+                let mut slider = fltk::valuator::HorNiceSlider::default().with_size(window_width - 20, 20).center_of_parent();
+                slider.set_minimum(0.);
+                slider.set_maximum(slider_length as f64);
+                slider.set_step(1., 1);
+                slider.set_value(0.);
+                let slider_tx = state_tx.clone();
+                slider.set_callback(move |s| {
+                    slider_tx.send(Control::MoveTo(s.value() as usize)).unwrap();
+                });
+                let mut progress = fltk::frame::Frame::default()
+                    .with_label(&format!("0/{}", slider_length));
+                let mut camera_position = fltk::frame::Frame::default()
+                    .with_size(window_width, 20)
+                    .with_label("Camera Position: ")
+                    .below_of(&slider, 10);
+                let mut camera_yaw = fltk::frame::Frame::default()
+                    .with_size(window_width, 20)
+                    .with_label("Camera Yaw: ")
+                    .below_of(&camera_position, 10);
+                let mut camera_pitch = fltk::frame::Frame::default()
+                    .with_size(window_width, 20)
+                    .with_label("Camera Pitch: ")
+                    .below_of(&camera_yaw, 10);
+                col.end();
+                wind.end();
+                wind.show();
+                but.set_callback(move |_| {
+                    state_tx.send(Control::Toggle).unwrap();
+                });
+
+                while app.wait() {
+                    if let Some(info) = controls_rx.recv() {
+                        progress.set_label(&format!("{}/{}", info.current_position, slider_length));
+                        camera_position.set_label(&format!("Camera Position: {:?}", info.camera.position));
+                        camera_yaw.set_label(&format!("Camera Yaw: {:?}", cgmath::Deg::from(info.camera.yaw)));
+                        camera_pitch.set_label(&format!("Camera Pitch: {:?}", cgmath::Deg::from(info.camera.pitch)));
+                        slider.set_value(info.current_position as f64)
+                    }
+                }
+            });
+
+            while sender.lock().unwrap().is_none() {}
+        }
+
+        let controls_tx = sender.clone();
+        state.on_update(Box::new(move |state| {
+            let guard = controls_tx.lock().unwrap();
+            match *guard {
+                Some(s) => {
+                    s.send(state)
+                },
+                None => {}
             }
-        });
-
-        while sender.lock().unwrap().is_none() {}
-
-        let controls_tx = Arc::try_unwrap(sender).unwrap().into_inner().unwrap().unwrap();
-        state.on_update(Box::new(move |state| controls_tx.send(state)));
+        }));
         let mut last_render_time = std::time::Instant::now();
         let mut focused = true;
         event_loop.run(move |event, _, control_flow| {
