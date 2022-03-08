@@ -10,7 +10,7 @@ use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, VirtualKeyCo
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
 use fltk::{app, prelude::*};
-use fltk::app::Sender;
+use fltk::app::{focus, Sender};
 use fltk::button::Button;
 use crate::pcd::PointCloudData;
 use crate::render::wgpu::camera::{Camera, CameraState};
@@ -260,6 +260,9 @@ impl<T, U> RenderBuilder<T, U> where T: 'static + Renderable, U: 'static + Rende
                     ref event,
                     ..
                 } => {
+                    if let winit::event::DeviceEvent::Key(_) = event {
+                        return;
+                    }
                     if focused {
                         state.input(event);
                     }
@@ -287,6 +290,14 @@ impl<T, U> RenderBuilder<T, U> where T: 'static + Renderable, U: 'static + Rende
                         }
                         WindowEvent::Focused(focus) => {
                             focused = *focus;
+                        },
+                        WindowEvent::KeyboardInput {
+                            input,
+                            ..
+                        } => {
+                            if focused {
+                                state.input(&DeviceEvent::Key(*input));
+                            }
                         }
                         _ => {}
                     }
