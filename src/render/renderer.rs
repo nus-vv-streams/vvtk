@@ -1,30 +1,27 @@
 use crate::errors::*;
 
+use crate::gui;
+use crate::io::reader::read;
+use crate::ply::Ply;
+use crate::ply_dir::PlyDir;
+use crate::pointcloud::PointCloud;
 use image::{imageops::flip_vertical, ImageBuffer, Rgb};
 use kiss3d::camera::ArcBall;
+use kiss3d::camera::Camera;
+use kiss3d::conrod::event::{Event, Input};
+use kiss3d::conrod::input::{Button, Key};
 use kiss3d::light::Light;
 use kiss3d::point_renderer::PointRenderer;
 use kiss3d::window::CanvasSetup;
 use kiss3d::window::NumSamples;
 use kiss3d::window::Window;
 use nalgebra::Point3;
-
-use crate::io::reader::read;
-use std::sync::mpsc::channel;
-use std::sync::Arc;
-
-use kiss3d::camera::Camera;
-
-use crate::ply::Ply;
-use crate::ply_dir::PlyDir;
-use crate::pointcloud::PointCloud;
 use std::path::Path;
 use std::path::PathBuf;
-
-use kiss3d::conrod::event::{Event, Input};
-use kiss3d::conrod::input::{Button, Key};
-
-use crate::gui;
+use std::sync::Arc;
+use std::thread;
+use std::time::{Duration, Instant};
+use std::sync::mpsc::channel;
 
 const DEFAULT_EYE: Point3<f32> = Point3::new(0.0f32, 500.0, 1969.0);
 const DEFAULT_AT: Point3<f32> = Point3::new(300.0f32, 500.0, 200.0);
@@ -45,7 +42,7 @@ pub static DEFAULT_HEIGHT_PNG: u32 = 1200u32;
 pub static DEFAULT_CORNER: u32 = 0u32;
 
 /// The default name of the canvas
-pub static DEFAULT_TITLE: &str = "In Summer We Render";
+pub static DEFAULT_TITLE: &str = "ViVoTK";
 
 /// The default output of method save_to_png
 pub static DEFAULT_PNG_OUTPUT: &str = "output.png";
@@ -123,8 +120,23 @@ impl Renderer {
     }
 
     /// Open the window and render the frame
-    pub fn render_frame(&mut self, data: &PointCloud, ids: &gui::Ids, app: &mut gui::InfoBar) {
-        for point in &data.data {
+    pub fn draw_point_cloud(&mut self, cloud: &PointCloud, ids: &gui::Ids, app: &mut gui::InfoBar) {
+        /*
+        let points = &mut self.window.point_renderer.points;
+        for p in points.data_mut().iter_mut() {
+            for point in &cloud.data {
+                p.push(point.get_coord().get_point3());
+                p.push(point.get_color().get_point3());
+            }   
+        }
+        let sizes = &mut self.window.point_renderer.sizes;
+        for s in sizes.data_mut().iter_mut() {
+            for point in &cloud.data {
+                s.push(point.point_size);
+            }   
+        }
+        */
+        for point in &cloud.data {
             self.window.draw_point_with_size(
                 &point.get_coord().get_point3(),
                 &point.get_color().get_point3(),
@@ -133,7 +145,6 @@ impl Renderer {
         }
         // self.update_and_print_info();
         // let mut ui = self.window.conrod_ui_mut().set_widgets();
-        gui::gui(ids, app, self);
     }
 
     /// Open the window and render the frame many times
@@ -141,8 +152,9 @@ impl Renderer {
         self.window.conrod_ui_mut().theme = gui::theme();
         let ids = gui::Ids::new(self.window.conrod_ui_mut().widget_id_generator());
         let mut app = gui::InfoBar::new_closed_state();
+        gui::gui(&ids, &mut app, self);
         while self.render() {
-            self.render_frame(data, &ids, &mut app);
+            self.draw_point_cloud(data, &ids, &mut app);
         }
     }
 
@@ -169,15 +181,16 @@ impl Renderer {
 
         let mut is_stop = false;
 
+        let frame_rate = 25.0; // fps
+        let interval = 1.0/frame_rate;
+
         while self.render() {
+            let now = Instant::now(); 
+            gui::gui(&ids, &mut app, self);
             for event in self.window.conrod_ui().global_input().events() {
                 match *event {
                     Event::Raw(Input::Press(Button::Keyboard(Key::Space))) => {
-                        if is_stop {
-                            is_stop = false
-                        } else {
-                            is_stop = true
-                        }
+                        is_stop = !is_stop;
                     }
                     _ => {}
                 }
@@ -189,12 +202,17 @@ impl Renderer {
 
             match &frame {
                 Ok(f) => {
-                    self.render_frame(f.get_points_as_ref(), &ids, &mut app);
+                    self.draw_point_cloud(f.get_points_as_ref(), &ids, &mut app);
                 }
                 Err(e) => {
                     eprintln!("Problem with reading file:\n    {}", e);
                     continue;
                 }
+            }
+            let wait = interval - now.elapsed().as_secs_f64();
+            println!("{}", wait);
+            if wait > 0.0 {
+                thread::sleep(Duration::from_secs_f64(wait));
             }
         }
 
@@ -324,3 +342,5 @@ fn is_relative_eq(point1: &Point3<f32>, point2: &Point3<f32>) -> bool {
         && relative_eq!(point1.y, point2.y, epsilon = DEFAULT_EPSILON)
         && relative_eq!(point1.z, point2.z, epsilon = DEFAULT_EPSILON)
 }
+
+//vim:expandtab:sw=2
