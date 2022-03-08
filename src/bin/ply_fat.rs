@@ -2,7 +2,7 @@
 extern crate error_chain;
 extern crate vivotk;
 use clap::{App, Arg};
-use vivotk::{errors::*, seq::fat, seq::filter, io::reader, seq::map, io::writer};
+use vivotk::{errors::*, io::reader, io::writer, seq::fat, seq::filter, seq::map};
 
 quick_main!(run);
 
@@ -10,61 +10,59 @@ fn run() -> Result<()> {
     let matches = App::new("ply_fat")
         .about("Filter and Transform points")
         .arg(
-            Arg::with_name("input")
-                .short("i")
+            Arg::new("input")
+                .short('i')
                 .long("input")
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("File directory for data"),
         )
         .arg(
-            Arg::with_name("filter")
+            Arg::new("filter")
                 .long("filter")
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .required(true)
                 .help("Filter method"),
         )
         .arg(
-            Arg::with_name("transform")
-                .short("t")
+            Arg::new("transform")
+                .short('t')
                 .long("transform")
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .required(true)
                 .help("Transform method"),
         )
         .arg(
-            Arg::with_name("remain")
-                .short("r")
+            Arg::new("remain")
+                .short('r')
                 .long("remain")
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Transform method"),
         )
         .arg(
-            Arg::with_name("form")
-                .short("f")
+            Arg::new("form")
+                .short('f')
                 .long("form")
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Form of output (ascii/binary)"),
         )
         .arg(
-            Arg::with_name("output")
-                .short("o")
+            Arg::new("output")
+                .short('o')
                 .long("output")
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("File directory for output"),
         )
         .get_matches();
 
     let input = matches.value_of("input");
     let filter = matches.value_of("filter").unwrap_or(filter::DEFAULT_KEY);
-    let transform = matches
-        .value_of("transform")
-        .unwrap_or(map::DEFAULT_KEY);
+    let transform = matches.value_of("transform").unwrap_or(map::DEFAULT_KEY);
     let remain = matches.value_of("remain").unwrap_or(map::DEFAULT_KEY);
     let form = matches.value_of("form");
     let output = matches.value_of("output");

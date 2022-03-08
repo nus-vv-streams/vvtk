@@ -10,27 +10,27 @@ fn run() -> Result<()> {
     let matches = App::new("ply_to_ply")
         .about("Write data to ply file in ascii or binary form")
         .arg(
-            Arg::with_name("input")
-                .short("i")
+            Arg::new("input")
+                .short('i')
                 .long("input")
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("File directory for input"),
         )
         .arg(
-            Arg::with_name("form")
-                .short("f")
+            Arg::new("form")
+                .short('f')
                 .long("form")
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Form of output (ascii/binary)"),
         )
         .arg(
-            Arg::with_name("output")
-                .short("o")
+            Arg::new("output")
+                .short('o')
                 .long("output")
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("File directory for output"),
         )
         .get_matches();

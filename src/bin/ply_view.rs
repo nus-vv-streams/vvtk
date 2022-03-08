@@ -2,8 +2,8 @@
 extern crate error_chain;
 extern crate vivotk;
 use clap::{App, Arg};
-use vivotk::{errors::*, io::reader::read, renderer::Renderer, PlyDir};
 use std::path::Path;
+use vivotk::{errors::*, io::reader::read, renderer::Renderer, PlyDir};
 
 quick_main!(run);
 
@@ -11,53 +11,53 @@ fn run() -> Result<()> {
     let matches = App::new("ply_view")
         .about("View a ply frame or play a ply video")
         .arg(
-            Arg::with_name("input")
+            Arg::new("input")
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .required(true)
                 .help("File directory for data"),
         )
         .arg(
-            Arg::with_name("eye")
+            Arg::new("eye")
                 .long("eye")
                 .use_delimiter(true)
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Position of eye"),
         )
         .arg(
-            Arg::with_name("at")
+            Arg::new("at")
                 .long("at")
                 .use_delimiter(true)
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Position of at"),
         )
         .arg(
-            Arg::with_name("background")
-                .short("b")
+            Arg::new("background")
+                .short('b')
                 .long("background")
                 .use_delimiter(true)
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Color of background"),
         )
         .arg(
-            Arg::with_name("width")
-                .short("w")
+            Arg::new("width")
+                .short('w')
                 .long("width")
                 .use_delimiter(true)
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Position of at"),
         )
         .arg(
-            Arg::with_name("height")
-                .short("h")
+            Arg::new("height")
+                .short('h')
                 .long("height")
                 .use_delimiter(true)
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Position of at"),
         )
         .get_matches();

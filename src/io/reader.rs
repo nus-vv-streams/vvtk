@@ -1,10 +1,10 @@
 extern crate ply_rs;
-use ply_rs::ply;
 use crate::errors::*;
 use crate::ply::Ply;
 use crate::point::Point;
 use crate::pointcloud::PointCloud;
 use ply_rs::parser;
+use ply_rs::ply;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::path::Path;

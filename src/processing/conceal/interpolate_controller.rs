@@ -1,12 +1,13 @@
-use crate::processing::conceal::interpolate_params::InterpolateParams as InterpolateParams;
 use crate::point::Point;
 use crate::pointcloud::PointCloud;
+use crate::processing::conceal::interpolate_params::InterpolateParams;
+use kiddo::KdTree;
+use std::slice::Chunks;
 use std::sync::*;
 use std::thread;
 use std::thread::JoinHandle;
-use std::slice::Chunks;
-use kiddo::KdTree;
 
+#[allow(dead_code)]
 type PairVecPoint = (Vec<Point>, Vec<Point>);
 
 /// Spawns a single thread to compute the next "chunk" of closest points
@@ -25,7 +26,10 @@ fn spawn_thread_to_interpolate(
         for s in &slice {
             let neighbourhood: Vec<usize> = kd_tree
                 .nearest(&s.get_point(), size, &params.dist_func)
-                .unwrap().into_iter().map(|found| *found.1).collect();
+                .unwrap()
+                .into_iter()
+                .map(|found| *found.1)
+                .collect();
             let p = s.interpolate_with_closest(&points, &neighbourhood, &params);
             interpolated_points.push(p);
         }
@@ -84,7 +88,7 @@ pub const fn kdtree_dim() -> usize {
 }
 
 /*
-/// input: an array of target_points.  For each point, look for the 
+/// input: an array of target_points.  For each point, look for the
 /// closest point in search_points.
 pub fn find_closest(
     targets: &[Point],

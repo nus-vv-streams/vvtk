@@ -11,71 +11,71 @@ fn run() -> Result<()> {
     let matches = App::new("ply_to_png")
         .about("Make a png from ply file")
         .arg(
-            Arg::with_name("input")
-                .short("i")
+            Arg::new("input")
+                .short('i')
                 .long("input")
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("File directory for data"),
         )
         .arg(
-            Arg::with_name("eye")
+            Arg::new("eye")
                 .long("eye")
                 .use_delimiter(true)
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Position of eye"),
         )
         .arg(
-            Arg::with_name("at")
+            Arg::new("at")
                 .long("at")
                 .use_delimiter(true)
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Position of at"),
         )
         .arg(
-            Arg::with_name("x")
-                .short("x")
+            Arg::new("x")
+                .short('x')
                 .long("x")
                 .use_delimiter(true)
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("x coordinate of bottom left corner"),
         )
         .arg(
-            Arg::with_name("y")
-                .short("y")
+            Arg::new("y")
+                .short('y')
                 .long("y")
                 .use_delimiter(true)
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Position of at"),
         )
         .arg(
-            Arg::with_name("width")
-                .short("w")
+            Arg::new("width")
+                .short('w')
                 .long("width")
                 .use_delimiter(true)
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Width of PNG file"),
         )
         .arg(
-            Arg::with_name("height")
-                .short("h")
+            Arg::new("height")
+                .short('h')
                 .long("height")
                 .use_delimiter(true)
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("Height of PNG file"),
         )
         .arg(
-            Arg::with_name("output")
-                .short("o")
+            Arg::new("output")
+                .short('o')
                 .long("output")
                 .takes_value(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .help("File directory for output"),
         )
         .get_matches();

@@ -158,6 +158,7 @@ impl Renderer {
         }
     }
 
+    #[allow(clippy::single_match)]
     pub fn render_video(&mut self, ply_dir: PlyDir) -> Result<()> {
         let len = ply_dir.count();
         let paths = Arc::new(ply_dir.get_paths());
@@ -280,7 +281,7 @@ impl Renderer {
         }
 
         let img_path = output
-            .map(|p| Path::new(p))
+            .map(Path::new)
             .or(path_in_ply)
             .unwrap_or_else(|| Path::new(DEFAULT_PNG_OUTPUT));
 
