@@ -43,14 +43,13 @@ fn main() {
     }
 
     let camera = Camera::new((args.camera_x, args.camera_y, args.camera_z), cgmath::Deg(args.camera_yaw), cgmath::Deg(args.camera_pitch));
-    let mut builder = RenderBuilder::new();
+    let mut builder = RenderBuilder::default();
     let slider_end = reader.len() - 1;
     let render = builder.add_window(Renderer::new(reader, args.fps, camera, (args.width, args.height)));
     if args.show_controls {
         let controls = builder.add_window(Controller { slider_end });
-        controls.borrow_mut().add_listener(render.borrow().id());
-        render.borrow_mut().add_listener(controls.borrow().id());
+        builder.get_windowed_mut(render).unwrap().add_output(controls);
+        builder.get_windowed_mut(controls).unwrap().add_output(render);
     }
     builder.run();
-
 }

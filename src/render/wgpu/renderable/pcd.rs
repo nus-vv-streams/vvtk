@@ -29,7 +29,7 @@ impl Renderable for PointCloudData {
 
         gpu.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
-            layout: layout,
+            layout,
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",

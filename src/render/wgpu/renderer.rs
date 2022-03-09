@@ -1,11 +1,10 @@
-use std::cell::RefCell;
 use std::iter;
 use std::marker::PhantomData;
 use std::time::{Duration, Instant};
 use wgpu::{LoadOp, Operations, RenderPassDepthStencilAttachment, SurfaceError};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
-use winit::event_loop::{ControlFlow, EventLoop, EventLoopProxy};
+use winit::event_loop::{EventLoop, EventLoopProxy};
 use winit::window::{Window, WindowBuilder, WindowId};
 use crate::render::wgpu::builder::{Attachable, EventType, RenderEvent, RenderInformation, Windowed};
 use crate::render::wgpu::camera::{Camera, CameraState};
@@ -19,7 +18,7 @@ pub enum PlaybackState {
     Play
 }
 
-pub struct Renderer<T: RenderReader<U>, U: Renderable> {
+pub struct Renderer<T, U> where T: RenderReader<U>, U: Renderable {
     fps: f32,
     camera_state: CameraState,
     size: PhysicalSize<u32>,
@@ -27,7 +26,7 @@ pub struct Renderer<T: RenderReader<U>, U: Renderable> {
     _data: PhantomData<U>,
 }
 
-impl<T, U> Renderer<T, U> where T: RenderReader<U>, U: Renderable {
+impl<T, U> Renderer<T, U>  where T: RenderReader<U>, U: Renderable {
     pub fn new(reader: T, fps: f32, camera: Camera, (width, height): (u32, u32)) -> Self {
         Self {
             reader,
@@ -42,25 +41,23 @@ impl<T, U> Renderer<T, U> where T: RenderReader<U>, U: Renderable {
 impl<T, U> Attachable for Renderer<T, U> where T: RenderReader<U>, U: Renderable {
     type Output = State<T, U>;
 
-    fn attach(self, event_loop: &EventLoop<RenderEvent>) -> Self::Output {
+    fn attach(self, event_loop: &EventLoop<RenderEvent>) -> (Self::Output, Window) {
         let window = WindowBuilder::new()
             .with_title("Point Cloud Renderer")
             .with_position(PhysicalPosition { x: 0, y: 0 })
             .with_inner_size(self.size)
-            .build(&event_loop)
+            .build(event_loop)
             .unwrap();
 
         let gpu = pollster::block_on(Gpu::new(&window));
-        let state = State::new(window, event_loop.create_proxy(), gpu, self.reader, self.fps, self.camera_state);
-        state
+        let state = State::new(event_loop.create_proxy(), gpu, self.reader, self.fps, self.camera_state);
+        (state, window)
     }
 }
 
-pub struct State<T: RenderReader<U>, U: Renderable> {
+pub struct State<T, U> where T: RenderReader<U>, U: Renderable {
     // Windowing
-    window: Window,
     event_proxy: EventLoopProxy<RenderEvent>,
-    focused: bool,
     last_render_time: Option<Instant>,
     listeners: Vec<WindowId>,
 
@@ -85,31 +82,26 @@ pub struct State<T: RenderReader<U>, U: Renderable> {
     _data: PhantomData<U>,
 }
 
-impl<T, U> Windowed for State<T, U> where T: RenderReader<U>, U: Renderable {
-    fn handle_event(&mut self, event: &Event<RenderEvent>, control: &mut ControlFlow) {
+impl<T, U> Windowed for State<T, U>  where T: RenderReader<U>, U: Renderable {
+    fn add_output(&mut self, window_id: WindowId) {
+        self.listeners.push(window_id);
+    }
+
+    fn handle_event(&mut self, event: &Event<RenderEvent>, window: &Window) {
         match event {
-            Event::MainEventsCleared => { self.window.request_redraw() }
             Event::DeviceEvent { ref event, .. } => {
                 if let winit::event::DeviceEvent::Key(_) = event {
                     return;
                 }
-                if self.focused {
-                    self.handle_device_event(event);
-                }
+                self.handle_device_event(event);
             }
             Event::WindowEvent {
-                ref event,
+                event: WindowEvent::KeyboardInput { input, .. },
                 window_id
-            } if *window_id == self.window.id() => {
-                match event {
-                    WindowEvent::Resized(physical_size) => { self.resize(*physical_size); }
-                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => { self.resize(**new_inner_size); }
-                    WindowEvent::Focused(focus) => { self.focused = *focus },
-                    WindowEvent::KeyboardInput { input, .. } => { self.handle_device_event(&DeviceEvent::Key(*input)); }
-                    _ => {}
-                }
+            } if *window_id == window.id() => {
+                self.handle_device_event(&DeviceEvent::Key(*input));
             }
-            Event::RedrawRequested(window_id) if *window_id == self.window.id() => {
+            Event::RedrawRequested(window_id) if *window_id == window.id() => {
                 if self.last_render_time.is_none() {
                     self.last_render_time = Some(Instant::now());
                 }
@@ -119,11 +111,11 @@ impl<T, U> Windowed for State<T, U> where T: RenderReader<U>, U: Renderable {
                 self.last_render_time = Some(now);
                 match self.update(dt) {
                     Ok(_) => {}
-                    Err(wgpu::SurfaceError::OutOfMemory) => *control = ControlFlow::Exit,
-                    Err(e) => eprintln!("{:?}", e),
+                    Err(wgpu::SurfaceError::OutOfMemory) => {},
+                    Err(e) => eprintln!("Dropped frame due to {:?}", e),
                 }
             }
-            Event::UserEvent(RenderEvent { window_id, event_type }) if *window_id == self.window.id() => {
+            Event::UserEvent(RenderEvent { window_id, event_type }) if *window_id == window.id() => {
                 match event_type {
                     EventType::Toggle => self.toggle(),
                     EventType::MoveTo(position) => self.move_to(*position),
@@ -133,11 +125,20 @@ impl<T, U> Windowed for State<T, U> where T: RenderReader<U>, U: Renderable {
             _ => {}
         }
     }
+
+    fn resize(&mut self, new_size: PhysicalSize<u32>) {
+        self.gpu.resize(new_size);
+        self.camera_state.resize(new_size);
+        if new_size.width > 0 && new_size.height > 0 {
+            let (depth_texture, depth_view) = U::create_depth_texture(&self.gpu);
+            self.depth_texture = depth_texture;
+            self.depth_view = depth_view;
+        }
+    }
 }
 
-impl<T, U> State<T, U> where T: RenderReader<U>, U: Renderable {
-    fn new(window: Window,
-           event_proxy: EventLoopProxy<RenderEvent>,
+impl<T, U> State<T, U>  where T: RenderReader<U>, U: Renderable {
+    fn new(event_proxy: EventLoopProxy<RenderEvent>,
            gpu: Gpu,
            reader: T,
            fps: f32,
@@ -162,9 +163,7 @@ impl<T, U> State<T, U> where T: RenderReader<U>, U: Renderable {
         }
 
         let mut state = Self {
-            window,
             event_proxy,
-            focused: true,
             listeners: Vec::new(),
             last_render_time: None,
 
@@ -187,16 +186,12 @@ impl<T, U> State<T, U> where T: RenderReader<U>, U: Renderable {
             _data: PhantomData::default(),
         };
 
-        state.render();
+        match state.render() {
+            Ok(_) => {}
+            Err(wgpu::SurfaceError::OutOfMemory) => {},
+            Err(e) => eprintln!("Dropped frame due to {:?}", e),
+        }
         state
-    }
-
-    pub fn id(&self) -> WindowId {
-        self.window.id()
-    }
-
-    pub fn add_listener(&mut self, listener: WindowId) {
-        self.listeners.push(listener);
     }
 
     fn toggle(&mut self) {
@@ -263,16 +258,6 @@ impl<T, U> State<T, U> where T: RenderReader<U>, U: Renderable {
         }
     }
 
-    fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        self.gpu.resize(new_size);
-        self.camera_state.resize(new_size);
-        if new_size.width > 0 && new_size.height > 0 {
-            let (depth_texture, depth_view) = U::create_depth_texture(&self.gpu);
-            self.depth_texture = depth_texture;
-            self.depth_view = depth_view;
-        }
-    }
-
     fn update(&mut self, dt: Duration) -> Result<(), SurfaceError> {
         self.camera_state.update(dt);
         self.gpu.queue.write_buffer(
@@ -298,7 +283,7 @@ impl<T, U> State<T, U> where T: RenderReader<U>, U: Renderable {
         for listener in &self.listeners {
             self.event_proxy.send_event(RenderEvent {
                 window_id: *listener,
-                event_type: EventType::Info(info)});
+                event_type: EventType::Info(info)}).unwrap();
         }
         self.render()
     }

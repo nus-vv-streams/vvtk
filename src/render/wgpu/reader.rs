@@ -5,6 +5,7 @@ use crate::render::wgpu::renderable::Renderable;
 pub trait RenderReader<T: Renderable> {
     fn get_at(&self, index: usize) -> Option<T>;
     fn len(&self) -> usize;
+    fn is_empty(&self) -> bool;
 }
 
 pub struct PcdFileReader {
@@ -24,7 +25,7 @@ impl PcdFileReader {
                     }
                 },
                 Err(e) => {
-                    println!("{e}")
+                    eprintln!("{e}")
                 }
             }
         }
@@ -43,5 +44,9 @@ impl RenderReader<PointCloudData> for PcdFileReader {
 
     fn len(&self) -> usize {
         self.files.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.files.is_empty()
     }
 }

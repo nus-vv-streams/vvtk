@@ -1,18 +1,13 @@
-use std::fmt::format;
 use std::iter;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
-use egui::{Button, CentralPanel, CtxRef, FontDefinitions, Label, Slider, WidgetInfo, WidgetType};
-use egui::output::OutputEvent;
-use egui_demo_lib::WrapApp;
+use std::time::{Instant};
+use egui::{Button, CentralPanel, CtxRef, FontDefinitions, Label, Slider};
 use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
 use epi::{App, Frame};
-use wgpu::SurfaceError;
 use winit::dpi::PhysicalSize;
-use winit::event::{DeviceEvent, Event};
-use winit::event::Event::{RedrawRequested, UserEvent, WindowEvent};
-use winit::event_loop::{ControlFlow, EventLoop};
+use winit::event::Event;
+use winit::event_loop::EventLoop;
 use winit::window::{Window, WindowId};
 use crate::render::wgpu::builder::{Attachable, EventType, RenderEvent, RenderInformation, Windowed};
 use crate::render::wgpu::gpu::Gpu;
@@ -32,17 +27,17 @@ pub struct Controller {
 impl Attachable for Controller {
     type Output = ControlWindow;
 
-    fn attach(self, event_loop: &EventLoop<RenderEvent>) -> Self::Output {
+    fn attach(self, event_loop: &EventLoop<RenderEvent>) -> (Self::Output, Window) {
         let window = winit::window::WindowBuilder::new()
             .with_decorations(true)
             .with_resizable(true)
             .with_transparent(false)
             .with_title("Controls")
             .with_inner_size(winit::dpi::PhysicalSize {
-                width: 400i32,
-                height: 200i32,
+                width: 300i32,
+                height: 150i32,
             })
-            .build(&event_loop)
+            .build(event_loop)
             .unwrap();
 
         let gpu = pollster::block_on(Gpu::new(&window));
@@ -54,7 +49,7 @@ impl Attachable for Controller {
         ),window.id()));
 
         // We use the egui_winit_platform crate as the platform.
-        let mut platform = Platform::new(PlatformDescriptor {
+        let platform = Platform::new(PlatformDescriptor {
             physical_width: gpu.size.width as u32,
             physical_height: gpu.size.height as u32,
             scale_factor: window.scale_factor(),
@@ -62,10 +57,9 @@ impl Attachable for Controller {
             style: Default::default(),
         });
 
-        let mut egui_rpass = RenderPass::new(&gpu.device, surface_format, 1);
+        let egui_rpass = RenderPass::new(&gpu.device, surface_format, 1);
 
-        ControlWindow {
-            window,
+        let object = ControlWindow {
             gpu,
             event_proxy,
             platform,
@@ -77,12 +71,13 @@ impl Attachable for Controller {
             slider_end: self.slider_end,
             info: None,
             listeners: Vec::new()
-        }
+        };
+
+        (object, window)
     }
 }
 
 pub struct ControlWindow {
-    window: Window,
     gpu: Gpu,
     event_proxy: Arc<EventProxy>,
     platform: Platform,
@@ -98,7 +93,7 @@ pub struct ControlWindow {
 }
 
 impl App for ControlWindow {
-    fn update(&mut self, ctx: &CtxRef, frame: &Frame) {
+    fn update(&mut self, ctx: &CtxRef, _frame: &Frame) {
         CentralPanel::default().show(ctx, |ui| {
             if ui.add(Button::new("Play / Pause")).clicked() {
                 self.toggle();
@@ -107,16 +102,19 @@ impl App for ControlWindow {
             ui.add(Slider::new(&mut self.slider_position, 0..=(self.slider_end))
                 .text(&format!("/ {}", self.slider_end))
                 .integer());
+
             if let Some(info) = self.info {
                 ui.add(Label::new(&format!("Camera Position: {:?}", info.camera.position)));
                 ui.add(Label::new(&format!("Camera Yaw: {:?}", cgmath::Deg::from(info.camera.yaw))));
                 ui.add(Label::new(&format!("Camera Pitch: {:?}", cgmath::Deg::from(info.camera.pitch))));
             }
         });
+
         if self.slider_position != self.prev_slider_position {
             self.move_to(self.slider_position);
             self.prev_slider_position = self.slider_position;
         }
+
     }
 
     fn name(&self) -> &str {
@@ -125,54 +123,44 @@ impl App for ControlWindow {
 }
 
 impl Windowed for ControlWindow {
-    fn handle_event(&mut self, event: &Event<RenderEvent>, control: &mut ControlFlow) {
+    fn add_output(&mut self, window_id: WindowId) {
+        self.listeners.push(window_id);
+    }
+
+    fn handle_event(&mut self, event: &Event<RenderEvent>, window: &Window) {
         self.platform.handle_event(event);
         match event {
-            Event::MainEventsCleared => {
-                self.window.request_redraw();
-            },
-            Event::RedrawRequested(..) => {
-                self.render()
+            Event::RedrawRequested(window_id) if *window_id == window.id() => {
+                self.render(window)
             }
 
             Event::UserEvent(RenderEvent { window_id, event_type })
-                if *window_id == self.id() => {
+                if *window_id == window.id() => {
                 match event_type {
-                    EventType::Repaint => { self.window.request_redraw(); }
+                    EventType::Repaint => { window.request_redraw(); }
                     EventType::Info(info) => {
                         self.info = Some(*info);
-                        self.prev_slider_position = self.slider_position;
+                        self.prev_slider_position = info.current_position;
                         self.slider_position = info.current_position;
                     }
                     _ => {}
                 }
             }
-            Event::WindowEvent { ref event, window_id, .. }
-                if *window_id == self.id() => match event {
-                winit::event::WindowEvent::Resized(size) => {
-                    self.gpu.resize(*size);
-                }
-                _ => {}
-            },
             _ => (),
         }
+    }
+
+    fn resize(&mut self, size: PhysicalSize<u32>) {
+        self.gpu.resize(size);
     }
 }
 
 impl ControlWindow {
-    pub fn id(&self) -> WindowId {
-        self.window.id()
-    }
-
-    pub fn add_listener(&mut self, listener: WindowId) {
-        self.listeners.push(listener);
-    }
-
     fn toggle(&self) {
         let sender = self.event_proxy.0.lock().unwrap();
 
         for &listener in &self.listeners {
-            sender.send_event(RenderEvent { window_id: listener, event_type: EventType::Toggle });
+            sender.send_event(RenderEvent { window_id: listener, event_type: EventType::Toggle }).unwrap();
         }
     }
 
@@ -180,11 +168,11 @@ impl ControlWindow {
         let sender = self.event_proxy.0.lock().unwrap();
 
         for &listener in &self.listeners {
-            sender.send_event(RenderEvent { window_id: listener, event_type: EventType::MoveTo(position) });
+            sender.send_event(RenderEvent { window_id: listener, event_type: EventType::MoveTo(position) }).unwrap();
         }
     }
 
-    fn render(&mut self) {
+    fn render(&mut self, window: &Window) {
         if self.start_time.is_none() {
             self.start_time = Some(Instant::now());
         }
@@ -208,12 +196,12 @@ impl ControlWindow {
         self.platform.begin_frame();
         let app_output = epi::backend::AppOutput::default();
 
-        let mut frame =  epi::Frame::new(epi::backend::FrameData {
+        let frame =  epi::Frame::new(epi::backend::FrameData {
             info: epi::IntegrationInfo {
                 name: "egui_example",
                 web_info: None,
                 cpu_usage: self.previous_frame_time,
-                native_pixels_per_point: Some(self.window.scale_factor() as _),
+                native_pixels_per_point: Some(window.scale_factor() as _),
                 prefer_dark_mode: None,
             },
             output: app_output,
@@ -221,10 +209,10 @@ impl ControlWindow {
         });
 
         // Draw the demo application.
-        self.update(&self.platform.context(), &mut frame);
+        self.update(&self.platform.context(), &frame);
 
         // End the UI frame. We could now handle the output and draw the UI with the backend.
-        let (_output, paint_commands) = self.platform.end_frame(Some(&self.window));
+        let (_output, paint_commands) = self.platform.end_frame(Some(window));
         let paint_jobs = self.platform.context().tessellate(paint_commands);
 
         let frame_time = (Instant::now() - egui_start).as_secs_f64() as f32;
@@ -238,7 +226,7 @@ impl ControlWindow {
         let screen_descriptor = ScreenDescriptor {
             physical_width: self.gpu.config.width,
             physical_height: self.gpu.config.height,
-            scale_factor: self.window.scale_factor() as f32,
+            scale_factor: window.scale_factor() as f32,
         };
         self.egui_rpass.update_texture(&self.gpu.device, &self.gpu.queue, &self.platform.context().font_image());
         self.egui_rpass.update_user_textures(&self.gpu.device, &self.gpu.queue);

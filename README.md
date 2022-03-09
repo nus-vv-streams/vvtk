@@ -87,7 +87,7 @@ With the main screen focused,
 7. `Space` Key - Toggles Play/Pause
 8. `LeftArrow` Key - Rewinds by 1 frame
 9. `RightArrow` Key - Advances by 1 frame
-10. `Mouse` Drag - Adjusts camera yaw / pitch
+10. `Mouse` Drag - Adjusts camera yaw / pitch (Hold right click on Mac, left click on Windows)
 
 With the secondary window focused,
 
