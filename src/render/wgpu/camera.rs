@@ -5,6 +5,12 @@ use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalPosition;
 use winit::event::*;
 
+const CAMERA_SPEED: f32 = 2.0;
+const CAMERA_SENSITIVITY: f32 = 0.5;
+const PROJECTION_FOXY: f32 = 45.0;
+const PROJECTION_ZNEAR: f32 = 0.1;
+const PROJECTION_ZFAR: f32 = 100.0;
+
 pub struct CameraState {
     camera: Camera,
     camera_controller: CameraController,
@@ -15,8 +21,8 @@ pub struct CameraState {
 
 impl CameraState {
     pub fn new(camera: Camera, width: u32, height: u32) -> Self {
-        let projection = Projection::new(width, height, cgmath::Deg(45.0), 0.1, 100.0);
-        let camera_controller = CameraController::new(8.0, 1.0);
+        let projection = Projection::new(width, height, cgmath::Deg(PROJECTION_FOXY), PROJECTION_ZNEAR, PROJECTION_ZFAR);
+        let camera_controller = CameraController::new(CAMERA_SPEED, CAMERA_SENSITIVITY);
         let mut camera_uniform = CameraUniform::default();
         camera_uniform.update_view_proj(&camera, &projection);
 
@@ -304,7 +310,7 @@ impl CameraController {
 
         // Move up/down. Since we don't use roll, we can just
         // modify the y coordinate directly.
-        camera.position.y += (self.amount_up - self.amount_down) * self.speed * dt;
+        camera.position.y += (self.amount_up - self.amount_down) * self.speed * dt * 0.5;
 
         // Rotate
         camera.yaw += Rad(self.rotate_horizontal) * self.sensitivity * dt;

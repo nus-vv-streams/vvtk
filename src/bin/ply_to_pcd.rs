@@ -182,7 +182,7 @@ impl ply::PropertyAccess for Vertex {
             ("green", ply::Property::UChar(v)) => self.green = v,
             ("blue", ply::Property::UChar(v)) => self.blue = v,
             ("alpha", ply::Property::UChar(v)) => self.alpha = v,
-            (k, _) => panic!("Vertex: Unexpected key/value combination: key: {}", k),
+            _ => {}
         }
     }
 }

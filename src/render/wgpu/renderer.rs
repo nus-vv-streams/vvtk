@@ -2,6 +2,7 @@ use std::iter;
 use std::marker::PhantomData;
 use std::time::{Duration, Instant};
 use wgpu::{LoadOp, Operations, RenderPassDepthStencilAttachment, SurfaceError};
+use wgpu::util::DeviceExt;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{EventLoop, EventLoopProxy};
@@ -66,6 +67,7 @@ pub struct State<T, U> where T: RenderReader<U>, U: Renderable {
     camera_state: CameraState,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
+    antialias_bind_group: wgpu::BindGroup,
     depth_texture: wgpu::Texture,
     depth_view: wgpu::TextureView,
     render_pipeline: wgpu::RenderPipeline,
@@ -144,12 +146,16 @@ impl<T, U> State<T, U>  where T: RenderReader<U>, U: Renderable {
            fps: f32,
            camera_state: CameraState) -> Self {
         let (camera_buffer, camera_bind_group_layout, camera_bind_group) = camera_state.create_buffer(&gpu.device);
+        let (antialias_bind_group_layout, antialias_bind_group) = Self::create_antialias_buffer(&gpu.device, &reader);
+
         let render_pipeline_layout =
             gpu.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&camera_bind_group_layout],
+                bind_group_layouts: &[&camera_bind_group_layout, &antialias_bind_group_layout],
                 push_constant_ranges: &[],
             });
+
+
 
         let render_pipeline = U::create_render_pipeline(&gpu, Some(&render_pipeline_layout));
         let (depth_texture, depth_view) = U::create_depth_texture(&gpu);
@@ -171,6 +177,7 @@ impl<T, U> State<T, U>  where T: RenderReader<U>, U: Renderable {
             camera_state,
             camera_buffer,
             camera_bind_group,
+            antialias_bind_group,
             depth_texture,
             depth_view,
             render_pipeline,
@@ -192,6 +199,40 @@ impl<T, U> State<T, U>  where T: RenderReader<U>, U: Renderable {
             Err(e) => eprintln!("Dropped frame due to {:?}", e),
         }
         state
+    }
+
+    fn create_antialias_buffer(device: &wgpu::Device, reader: &T) -> (wgpu::BindGroupLayout, wgpu::BindGroup) {
+        let antialias_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Antialias Buffer"),
+            contents: bytemuck::cast_slice(&[reader.antialias()]),
+            usage: wgpu::BufferUsages::UNIFORM
+        });
+
+        let antialias_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: Some("antialias_bind_group_layout"),
+            });
+
+        let antialias_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &antialias_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: antialias_buffer.as_entire_binding(),
+            }],
+            label: Some("antialias_bind_group"),
+        });
+
+        (antialias_bind_group_layout, antialias_bind_group)
     }
 
     fn toggle(&mut self) {
@@ -342,6 +383,7 @@ impl<T, U> State<T, U>  where T: RenderReader<U>, U: Renderable {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.antialias_bind_group, &[]);
             if let Some(buffer) = &self.vertex_buffer {
                 render_pass.set_vertex_buffer(0, buffer.slice(..));
                 render_pass.draw(0..(self.num_vertices as u32), 0..1);

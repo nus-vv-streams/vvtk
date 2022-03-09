@@ -5,6 +5,15 @@ struct Camera {
 [[group(0), binding(0)]]
 var<uniform> camera: Camera;
 
+struct AntiAlias {
+    x: f32;
+    y: f32;
+    z: f32;
+    _padding: f32;
+};
+[[group(1), binding(0)]]
+var<uniform> antialias: AntiAlias;
+
 struct VertexInput {
     [[location(0)]] position: vec3<f32>;
     [[location(1)]] color: u32;
@@ -38,7 +47,7 @@ fn vs_main(
     let blue = extractBits(model.color, u32(16), u32(8));
     let cast_blue =  linear(f32(blue));
 
-    let pos = model.position / f32(180);
+    let pos = model.position / vec3<f32>(antialias.x, antialias.y, antialias.z);
     out.color = vec4<f32>(cast_red, cast_green, cast_blue, 1.0);
     out.clip_position = camera.view_proj * vec4<f32>(pos, 1.0);
     return out;

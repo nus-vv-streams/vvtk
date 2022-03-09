@@ -29,6 +29,7 @@ pub mod point;
 pub mod pointcloud;
 pub mod processing;
 pub mod render;
+pub mod formats;
 
 // re-export
 pub use ply_dir::PlyDir;

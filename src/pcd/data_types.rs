@@ -3,8 +3,8 @@ use std::str::FromStr;
 
 /// This struct represents a single .pcd file
 pub struct PointCloudData {
-    header: PCDHeader,
-    data: Vec<u8>,
+    pub(crate) header: PCDHeader,
+    pub(crate) data: Vec<u8>,
 }
 
 impl PointCloudData {
