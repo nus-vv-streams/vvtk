@@ -53,6 +53,7 @@ egui = "0.16.0"
 egui_winit_platform = "0.13.0"
 egui_wgpu_backend = "0.16.0"
 epi = "0.16.0"
+rayon = "1.5.1"
 
 [[bin]]
 name = "ply_to_ply"

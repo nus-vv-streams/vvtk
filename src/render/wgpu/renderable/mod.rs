@@ -4,7 +4,7 @@ use crate::render::wgpu::gpu::Gpu;
 
 pub mod pcd;
 
-pub trait Renderable {
+pub trait Renderable: Clone {
     fn buffer_layout_desc<'a>() -> wgpu::VertexBufferLayout<'a>;
     fn create_render_pipeline(device: &Gpu, layout: Option<&wgpu::PipelineLayout>) -> RenderPipeline;
     fn create_depth_texture(gpu: &Gpu) -> (wgpu::Texture, wgpu::TextureView) {

@@ -2881,6 +2881,7 @@ dependencies = [
  "ply-rs",
  "pollster",
  "rand",
+ "rayon",
  "thiserror",
  "typenum",
  "wgpu",

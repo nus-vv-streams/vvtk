@@ -331,7 +331,6 @@ impl<T, U> State<T, U>  where T: RenderReader<U>, U: Renderable {
 
     fn update_vertices(&mut self) {
         if let Some(data) = self.current() {
-
             let vertices = data.vertices();
             match &self.vertex_buffer {
                 None => self.vertex_buffer = Some(data.create_buffer(&self.gpu.device)),

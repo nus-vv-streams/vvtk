@@ -63,15 +63,17 @@ ARGS:
     <DIRECTORY>    Directory with all the pcd files in lexicographical order
 
 OPTIONS:
-    -f, --fps <FPS>               [default: 30]
-    -h, --height <HEIGHT>         [default: 900]
-        --help                    Print help information
-        --pitch <CAMERA_PITCH>    [default: -20]
-    -w, --width <WIDTH>           [default: 1600]
-    -x, --camera-x <CAMERA_X>     [default: 0]
-    -y, --camera-y <CAMERA_Y>     [default: 0]
-        --yaw <CAMERA_YAW>        [default: -90]
-    -z, --camera-z <CAMERA_Z>     [default: 0]
+    -b, --buffer-size <BUFFER_SIZE>    [default: 1]
+        --controls
+    -f, --fps <FPS>                    [default: 30]
+    -h, --height <HEIGHT>              [default: 900]
+        --help                         Print help information
+        --pitch <CAMERA_PITCH>         [default: -20]
+    -w, --width <WIDTH>                [default: 1600]
+    -x, --camera-x <CAMERA_X>          [default: 0]
+    -y, --camera-y <CAMERA_Y>          [default: 0]
+        --yaw <CAMERA_YAW>             [default: -90]
+    -z, --camera-z <CAMERA_Z>          [default: 0]
 ```
 
 ### Controls
@@ -106,4 +108,10 @@ The following command will play all `.pcd` files in the `./pcds/` directory.
 
 ```shell
 ply_play ./pcds
+```
+
+You can buffer the render with a set number of frames using `-b`
+
+```shell
+ply_play ./pcds -b 100
 ```

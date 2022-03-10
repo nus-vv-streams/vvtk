@@ -1,4 +1,5 @@
 use std::convert::{TryFrom, TryInto};
+use std::fmt::{Debug, Formatter};
 use std::str::FromStr;
 
 /// This struct represents a single .pcd file
@@ -26,6 +27,21 @@ impl PointCloudData {
 
     pub fn data(&self) -> &[u8] {
         &self.data
+    }
+}
+
+impl Clone for PointCloudData {
+    fn clone(&self) -> Self {
+        Self {
+            header: self.header.clone(),
+            data: self.data.clone()
+        }
+    }
+}
+
+impl Debug for PointCloudData {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PointCloudData: {:?}", self.header)
     }
 }
 
