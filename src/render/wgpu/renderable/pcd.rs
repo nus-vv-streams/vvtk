@@ -1,10 +1,9 @@
-use wgpu::{DepthStencilState, include_wgsl, PipelineLayout, RenderPipeline, TextureFormat, VertexBufferLayout};
+use wgpu::{DepthStencilState, Device, include_wgsl, PipelineLayout, RenderPipeline, TextureFormat, VertexBufferLayout};
 use wgpu::CompareFunction::Less;
 use crate::formats::PointCloud;
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::pcd::PointCloudData;
 use crate::render::wgpu::antialias::AntiAlias;
-use crate::render::wgpu::gpu::Gpu;
 use crate::render::wgpu::renderable::Renderable;
 
 impl Renderable for PointCloudData {
@@ -27,10 +26,10 @@ impl Renderable for PointCloudData {
         }
     }
 
-    fn create_render_pipeline(gpu: &Gpu, layout: Option<&PipelineLayout>) -> RenderPipeline {
-        let shader = gpu.device.create_shader_module(&include_wgsl!("../shaders/pcd.wgsl"));
+    fn create_render_pipeline(device: &Device, format: TextureFormat, layout: Option<&PipelineLayout>) -> RenderPipeline {
+        let shader = device.create_shader_module(&include_wgsl!("../shaders/pcd.wgsl"));
 
-        gpu.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout,
             vertex: wgpu::VertexState {
@@ -42,7 +41,7 @@ impl Renderable for PointCloudData {
                 module: &shader,
                 entry_point: "fs_main",
                 targets: &[wgpu::ColorTargetState {
-                    format: gpu.config.format,
+                    format,
                     blend: Some(wgpu::BlendState {
                         color: wgpu::BlendComponent::REPLACE,
                         alpha: wgpu::BlendComponent::REPLACE,

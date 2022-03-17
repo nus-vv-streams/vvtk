@@ -38,6 +38,10 @@ impl PcdFileReader {
             files
         }
     }
+
+    pub fn file_at(&self, index: usize) -> Option<&PathBuf> {
+        self.files.get(index)
+    }
 }
 
 impl RenderReader<PointCloudData> for PcdFileReader {

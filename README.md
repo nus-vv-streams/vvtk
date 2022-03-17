@@ -115,3 +115,35 @@ You can buffer the render with a set number of frames using `-b`
 ```shell
 ply_play ./pcds -b 100
 ```
+
+### `pcd_to_png`
+
+Converts a folder of .pcd files to a folder of .png images
+
+```shell
+Converts a folder of .pcd files to a folder of .png images
+
+USAGE:
+    pcd_to_png.exe [OPTIONS] --pcds <PCDS> --output-dir <OUTPUT_DIR>
+
+OPTIONS:
+    -h, --height <HEIGHT>            [default: 900]
+        --help                       Print help information
+    -n, --frames <FRAMES>            Number of pcd files to convert
+    -o, --output-dir <OUTPUT_DIR>    Directory to store output png images
+        --pcds <PCDS>                Directory with all the pcd files in lexicographical order
+        --pitch <CAMERA_PITCH>       [default: 0]
+    -w, --width <WIDTH>              [default: 1600]
+    -x, --camera-x <CAMERA_X>        [default: 0]
+    -y, --camera-y <CAMERA_Y>        [default: 0]
+        --yaw <CAMERA_YAW>           [default: -90]
+    -z, --camera-z <CAMERA_Z>        [default: 1.3]
+```
+
+### Example
+
+The following command will convert 20 `.pcd` files in `./pcds/` to `.png` images in `./pngs/`
+
+```shell
+pcd_to_png --pcds ./pcds/ -o ./pngs/ -n 20
+```

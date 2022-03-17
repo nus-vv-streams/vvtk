@@ -1,19 +1,19 @@
-use wgpu::{Extent3d, RenderPipeline, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
+use wgpu::{Device, Extent3d, RenderPipeline, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 use wgpu::util::DeviceExt;
+use winit::dpi::PhysicalSize;
 use crate::render::wgpu::antialias::AntiAlias;
-use crate::render::wgpu::gpu::Gpu;
 
 pub mod pcd;
 
 pub trait Renderable: Clone {
     fn buffer_layout_desc<'a>() -> wgpu::VertexBufferLayout<'a>;
-    fn create_render_pipeline(device: &Gpu, layout: Option<&wgpu::PipelineLayout>) -> RenderPipeline;
-    fn create_depth_texture(gpu: &Gpu) -> (wgpu::Texture, wgpu::TextureView) {
-        let depth_texture = gpu.device.create_texture(&TextureDescriptor {
+    fn create_render_pipeline(device: &Device, format: TextureFormat, layout: Option<&wgpu::PipelineLayout>) -> RenderPipeline;
+    fn create_depth_texture(device: &Device, size: PhysicalSize<u32>) -> (wgpu::Texture, wgpu::TextureView) {
+        let depth_texture = device.create_texture(&TextureDescriptor {
             label: None,
             size: Extent3d {
-                width: gpu.size.width,
-                height: gpu.size.height,
+                width: size.width,
+                height: size.height,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,

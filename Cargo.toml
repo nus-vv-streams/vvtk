@@ -64,6 +64,9 @@ name = "ply_to_pcd"
 [[bin]]
 name = "ply_play"
 
+[[bin]]
+name = "pcd_to_png"
+
 #[[bin]]
 #name = "ply_view"
 

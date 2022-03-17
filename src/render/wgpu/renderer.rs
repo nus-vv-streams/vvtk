@@ -1,14 +1,14 @@
 use std::iter;
 use std::marker::PhantomData;
 use std::time::{Duration, Instant};
-use wgpu::{LoadOp, Operations, RenderPassDepthStencilAttachment, SurfaceError};
+use wgpu::{BindGroup, Buffer, CommandEncoder, Device, LoadOp, Operations, Queue, RenderPassDepthStencilAttachment, RenderPipeline, SurfaceError, Texture, TextureFormat, TextureView};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{EventLoop, EventLoopProxy};
 use winit::window::{Window, WindowBuilder, WindowId};
 use crate::render::wgpu::builder::{Attachable, EventType, RenderEvent, RenderInformation, Windowed};
-use crate::render::wgpu::camera::{Camera, CameraState};
-use crate::render::wgpu::gpu::Gpu;
+use crate::render::wgpu::camera::{Camera, CameraState, CameraUniform};
+use crate::render::wgpu::gpu::WindowGpu;
 use crate::render::wgpu::reader::RenderReader;
 use crate::render::wgpu::renderable::Renderable;
 
@@ -49,7 +49,7 @@ impl<T, U> Attachable for Renderer<T, U> where T: RenderReader<U>, U: Renderable
             .build(event_loop)
             .unwrap();
 
-        let gpu = pollster::block_on(Gpu::new(&window));
+        let gpu = pollster::block_on(WindowGpu::new(&window));
         let state = State::new(event_loop.create_proxy(), gpu, self.reader, self.fps, self.camera_state);
         (state, window)
     }
@@ -62,16 +62,9 @@ pub struct State<T, U> where T: RenderReader<U>, U: Renderable {
     listeners: Vec<WindowId>,
 
     // GPU variables
-    gpu: Gpu,
+    gpu: WindowGpu,
+    pcd_renderer: PointCloudRenderer<U>,
     camera_state: CameraState,
-    camera_buffer: wgpu::Buffer,
-    camera_bind_group: wgpu::BindGroup,
-    antialias_bind_group: wgpu::BindGroup,
-    depth_texture: wgpu::Texture,
-    depth_view: wgpu::TextureView,
-    render_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: Option<wgpu::Buffer>,
-    num_vertices: usize,
 
     // Playback
     current_position: usize,
@@ -80,7 +73,6 @@ pub struct State<T, U> where T: RenderReader<U>, U: Renderable {
     state: PlaybackState,
     time_since_last_update: std::time::Duration,
     reader: T,
-    _data: PhantomData<U>,
 }
 
 impl<T, U> Windowed for State<T, U>  where T: RenderReader<U>, U: Renderable {
@@ -130,45 +122,20 @@ impl<T, U> Windowed for State<T, U>  where T: RenderReader<U>, U: Renderable {
     fn resize(&mut self, new_size: PhysicalSize<u32>) {
         self.gpu.resize(new_size);
         self.camera_state.resize(new_size);
-        if new_size.width > 0 && new_size.height > 0 {
-            let (depth_texture, depth_view) = U::create_depth_texture(&self.gpu);
-            self.depth_texture = depth_texture;
-            self.depth_view = depth_view;
-        }
+        self.pcd_renderer.resize(new_size, &self.gpu.device);
     }
 }
 
 impl<T, U> State<T, U>  where T: RenderReader<U>, U: Renderable {
     fn new(event_proxy: EventLoopProxy<RenderEvent>,
-           gpu: Gpu,
+           gpu: WindowGpu,
            reader: T,
            fps: f32,
            camera_state: CameraState) -> Self {
-        let (camera_buffer, camera_bind_group_layout, camera_bind_group) = camera_state.create_buffer(&gpu.device);
-        let (antialias_bind_group_layout, antialias_bind_group) = reader.get_at(0)
-            .expect("Length of files to read should be > 0")
-            .antialias()
-            .create_buffer(&gpu.device);
 
-        let render_pipeline_layout =
-            gpu.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&camera_bind_group_layout, &antialias_bind_group_layout],
-                push_constant_ranges: &[],
-            });
+        let initial_render = reader.get_at(0).expect("There should be at least one point cloud to render!");
+        let pcd_renderer = PointCloudRenderer::new(&gpu.device, gpu.config.format, initial_render, gpu.size, &camera_state);
 
-
-
-        let render_pipeline = U::create_render_pipeline(&gpu, Some(&render_pipeline_layout));
-        let (depth_texture, depth_view) = U::create_depth_texture(&gpu);
-
-        let mut vertex_buffer = None;
-        let mut num_vertices = 0;
-
-        if let Some(data) = reader.get_at(0) {
-            vertex_buffer = Some(data.create_buffer(&gpu.device));
-            num_vertices = data.vertices();
-        }
 
         let mut state = Self {
             event_proxy,
@@ -176,15 +143,8 @@ impl<T, U> State<T, U>  where T: RenderReader<U>, U: Renderable {
             last_render_time: None,
 
             gpu,
+            pcd_renderer,
             camera_state,
-            camera_buffer,
-            camera_bind_group,
-            antialias_bind_group,
-            depth_texture,
-            depth_view,
-            render_pipeline,
-            vertex_buffer,
-            num_vertices,
 
             current_position: 0,
             fps,
@@ -192,7 +152,6 @@ impl<T, U> State<T, U>  where T: RenderReader<U>, U: Renderable {
             state: PlaybackState::Paused,
             time_since_last_update: std::time::Duration::from_secs(0),
             reader,
-            _data: PhantomData::default(),
         };
 
         match state.render() {
@@ -269,11 +228,7 @@ impl<T, U> State<T, U>  where T: RenderReader<U>, U: Renderable {
 
     fn update(&mut self, dt: Duration) -> Result<(), SurfaceError> {
         self.camera_state.update(dt);
-        self.gpu.queue.write_buffer(
-            &self.camera_buffer,
-            0,
-            bytemuck::cast_slice(&[self.camera_state.camera_uniform()]),
-        );
+        self.pcd_renderer.update_camera(&self.gpu.queue, self.camera_state.camera_uniform());
 
         if self.state == PlaybackState::Play {
             self.time_since_last_update += dt;
@@ -299,24 +254,7 @@ impl<T, U> State<T, U>  where T: RenderReader<U>, U: Renderable {
 
     fn update_vertices(&mut self) {
         if let Some(data) = self.current() {
-            let vertices = data.vertices();
-            match &self.vertex_buffer {
-                None => self.vertex_buffer = Some(data.create_buffer(&self.gpu.device)),
-                Some(buffer) => {
-                    if vertices > self.num_vertices {
-                        buffer.destroy();
-                        self.vertex_buffer = Some(data.create_buffer(&self.gpu.device));
-                    } else {
-                        self.gpu.queue.write_buffer(
-                            buffer,
-                            0,
-                            data.bytes()
-                        );
-                    }
-                }
-            }
-
-            self.num_vertices = vertices;
+            self.pcd_renderer.update_vertices(&self.gpu.device, &self.gpu.queue, data);
         }
     }
 
@@ -325,39 +263,122 @@ impl<T, U> State<T, U>  where T: RenderReader<U>, U: Renderable {
         let (output, view) = self.gpu.create_view()?;
         let mut encoder = self.gpu.create_encoder();
 
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Render Pass"),
-                color_attachments: &[wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        }),
-                        store: true,
-                    },
-                }],
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &self.depth_view,
-                    depth_ops: Some(Operations { load: LoadOp::Clear(1.0), store: true }),
-                    stencil_ops: None,
-                }),
-            });
-
-            render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.antialias_bind_group, &[]);
-            if let Some(buffer) = &self.vertex_buffer {
-                render_pass.set_vertex_buffer(0, buffer.slice(..));
-                render_pass.draw(0..(self.num_vertices as u32), 0..1);
-            }
-        }
+        self.pcd_renderer.render(&mut encoder, &view);
         self.gpu.queue.submit(iter::once(encoder.finish()));
         output.present();
         Ok(())
+    }
+}
+
+pub struct PointCloudRenderer<T: Renderable> {
+    camera_buffer: Buffer,
+    camera_bind_group: BindGroup,
+    antialias_bind_group: BindGroup,
+    depth_texture: Texture,
+    depth_view: TextureView,
+    render_pipeline: RenderPipeline,
+    vertex_buffer: Buffer,
+    num_vertices: usize,
+    _data: PhantomData<T>
+}
+
+impl<T> PointCloudRenderer<T> where T: Renderable {
+    pub fn new(device: &Device,
+           format: TextureFormat,
+           initial_render: T,
+           initial_size: PhysicalSize<u32>,
+           camera_state: &CameraState) -> Self {
+        let (camera_buffer, camera_bind_group_layout, camera_bind_group) = camera_state.create_buffer(device);
+        let (antialias_bind_group_layout, antialias_bind_group) = initial_render
+            .antialias()
+            .create_buffer(device);
+
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[&camera_bind_group_layout, &antialias_bind_group_layout],
+                push_constant_ranges: &[],
+            });
+
+
+
+        let render_pipeline = T::create_render_pipeline(device, format,Some(&render_pipeline_layout));
+        let (depth_texture, depth_view) = T::create_depth_texture(device, initial_size);
+
+        let vertex_buffer = initial_render.create_buffer(device);
+        let num_vertices = initial_render.vertices();
+
+        Self {
+            camera_buffer,
+            camera_bind_group,
+            antialias_bind_group,
+            depth_texture,
+            depth_view,
+            render_pipeline,
+            vertex_buffer,
+            num_vertices,
+            _data: PhantomData::default(),
+        }
+    }
+
+    pub fn resize(&mut self, new_size: PhysicalSize<u32>, device: &Device) {
+        if new_size.width > 0 && new_size.height > 0 {
+            let (depth_texture, depth_view) = T::create_depth_texture(device, new_size);
+            self.depth_texture = depth_texture;
+            self.depth_view = depth_view;
+        }
+    }
+
+    pub fn update_camera(&self, queue: &Queue, camera_uniform: CameraUniform) {
+        queue.write_buffer(
+            &self.camera_buffer,
+            0,
+            bytemuck::cast_slice(&[camera_uniform]),
+        );
+    }
+
+    pub fn update_vertices(&mut self, device: &Device, queue: &Queue, data: T) {
+        let vertices = data.vertices();
+        if vertices > self.num_vertices {
+            self.vertex_buffer.destroy();
+            self.vertex_buffer = data.create_buffer(device);
+        } else {
+            queue.write_buffer(
+                &self.vertex_buffer,
+                0,
+                data.bytes()
+            );
+        }
+        self.num_vertices = vertices;
+    }
+
+    pub fn render(&self, encoder: &mut CommandEncoder, view: &TextureView) {
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Render Pass"),
+            color_attachments: &[wgpu::RenderPassColorAttachment {
+                view: &view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color {
+                        r: 0.1,
+                        g: 0.2,
+                        b: 0.3,
+                        a: 1.0,
+                    }),
+                    store: true,
+                },
+            }],
+            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                view: &self.depth_view,
+                depth_ops: Some(Operations { load: LoadOp::Clear(1.0), store: true }),
+                stencil_ops: None,
+            }),
+        });
+
+        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+        render_pass.set_bind_group(1, &self.antialias_bind_group, &[]);
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.draw(0..(self.num_vertices as u32), 0..1);
     }
 }

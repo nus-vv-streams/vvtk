@@ -1,6 +1,6 @@
 use winit::window::Window;
 
-pub struct Gpu {
+pub struct WindowGpu {
     pub surface: wgpu::Surface,
     pub device: wgpu::Device,
     pub adapter: wgpu::Adapter,
@@ -9,7 +9,7 @@ pub struct Gpu {
     pub size: winit::dpi::PhysicalSize<u32>
 }
 
-impl Gpu {
+impl WindowGpu {
     pub async fn new(window: &Window) -> Self {
         let size = window.inner_size();
         let instance = wgpu::Instance::new(wgpu::Backends::all());

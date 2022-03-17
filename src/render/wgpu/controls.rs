@@ -10,7 +10,7 @@ use winit::event::Event;
 use winit::event_loop::EventLoop;
 use winit::window::{Window, WindowId};
 use crate::render::wgpu::builder::{Attachable, EventType, RenderEvent, RenderInformation, Windowed};
-use crate::render::wgpu::gpu::Gpu;
+use crate::render::wgpu::gpu::WindowGpu;
 
 struct EventProxy(std::sync::Mutex<winit::event_loop::EventLoopProxy<RenderEvent>>, WindowId);
 
@@ -40,7 +40,7 @@ impl Attachable for Controller {
             .build(event_loop)
             .unwrap();
 
-        let gpu = pollster::block_on(Gpu::new(&window));
+        let gpu = pollster::block_on(WindowGpu::new(&window));
 
         let surface_format = gpu.surface.get_preferred_format(&gpu.adapter).unwrap();
 
@@ -78,7 +78,7 @@ impl Attachable for Controller {
 }
 
 pub struct ControlWindow {
-    gpu: Gpu,
+    gpu: WindowGpu,
     event_proxy: Arc<EventProxy>,
     platform: Platform,
     egui_rpass: RenderPass,
