@@ -3,19 +3,13 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, Sender};
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
-use crate::formats::PointCloud;
-use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::pcd::{PointCloudData, read_pcd_file};
-use crate::render::wgpu::AntiAlias;
 use crate::render::wgpu::renderable::Renderable;
 
 pub trait RenderReader<T: Renderable> {
     fn get_at(&self, index: usize) -> Option<T>;
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
-    fn antialias(&self) -> AntiAlias {
-        AntiAlias::new(1.0, 1.0, 1.0)
-    }
 }
 
 pub struct PcdFileReader {
@@ -59,37 +53,18 @@ impl RenderReader<PointCloudData> for PcdFileReader {
     fn is_empty(&self) -> bool {
         self.files.is_empty()
     }
-
-    fn antialias(&self) -> AntiAlias {
-        let pcd = self.get_at(0).unwrap();
-        let pointcloud: PointCloud<PointXyzRgba> = pcd.into();
-        let first_point = pointcloud.points.get(0).unwrap();
-        let mut max_x = first_point.x;
-        let mut max_y = first_point.y;
-        let mut max_z = first_point.z;
-
-        for point in pointcloud.points {
-            max_x = max_x.max(point.x.abs());
-            max_y = max_y.max(point.y.abs());
-            max_z = max_z.max(point.z.abs());
-        }
-        let max = max_x.max(max_y).max(max_z);
-        AntiAlias::new(max, max, max)
-    }
 }
 
 pub struct BufRenderReader<U: Renderable + Send> {
     size_tx: Sender<usize>,
     receiver: Receiver<(usize, Option<U>)>,
     length: usize,
-    antialias: AntiAlias
 }
 
 impl<U> BufRenderReader<U> where U: 'static + Renderable + Send + Debug {
     pub fn new<T: 'static + RenderReader<U> + Send + Sync>(buffer_size: usize, reader: T) -> Self {
         let (size_tx, size_rx) = std::sync::mpsc::channel();
         let (sender, receiver) = std::sync::mpsc::channel();
-        let antialias = reader.antialias();
         let length = reader.len();
 
         let threads = rayon::current_num_threads().saturating_sub(3).min(buffer_size);
@@ -138,7 +113,6 @@ impl<U> BufRenderReader<U> where U: 'static + Renderable + Send + Debug {
             size_tx,
             receiver,
             length,
-            antialias
         }
     }
 }
@@ -160,9 +134,5 @@ impl<U> RenderReader<U> for BufRenderReader<U> where U: 'static + Renderable + S
 
     fn is_empty(&self) -> bool {
         self.length == 0
-    }
-
-    fn antialias(&self) -> AntiAlias {
-        self.antialias
     }
 }

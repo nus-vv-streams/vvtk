@@ -9,7 +9,7 @@ struct AntiAlias {
     x: f32;
     y: f32;
     z: f32;
-    _padding: f32;
+    scale: f32;
 };
 [[group(1), binding(0)]]
 var<uniform> antialias: AntiAlias;
@@ -46,8 +46,8 @@ fn vs_main(
 
     let blue = extractBits(model.color, u32(16), u32(8));
     let cast_blue =  linear(f32(blue));
-
-    let pos = model.position / vec3<f32>(antialias.x, antialias.y, antialias.z);
+    let position = vec3<f32>(model.position[0] - antialias.x, model.position[1] - antialias.y, model.position[2] - antialias.z);
+    let pos = position / antialias.scale;
     out.color = vec4<f32>(cast_red, cast_green, cast_blue, 1.0);
     out.clip_position = camera.view_proj * vec4<f32>(pos, 1.0);
     return out;

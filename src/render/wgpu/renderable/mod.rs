@@ -1,5 +1,6 @@
 use wgpu::{Extent3d, RenderPipeline, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 use wgpu::util::DeviceExt;
+use crate::render::wgpu::antialias::AntiAlias;
 use crate::render::wgpu::gpu::Gpu;
 
 pub mod pcd;
@@ -31,6 +32,9 @@ pub trait Renderable: Clone {
             contents: self.bytes(),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         })
+    }
+    fn antialias(&self) -> AntiAlias {
+        AntiAlias::default()
     }
     fn bytes(&self) -> &[u8];
     fn vertices(&self) -> usize;

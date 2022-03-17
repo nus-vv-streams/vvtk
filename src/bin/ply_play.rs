@@ -18,11 +18,11 @@ struct Args {
     camera_x: f32,
     #[clap(short = 'y', long, default_value_t = 0.0)]
     camera_y: f32,
-    #[clap(short = 'z', long, default_value_t = 0.0)]
+    #[clap(short = 'z', long, default_value_t = 2.0)]
     camera_z: f32,
     #[clap(long = "yaw", default_value_t = -90.0)]
     camera_yaw: f32,
-    #[clap(long = "pitch", default_value_t = -20.0)]
+    #[clap(long = "pitch", default_value_t = -0.0)]
     camera_pitch: f32,
     #[clap(short, long, default_value_t = 1600)]
     width: u32,

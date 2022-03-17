@@ -1,6 +1,9 @@
 use wgpu::{DepthStencilState, include_wgsl, PipelineLayout, RenderPipeline, TextureFormat, VertexBufferLayout};
 use wgpu::CompareFunction::Less;
+use crate::formats::PointCloud;
+use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::pcd::PointCloudData;
+use crate::render::wgpu::antialias::AntiAlias;
 use crate::render::wgpu::gpu::Gpu;
 use crate::render::wgpu::renderable::Renderable;
 
@@ -75,6 +78,37 @@ impl Renderable for PointCloudData {
             // indicates how many array layers the attachments will have.
             multiview: None,
         })
+    }
+
+    fn antialias(&self) -> AntiAlias {
+        let pcd = self.clone();
+        let pointcloud: PointCloud<PointXyzRgba> = pcd.into();
+        let first_point = pointcloud.points.get(0).unwrap();
+        let mut max_x = first_point.x;
+        let mut max_y = first_point.y;
+        let mut max_z = first_point.z;
+        let mut min_x = first_point.x;
+        let mut min_y = first_point.y;
+        let mut min_z = first_point.z;
+
+        for point in pointcloud.points {
+            max_x = max_x.max(point.x);
+            max_y = max_y.max(point.y);
+            max_z = max_z.max(point.z);
+            min_x = min_x.min(point.x);
+            min_y = min_y.min(point.y);
+            min_z = min_z.min(point.z);
+        }
+        let mut max = (max_x - min_x).max(max_y - min_y).max(max_z - min_z);
+        if max == 0.0 {
+            max = 1.0
+        }
+        AntiAlias {
+            x: (max_x - min_x) / 2.0,
+            y: (max_y - min_y) / 2.0,
+            z: (max_z - min_z) / 2.0,
+            scale: max,
+        }
     }
 
     fn bytes(&self) -> &[u8] {

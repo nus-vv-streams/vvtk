@@ -2,7 +2,6 @@ use std::iter;
 use std::marker::PhantomData;
 use std::time::{Duration, Instant};
 use wgpu::{LoadOp, Operations, RenderPassDepthStencilAttachment, SurfaceError};
-use wgpu::util::DeviceExt;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{EventLoop, EventLoopProxy};
@@ -146,7 +145,10 @@ impl<T, U> State<T, U>  where T: RenderReader<U>, U: Renderable {
            fps: f32,
            camera_state: CameraState) -> Self {
         let (camera_buffer, camera_bind_group_layout, camera_bind_group) = camera_state.create_buffer(&gpu.device);
-        let (antialias_bind_group_layout, antialias_bind_group) = Self::create_antialias_buffer(&gpu.device, &reader);
+        let (antialias_bind_group_layout, antialias_bind_group) = reader.get_at(0)
+            .expect("Length of files to read should be > 0")
+            .antialias()
+            .create_buffer(&gpu.device);
 
         let render_pipeline_layout =
             gpu.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -199,40 +201,6 @@ impl<T, U> State<T, U>  where T: RenderReader<U>, U: Renderable {
             Err(e) => eprintln!("Dropped frame due to {:?}", e),
         }
         state
-    }
-
-    fn create_antialias_buffer(device: &wgpu::Device, reader: &T) -> (wgpu::BindGroupLayout, wgpu::BindGroup) {
-        let antialias_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Antialias Buffer"),
-            contents: bytemuck::cast_slice(&[reader.antialias()]),
-            usage: wgpu::BufferUsages::UNIFORM
-        });
-
-        let antialias_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-                label: Some("antialias_bind_group_layout"),
-            });
-
-        let antialias_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &antialias_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: antialias_buffer.as_entire_binding(),
-            }],
-            label: Some("antialias_bind_group"),
-        });
-
-        (antialias_bind_group_layout, antialias_bind_group)
     }
 
     fn toggle(&mut self) {
