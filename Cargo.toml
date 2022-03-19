@@ -2,7 +2,7 @@
 name = "vivotk"
 version = "0.1.0"
 authors = ["weitsang <weitsang@nus.edu.sg>", "hungkhoaitay <e0550385@u.nus.edu>", "giterator <e0552200@u.nus.edu>"]
-edition = "2018"
+edition = "2021"
 
 description = "This project aims to design and develop a set of robust and high performance Unix CLI tools for analyzing, processing, debugging, and viewing 3D point clouds using Rust"
 readme = "README.md"
@@ -11,6 +11,7 @@ repository = "https://github.com/nus-mmsys/vitotk"
 license = "Apache-2.0"
 keywords = ["3D", "Point Cloud", "Volumetric Video"]
 categories = ["command-line-utilities"]
+autobins = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [profile.release]
@@ -44,12 +45,27 @@ clipboard = "0.5.0"
 thiserror = "1.0"
 byteorder = "1.4.3"
 bytemuck = { version = "1.7.3", features = [ "derive" ] }
+winit = "0.26.1"
+wgpu = "0.12.0"
+cgmath = "0.18.0"
+pollster = "0.2.5"
+egui = "0.16.0"
+egui_winit_platform = "0.13.0"
+egui_wgpu_backend = "0.16.0"
+epi = "0.16.0"
+rayon = "1.5.1"
 
 [[bin]]
 name = "ply_to_ply"
 
 [[bin]]
 name = "ply_to_pcd"
+
+[[bin]]
+name = "ply_play"
+
+[[bin]]
+name = "pcd_to_png"
 
 #[[bin]]
 #name = "ply_view"

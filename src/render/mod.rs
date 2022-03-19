@@ -6,3 +6,5 @@ pub mod gui;
 
 /// Module handling GUI's states
 pub mod gui_states;
+
+pub mod wgpu;
