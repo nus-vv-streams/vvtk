@@ -2,6 +2,7 @@ use crate::pcd::PointCloudData;
 
 pub mod pointxyzrgba;
 
+#[derive(Clone, Debug)]
 pub struct PointCloud<T> {
     pub number_of_points: usize,
     pub points: Vec<T>

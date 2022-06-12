@@ -3,8 +3,10 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, Sender};
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
-use crate::pcd::{PointCloudData, read_pcd_file};
-use crate::render::wgpu::renderable::Renderable;
+use crate::formats::PointCloud;
+use crate::formats::pointxyzrgba::PointXyzRgba;
+use crate::pcd::read_pcd_file;
+use crate::render::wgpu::renderer::Renderable;
 
 pub trait RenderReader<T: Renderable> {
     fn get_at(&self, index: usize) -> Option<T>;
@@ -44,10 +46,11 @@ impl PcdFileReader {
     }
 }
 
-impl RenderReader<PointCloudData> for PcdFileReader {
-    fn get_at(&self, index: usize) -> Option<PointCloudData> {
+impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
+    fn get_at(&self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
         self.files.get(index)
             .and_then(|f| read_pcd_file(f).ok())
+            .map(PointCloud::from)
     }
 
     fn len(&self) -> usize {
