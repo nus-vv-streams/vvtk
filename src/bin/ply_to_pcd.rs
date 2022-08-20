@@ -1,4 +1,5 @@
 use clap::Parser;
+use kdam::prelude::*;
 use ply_rs::{ply, ply::Property};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
@@ -33,7 +34,7 @@ fn main() {
     let mut count = 0;
 
     let vertex_parser = ply_rs::parser::Parser::<Vertex>::new();
-    'outer: for file_path in files_to_convert {
+    'outer: for file_path in tqdm!(files_to_convert.into_iter()) {
         let f = std::fs::File::open(file_path.clone()).unwrap();
         let mut f = std::io::BufReader::new(f);
 

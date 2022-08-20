@@ -38,6 +38,7 @@ egui_winit_platform = "0.13.0"
 egui_wgpu_backend = "0.16.0"
 epi = "0.16.0"
 rayon = "1.5.1"
+kdam = "0.2"
 
 [[bin]]
 name = "ply_to_pcd"
@@ -45,5 +46,6 @@ name = "ply_to_pcd"
 [[bin]]
 name = "ply_play"
 
-[[bin]]
-name = "pcd_to_png"
+#[[bin]]
+#name = "pcd_to_png"
+

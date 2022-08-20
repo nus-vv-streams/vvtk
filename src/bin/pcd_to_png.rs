@@ -1,11 +1,11 @@
+use clap::Parser;
 use std::ffi::OsString;
 use std::num::NonZeroU32;
 use std::path::Path;
-use clap::Parser;
-use winit::dpi::PhysicalSize;
 use vivotk::render::wgpu::camera::{Camera, CameraState};
 use vivotk::render::wgpu::reader::{PcdFileReader, RenderReader};
 use vivotk::render::wgpu::renderer::PointCloudRenderer;
+use winit::dpi::PhysicalSize;
 
 /// Converts a folder of .pcd files to a folder of .png images
 #[derive(Parser)]
@@ -95,16 +95,25 @@ async fn run() {
     let output_buffer_size = (u32_size * size.width * size.height) as wgpu::BufferAddress;
     let output_buffer_desc = wgpu::BufferDescriptor {
         size: output_buffer_size,
-        usage: wgpu::BufferUsages::COPY_DST
-            | wgpu::BufferUsages::MAP_READ,
+        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
         label: None,
         mapped_at_creation: false,
     };
     let output_buffer = device.create_buffer(&output_buffer_desc);
 
-    let camera = Camera::new((args.camera_x, args.camera_y, args.camera_z), cgmath::Deg(args.camera_yaw), cgmath::Deg(args.camera_pitch));
+    let camera = Camera::new(
+        (args.camera_x, args.camera_y, args.camera_z),
+        cgmath::Deg(args.camera_yaw),
+        cgmath::Deg(args.camera_pitch),
+    );
     let camera_state = CameraState::new(camera, size.width, size.height);
-    let mut point_renderer = PointCloudRenderer::new(&device, texture_desc.format, reader.get_at(0).unwrap(), size, &camera_state);
+    let mut point_renderer = PointCloudRenderer::new(
+        &device,
+        texture_desc.format,
+        reader.get_at(0).unwrap(),
+        size,
+        &camera_state,
+    );
 
     for i in 0..frames {
         point_renderer.update_vertices(&device, &queue, reader.get_at(i).unwrap());
@@ -142,9 +151,10 @@ async fn run() {
             let buffer =
                 ImageBuffer::<Rgba<u8>, _>::from_raw(size.width, size.height, data).unwrap();
 
-
             let default_name = format!("{i}");
-            let filename = reader.file_at(i).expect("Should have file")
+            let filename = reader
+                .file_at(i)
+                .expect("Should have file")
                 .file_stem()
                 .and_then(|s| s.to_str())
                 .map(|s| s.to_string())
@@ -152,10 +162,8 @@ async fn run() {
                 .unwrap();
 
             let filename = format!("{filename}.png");
-            buffer.save(
-                output_path.join(Path::new(&filename))).unwrap();
+            buffer.save(output_path.join(Path::new(&filename))).unwrap();
         }
         output_buffer.unmap();
     }
-
 }
