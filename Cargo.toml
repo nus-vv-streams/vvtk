@@ -49,3 +49,5 @@ name = "ply_play"
 #[[bin]]
 #name = "pcd_to_png"
 
+[[bin]]
+name = "vvdash"

@@ -147,3 +147,15 @@ The following command will convert 20 `.pcd` files in `./pcds/` to `.png` images
 ```shell
 pcd_to_png --pcds ./pcds/ -o ./pngs/ -n 20
 ```
+
+### `vvdash`
+
+Simulates DASH streaming by sending input files to an output directory over simulated network conditions
+
+### Example
+
+The following command will send 300 frames of varying `"hi"` or `"lo"` qualities from `./input` to `./output`, depending on the simulated network conditions specified in `./simulated_network.txt`, which is a `.txt` file containing bandwidth conditions specified in KB/s, separated by newline characters `(\n)`.
+
+```shell
+vvdash ./input ./output ./simulated_network.txt 300
+```
