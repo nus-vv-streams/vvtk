@@ -1,6 +1,7 @@
-use std::ffi::OsString;
-use std::path::Path;
 use clap::Parser;
+use std::path::Path;
+use tempfile::tempdir;
+use vivotk::dash::fetcher::Fetcher;
 use vivotk::render::wgpu::builder::RenderBuilder;
 use vivotk::render::wgpu::camera::Camera;
 use vivotk::render::wgpu::controls::Controller;
@@ -11,7 +12,7 @@ use vivotk::render::wgpu::renderer::Renderer;
 #[derive(Parser)]
 struct Args {
     /// Directory with all the pcd files in lexicographical order
-    directory: OsString,
+    directory: String,
     #[clap(short, long, default_value_t = 30.0)]
     fps: f32,
     #[clap(short = 'x', long, default_value_t = 0.0)]
@@ -31,12 +32,28 @@ struct Args {
     #[clap(long = "controls")]
     show_controls: bool,
     #[clap(short, long, default_value_t = 1)]
-    buffer_size: usize
+    buffer_size: usize,
 }
 
 fn main() {
     let args: Args = Args::parse();
-    let path = Path::new(&args.directory);
+    let tmpdir;
+    let path = if args.directory.starts_with("http") {
+        tmpdir = tempdir()
+            .expect("created temp dir to store files")
+            .into_path();
+        println!("Files downloaded to {}", tmpdir.to_str().unwrap());
+
+        let fetcher = Fetcher::new(&args.directory);
+        fetcher
+            .download_to(&tmpdir)
+            .expect("failed to download files");
+
+        tmpdir.as_path()
+    } else {
+        Path::new(&args.directory)
+    };
+
     let reader = PcdFileReader::from_directory(path);
 
     if reader.len() == 0 {
@@ -44,18 +61,38 @@ fn main() {
         return;
     }
 
-    let camera = Camera::new((args.camera_x, args.camera_y, args.camera_z), cgmath::Deg(args.camera_yaw), cgmath::Deg(args.camera_pitch));
+    let camera = Camera::new(
+        (args.camera_x, args.camera_y, args.camera_z),
+        cgmath::Deg(args.camera_yaw),
+        cgmath::Deg(args.camera_pitch),
+    );
     let mut builder = RenderBuilder::default();
     let slider_end = reader.len() - 1;
     let render = if args.buffer_size > 1 {
-        builder.add_window(Renderer::new(BufRenderReader::new(args.buffer_size, reader), args.fps, camera, (args.width, args.height)))
+        builder.add_window(Renderer::new(
+            BufRenderReader::new(args.buffer_size, reader),
+            args.fps,
+            camera,
+            (args.width, args.height),
+        ))
     } else {
-        builder.add_window(Renderer::new(reader, args.fps, camera, (args.width, args.height)))
+        builder.add_window(Renderer::new(
+            reader,
+            args.fps,
+            camera,
+            (args.width, args.height),
+        ))
     };
     if args.show_controls {
         let controls = builder.add_window(Controller { slider_end });
-        builder.get_windowed_mut(render).unwrap().add_output(controls);
-        builder.get_windowed_mut(controls).unwrap().add_output(render);
+        builder
+            .get_windowed_mut(render)
+            .unwrap()
+            .add_output(controls);
+        builder
+            .get_windowed_mut(controls)
+            .unwrap()
+            .add_output(render);
     }
     builder.run();
 }

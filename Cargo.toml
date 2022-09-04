@@ -39,6 +39,10 @@ egui_wgpu_backend = "0.16.0"
 epi = "0.16.0"
 rayon = "1.5.1"
 kdam = "0.2"
+reqwest = { version = "0.11", features = ["blocking", "gzip"], default-features = false }
+anyhow = "1.0"
+tempfile="3"
+roxmltree = "0.15"
 
 [[bin]]
 name = "ply_to_pcd"
