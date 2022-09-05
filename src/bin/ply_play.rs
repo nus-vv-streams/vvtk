@@ -37,24 +37,23 @@ struct Args {
 
 fn main() {
     let args: Args = Args::parse();
-    let tmpdir;
+    let tmpdir = tempdir().expect("created temp dir to store files");
     let path = if args.directory.starts_with("http") {
-        tmpdir = tempdir()
-            .expect("created temp dir to store files")
-            .into_path();
-        println!("Files downloaded to {}", tmpdir.to_str().unwrap());
+        println!("Files downloaded to {}", tmpdir.path().to_str().unwrap());
 
         let fetcher = Fetcher::new(&args.directory);
         fetcher
-            .download_to(&tmpdir)
+            .download_to(&tmpdir.path().to_path_buf())
             .expect("failed to download files");
 
-        tmpdir.as_path()
+        tmpdir.path()
     } else {
         Path::new(&args.directory)
     };
 
+    println!("PATH IS {:?}", path);
     let reader = PcdFileReader::from_directory(path);
+    println!("There are {:} pcd files", reader.len());
 
     if reader.len() == 0 {
         eprintln!("Must provide at least one file!");
@@ -95,4 +94,5 @@ fn main() {
             .add_output(render);
     }
     builder.run();
+    _ = tmpdir.close();
 }

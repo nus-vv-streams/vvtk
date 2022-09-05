@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
 use std::fs::File;
-use std::io;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -28,16 +27,14 @@ impl Fetcher {
 
     pub fn download_to(self, out: &PathBuf) -> Result<()> {
         let mpd = self.fetch_mpd()?;
-        println!("mpd: {:?}", mpd);
         for url in mpd.split("\n") {
             if url == "" {
                 // HACK: ignore empty lines and break
                 break;
             }
-            let resp = self.http_client.get(url).send()?;
-            let content = resp.text()?;
+            let mut resp = self.http_client.get(url).send()?;
             let mut dest = File::create(out.join(generate_filename_from_url(url)))?;
-            io::copy(&mut content.as_bytes(), &mut dest)?;
+            resp.copy_to(&mut dest)?;
         }
         Ok(())
     }
