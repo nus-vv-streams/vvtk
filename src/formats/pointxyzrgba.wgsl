@@ -38,13 +38,13 @@ fn vs_main(
     model: VertexInput,
 ) -> VertexOutput {
     var out: VertexOutput;
-    let red = extractBits(model.color, u32(0), u32(8));
+    let red = model.color >> 0u & 0xFFu;
     let cast_red = linear(f32(red));
 
-    let green = extractBits(model.color, u32(8), u32(8));
+    let green = model.color >> 8u & 0xFFu;
     let cast_green =  linear(f32(green));
 
-    let blue = extractBits(model.color, u32(16), u32(8));
+    let blue = model.color >> 16u & 0xFFu;
     let cast_blue =  linear(f32(blue));
     let position = vec3<f32>(model.position[0] - antialias.x, model.position[1] - antialias.y, model.position[2] - antialias.z);
     let pos = position / antialias.scale;
