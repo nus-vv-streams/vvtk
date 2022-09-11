@@ -51,3 +51,6 @@ name = "ply_play"
 
 [[bin]]
 name = "vvdash"
+
+[[bin]]
+name = "vivotk"

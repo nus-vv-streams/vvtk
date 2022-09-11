@@ -1,6 +1,6 @@
+use clap::Parser;
 use std::ffi::OsString;
 use std::path::Path;
-use clap::Parser;
 use vivotk::render::wgpu::builder::RenderBuilder;
 use vivotk::render::wgpu::camera::Camera;
 use vivotk::render::wgpu::controls::Controller;
@@ -31,7 +31,7 @@ struct Args {
     #[clap(long = "controls")]
     show_controls: bool,
     #[clap(short, long, default_value_t = 1)]
-    buffer_size: usize
+    buffer_size: usize,
 }
 
 fn main() {
@@ -44,18 +44,38 @@ fn main() {
         return;
     }
 
-    let camera = Camera::new((args.camera_x, args.camera_y, args.camera_z), cgmath::Deg(args.camera_yaw), cgmath::Deg(args.camera_pitch));
+    let camera = Camera::new(
+        (args.camera_x, args.camera_y, args.camera_z),
+        cgmath::Deg(args.camera_yaw),
+        cgmath::Deg(args.camera_pitch),
+    );
     let mut builder = RenderBuilder::default();
     let slider_end = reader.len() - 1;
     let render = if args.buffer_size > 1 {
-        builder.add_window(Renderer::new(BufRenderReader::new(args.buffer_size, reader), args.fps, camera, (args.width, args.height)))
+        builder.add_window(Renderer::new(
+            BufRenderReader::new(args.buffer_size, reader),
+            args.fps,
+            camera,
+            (args.width, args.height),
+        ))
     } else {
-        builder.add_window(Renderer::new(reader, args.fps, camera, (args.width, args.height)))
+        builder.add_window(Renderer::new(
+            reader,
+            args.fps,
+            camera,
+            (args.width, args.height),
+        ))
     };
     if args.show_controls {
         let controls = builder.add_window(Controller { slider_end });
-        builder.get_windowed_mut(render).unwrap().add_output(controls);
-        builder.get_windowed_mut(controls).unwrap().add_output(render);
+        builder
+            .get_windowed_mut(render)
+            .unwrap()
+            .add_output(controls);
+        builder
+            .get_windowed_mut(controls)
+            .unwrap()
+            .add_output(render);
     }
     builder.run();
 }

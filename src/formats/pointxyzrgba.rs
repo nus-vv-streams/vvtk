@@ -1,8 +1,11 @@
-use wgpu::{DepthStencilState, Device, include_wgsl, PipelineLayout, RenderPipeline, TextureFormat, VertexBufferLayout};
-use wgpu::CompareFunction::Less;
 use crate::formats::PointCloud;
 use crate::render::wgpu::antialias::AntiAlias;
 use crate::render::wgpu::renderer::Renderable;
+use wgpu::CompareFunction::Less;
+use wgpu::{
+    include_wgsl, DepthStencilState, Device, PipelineLayout, RenderPipeline, TextureFormat,
+    VertexBufferLayout,
+};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -13,7 +16,7 @@ pub struct PointXyzRgba {
     pub r: u8,
     pub g: u8,
     pub b: u8,
-    pub a: u8
+    pub a: u8,
 }
 
 impl Renderable for PointCloud<PointXyzRgba> {
@@ -36,7 +39,11 @@ impl Renderable for PointCloud<PointXyzRgba> {
         }
     }
 
-    fn create_render_pipeline(device: &Device, format: TextureFormat, layout: Option<&PipelineLayout>) -> RenderPipeline {
+    fn create_render_pipeline(
+        device: &Device,
+        format: TextureFormat,
+        layout: Option<&PipelineLayout>,
+    ) -> RenderPipeline {
         let shader = device.create_shader_module(&include_wgsl!("./pointxyzrgba.wgsl"));
 
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -76,7 +83,7 @@ impl Renderable for PointCloud<PointXyzRgba> {
                 depth_compare: Less,
                 stencil: Default::default(),
                 format: TextureFormat::Depth32Float,
-                bias: Default::default()
+                bias: Default::default(),
             }),
             multisample: wgpu::MultisampleState {
                 count: 1,
@@ -130,5 +137,4 @@ impl Renderable for PointCloud<PointXyzRgba> {
     fn vertices(&self) -> usize {
         self.number_of_points
     }
-
 }

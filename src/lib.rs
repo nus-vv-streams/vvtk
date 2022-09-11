@@ -3,4 +3,5 @@
 
 pub mod formats;
 pub mod pcd;
+pub mod pipeline;
 pub mod render;
