@@ -1,9 +1,11 @@
+mod metrics;
 mod read;
 mod to_png;
 mod write;
 
 use std::sync::mpsc::Sender;
 
+pub use metrics::Metrics;
 pub use read::Read;
 pub use to_png::ToPng;
 pub use write::Write;

@@ -1,13 +1,13 @@
 mod executor;
 mod subcommands;
 
-use std::{sync::mpsc::Receiver, thread::JoinHandle};
+use std::sync::mpsc::Receiver;
 
 use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
 
 use self::{
     executor::Executor,
-    subcommands::{Read, Subcommand, ToPng, Write},
+    subcommands::{Metrics, Read, Subcommand, ToPng, Write},
 };
 
 use clearscreen;
@@ -19,6 +19,7 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
         "write" => Some(Box::from(Write::from_args)),
         "to_png" => Some(Box::from(ToPng::from_args)),
         "read" => Some(Box::from(Read::from_args)),
+        "metrics" => Some(Box::from(Metrics::from_args)),
         _ => None,
     }
 }

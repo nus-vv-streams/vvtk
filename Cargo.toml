@@ -40,6 +40,7 @@ epi = "0.16.0"
 rayon = "1.5.1"
 kdam = "0.2"
 clearscreen = "1.0.10"
+kiddo = "0.2.4"
 
 [[bin]]
 name = "ply_to_pcd"
