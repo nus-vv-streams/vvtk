@@ -39,6 +39,7 @@ egui_wgpu_backend = "0.16.0"
 epi = "0.16.0"
 rayon = "1.5.1"
 kdam = "0.2"
+clearscreen = "1.0.10"
 
 [[bin]]
 name = "ply_to_pcd"

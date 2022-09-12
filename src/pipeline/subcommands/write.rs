@@ -6,7 +6,7 @@ use crate::pcd::{
     write_pcd_file, PCDDataType, PCDField, PCDFieldSize, PCDFieldType, PCDHeader, PCDVersion,
     PointCloudData,
 };
-use crate::pipeline::PipelineMessage;
+use crate::pipeline::{PipelineMessage, Progress};
 use std::path::Path;
 use std::sync::mpsc::Sender;
 
@@ -39,7 +39,12 @@ impl Write {
 }
 
 impl Subcommand for Write {
-    fn handle(&mut self, message: PipelineMessage, out: &Sender<PipelineMessage>) {
+    fn handle(
+        &mut self,
+        message: PipelineMessage,
+        out: &Sender<PipelineMessage>,
+        progress: &Sender<Progress>,
+    ) {
         let output_path = Path::new(&self.args.output_dir);
         let pcd_data_type = self.args.pcd.expect("PCD data type should be provided");
         match &message {
@@ -52,8 +57,11 @@ impl Subcommand for Write {
                 if let Err(e) = write_pcd_file(&pcd, pcd_data_type, &output_file) {
                     println!("Failed to write {:?}\n{e}", output_file);
                 }
+                progress.send(Progress::Incr);
             }
-            _ => {}
+            PipelineMessage::End => {
+                progress.send(Progress::Completed);
+            }
         }
         out.send(message);
     }

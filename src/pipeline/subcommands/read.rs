@@ -9,7 +9,7 @@ use super::Subcommand;
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
 use crate::pcd::read_pcd_file;
-use crate::pipeline::PipelineMessage;
+use crate::pipeline::{PipelineMessage, Progress};
 
 #[derive(Parser)]
 struct Args {
@@ -30,9 +30,15 @@ impl Read {
 }
 
 impl Subcommand for Read {
-    fn handle(&mut self, message: PipelineMessage, out: &Sender<PipelineMessage>) {
+    fn handle(
+        &mut self,
+        message: PipelineMessage,
+        out: &Sender<PipelineMessage>,
+        progress: &Sender<Progress>,
+    ) {
         if let PipelineMessage::End = message {
             let mut files = find_all_files(&self.args.files);
+            progress.send(Progress::Length(files.len()));
             files.sort();
             for file in files {
                 if let Some(ext) = file.extension().and_then(|ext| ext.to_str()) {
@@ -46,7 +52,10 @@ impl Subcommand for Read {
                         out.send(PipelineMessage::PointCloud(pc));
                     }
                 }
+                progress.send(Progress::Incr);
             }
+            progress.send(Progress::Completed);
+            out.send(PipelineMessage::End);
         } else {
             out.send(message);
         }
