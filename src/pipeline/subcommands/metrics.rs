@@ -60,7 +60,7 @@ impl Subcommand for Metrics {
                 ));
                 let metrics = calculate_metrics(&original, &pc);
                 let output_path = Path::new(&self.output_path);
-                let file_name = format!("{}.stat", self.count);
+                let file_name = format!("{}.metrics", self.count);
                 self.count += 1;
                 let file_name = Path::new(&file_name);
                 let output_file = output_path.join(file_name);
@@ -69,7 +69,7 @@ impl Subcommand for Metrics {
                     output_file.as_os_str()
                 ));
                 let mut writer = BufWriter::new(file);
-                writer.write_all(&metrics.to_bytes());
+                metrics.write_to(&mut writer);
                 progress.send(Progress::Incr);
             }
             PipelineMessage::End => {

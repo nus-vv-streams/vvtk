@@ -4,6 +4,7 @@ use std::path::Path;
 use vivotk::render::wgpu::builder::RenderBuilder;
 use vivotk::render::wgpu::camera::Camera;
 use vivotk::render::wgpu::controls::Controller;
+use vivotk::render::wgpu::metrics_reader::MetricsReader;
 use vivotk::render::wgpu::reader::{BufRenderReader, PcdFileReader, RenderReader};
 use vivotk::render::wgpu::renderer::Renderer;
 
@@ -32,6 +33,8 @@ struct Args {
     show_controls: bool,
     #[clap(short, long, default_value_t = 1)]
     buffer_size: usize,
+    #[clap(short, long)]
+    metrics: Option<OsString>,
 }
 
 fn main() {
@@ -49,6 +52,9 @@ fn main() {
         cgmath::Deg(args.camera_yaw),
         cgmath::Deg(args.camera_pitch),
     );
+    let metrics = args
+        .metrics
+        .map(|os_str| MetricsReader::from_directory(Path::new(&os_str)));
     let mut builder = RenderBuilder::default();
     let slider_end = reader.len() - 1;
     let render = if args.buffer_size > 1 {
@@ -57,6 +63,7 @@ fn main() {
             args.fps,
             camera,
             (args.width, args.height),
+            metrics,
         ))
     } else {
         builder.add_window(Renderer::new(
@@ -64,6 +71,7 @@ fn main() {
             args.fps,
             camera,
             (args.width, args.height),
+            metrics,
         ))
     };
     if args.show_controls {

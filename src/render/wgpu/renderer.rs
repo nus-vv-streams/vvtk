@@ -8,16 +8,19 @@ use crate::render::wgpu::reader::RenderReader;
 use std::iter;
 use std::marker::PhantomData;
 use std::time::{Duration, Instant};
-use wgpu::util::DeviceExt;
+use wgpu::util::{DeviceExt, StagingBelt};
 use wgpu::{
     BindGroup, Buffer, CommandEncoder, Device, Extent3d, LoadOp, Operations, Queue,
     RenderPassDepthStencilAttachment, RenderPipeline, SurfaceError, Texture, TextureDescriptor,
     TextureDimension, TextureFormat, TextureUsages, TextureView,
 };
+use wgpu_glyph::{ab_glyph, GlyphBrush, GlyphBrushBuilder, Section, Text};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{EventLoop, EventLoopProxy};
 use winit::window::{Window, WindowBuilder, WindowId};
+
+use super::metrics_reader::MetricsReader;
 
 pub trait Renderable: Clone {
     fn buffer_layout_desc<'a>() -> wgpu::VertexBufferLayout<'a>;
@@ -76,6 +79,7 @@ where
     camera_state: CameraState,
     size: PhysicalSize<u32>,
     reader: T,
+    metrics_reader: Option<MetricsReader>,
     _data: PhantomData<U>,
 }
 
@@ -84,12 +88,19 @@ where
     T: RenderReader<U>,
     U: Renderable,
 {
-    pub fn new(reader: T, fps: f32, camera: Camera, (width, height): (u32, u32)) -> Self {
+    pub fn new(
+        reader: T,
+        fps: f32,
+        camera: Camera,
+        (width, height): (u32, u32),
+        metrics_reader: Option<MetricsReader>,
+    ) -> Self {
         Self {
             reader,
             fps,
             camera_state: CameraState::new(camera, width, height),
             size: PhysicalSize { width, height },
+            metrics_reader,
             _data: PhantomData::default(),
         }
     }
@@ -117,6 +128,7 @@ where
             self.reader,
             self.fps,
             self.camera_state,
+            self.metrics_reader,
         );
         (state, window)
     }
@@ -144,6 +156,12 @@ where
     state: PlaybackState,
     time_since_last_update: std::time::Duration,
     reader: T,
+
+    // Rendering Stats
+    metrics_reader: Option<MetricsReader>,
+    metrics_renderer: MetricsRenderer,
+    metrics: Vec<(String, String)>,
+    staging_belt: StagingBelt,
 }
 
 impl<T, U> Windowed for State<T, U>
@@ -213,6 +231,7 @@ where
         reader: T,
         fps: f32,
         camera_state: CameraState,
+        metrics_reader: Option<MetricsReader>,
     ) -> Self {
         let initial_render = reader
             .get_at(0)
@@ -224,6 +243,8 @@ where
             gpu.size,
             &camera_state,
         );
+
+        let metrics_renderer = MetricsRenderer::new(gpu.size, &gpu.device);
 
         let mut state = Self {
             event_proxy,
@@ -240,8 +261,14 @@ where
             state: PlaybackState::Paused,
             time_since_last_update: std::time::Duration::from_secs(0),
             reader,
+
+            metrics_reader,
+            metrics_renderer,
+            metrics: vec![],
+            staging_belt: StagingBelt::new(1024),
         };
 
+        state.update_stats();
         match state.render() {
             Ok(_) => {}
             Err(wgpu::SurfaceError::OutOfMemory) => {}
@@ -269,6 +296,7 @@ where
         if position < self.reader.len() {
             self.current_position = position;
             self.update_vertices();
+            self.update_stats();
         }
     }
 
@@ -356,13 +384,31 @@ where
         }
     }
 
+    fn update_stats(&mut self) {
+        if let Some(metrics_reader) = &self.metrics_reader {
+            if let Some(metrics) = metrics_reader.get_at(self.current_position) {
+                self.metrics = metrics.metrics();
+            }
+        }
+    }
+
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let (output, view) = self.gpu.create_view()?;
         let mut encoder = self.gpu.create_encoder();
 
         self.pcd_renderer.render(&mut encoder, &view);
+        self.metrics_renderer.draw(
+            &self.gpu.device,
+            &mut self.staging_belt,
+            &mut encoder,
+            &view,
+            &self.metrics,
+        );
+
+        self.staging_belt.finish();
         self.gpu.queue.submit(iter::once(encoder.finish()));
         output.present();
+        self.staging_belt.recall();
         Ok(())
     }
 }
@@ -449,7 +495,7 @@ where
         self.num_vertices = vertices;
     }
 
-    pub fn render(&self, encoder: &mut CommandEncoder, view: &TextureView) {
+    pub fn render(&mut self, encoder: &mut CommandEncoder, view: &TextureView) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -480,5 +526,55 @@ where
         render_pass.set_bind_group(1, &self.antialias_bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.draw(0..(self.num_vertices as u32), 0..1);
+    }
+}
+
+struct MetricsRenderer {
+    size: PhysicalSize<u32>,
+    glyph_brush: GlyphBrush<()>,
+}
+
+impl MetricsRenderer {
+    pub fn new(size: PhysicalSize<u32>, device: &Device) -> Self {
+        let font = ab_glyph::FontArc::try_from_slice(include_bytes!("Inconsolata-Regular.ttf"))
+            .expect("Could not initialize font");
+        let mut glyph_brush =
+            GlyphBrushBuilder::using_font(font).build(device, wgpu::TextureFormat::Bgra8UnormSrgb);
+
+        Self { size, glyph_brush }
+    }
+
+    pub fn draw(
+        &mut self,
+        device: &Device,
+        staging_belt: &mut StagingBelt,
+        encoder: &mut CommandEncoder,
+        view: &TextureView,
+        stats: &Vec<(String, String)>,
+    ) {
+        let x_offset = 30.0;
+        let mut y_offset = self.size.height as f32 - 30.0;
+        for (key, val) in stats {
+            self.glyph_brush.queue(Section {
+                screen_position: (x_offset, y_offset),
+                bounds: (self.size.width as f32, self.size.height as f32),
+                text: vec![Text::new(&format!("{key}: {val}"))
+                    .with_color([0.0, 0.0, 0.0, 1.0])
+                    .with_scale(20.0)],
+                ..Section::default()
+            });
+            y_offset -= 30.0;
+        }
+
+        self.glyph_brush
+            .draw_queued(
+                device,
+                staging_belt,
+                encoder,
+                view,
+                self.size.width,
+                self.size.height,
+            )
+            .expect("Draw queued");
     }
 }

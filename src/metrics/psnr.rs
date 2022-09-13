@@ -3,6 +3,8 @@ use rayon::prelude::*;
 
 use crate::formats::pointxyzrgba::PointXyzRgba;
 
+use super::Metrics;
+
 const RESULTS: usize = 30;
 const RESOLUTION: f64 = 1023f64;
 
@@ -18,7 +20,8 @@ impl Psnr {
         original_tree: &KdTree<f32, usize, 3>,
         reconstructed: &Vec<PointXyzRgba>,
         reconstructed_tree: &KdTree<f32, usize, 3>,
-    ) -> (f64, f64) {
+        metrics: &mut Metrics,
+    ) {
         let time = std::time::Instant::now();
         let drms: f32 = original
             .par_iter()
@@ -35,6 +38,7 @@ impl Psnr {
         let n = original.len() as f64;
         let drms = drms as f64 / n;
         let psnr_drms = get_psnr(drms, RESOLUTION, 3.0);
-        (drms, psnr_drms)
+        metrics.insert("drms".to_string(), format!("{:.5}", drms));
+        metrics.insert("psnr_drms".to_string(), format!("{:.5}", psnr_drms));
     }
 }
