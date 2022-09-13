@@ -169,9 +169,8 @@ impl Subcommand for ToPng<'_> {
                 self.queue.submit(Some(encoder.finish()));
                 {
                     let buffer_slice = self.output_buffer.slice(..);
-                    let mapping = buffer_slice.map_async(wgpu::MapMode::Read);
+                    buffer_slice.map_async(wgpu::MapMode::Read, |_| {});
                     self.device.poll(wgpu::Maintain::Wait);
-                    pollster::block_on(mapping).unwrap();
 
                     let data = buffer_slice.get_mapped_range();
 

@@ -44,7 +44,7 @@ impl Renderable for PointCloud<PointXyzRgba> {
         format: TextureFormat,
         layout: Option<&PipelineLayout>,
     ) -> RenderPipeline {
-        let shader = device.create_shader_module(&include_wgsl!("./pointxyzrgba.wgsl"));
+        let shader = device.create_shader_module(include_wgsl!("./pointxyzrgba.wgsl"));
 
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
@@ -57,14 +57,14 @@ impl Renderable for PointCloud<PointXyzRgba> {
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
                 entry_point: "fs_main",
-                targets: &[wgpu::ColorTargetState {
+                targets: &[Some(wgpu::ColorTargetState {
                     format,
                     blend: Some(wgpu::BlendState {
                         color: wgpu::BlendComponent::REPLACE,
                         alpha: wgpu::BlendComponent::REPLACE,
                     }),
                     write_mask: wgpu::ColorWrites::ALL,
-                }],
+                })],
             }),
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::PointList,

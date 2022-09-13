@@ -452,7 +452,7 @@ where
     pub fn render(&self, encoder: &mut CommandEncoder, view: &TextureView) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
-            color_attachments: &[wgpu::RenderPassColorAttachment {
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &view,
                 resolve_target: None,
                 ops: wgpu::Operations {
@@ -464,7 +464,7 @@ where
                     }),
                     store: true,
                 },
-            }],
+            })],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &self.depth_view,
                 depth_ops: Some(Operations {

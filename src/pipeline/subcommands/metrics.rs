@@ -35,7 +35,7 @@ impl Metrics {
         let args: Args = Args::parse_from(args);
         std::fs::create_dir_all(Path::new(&args.output_dir))
             .expect("Failed to create output directory");
-        let mut files = find_all_files(&args.reconstructed);
+        let mut files = find_all_files(&args.reference);
         files.sort();
         Box::new(Metrics {
             files,
