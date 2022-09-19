@@ -1,6 +1,8 @@
 use clap::Parser;
 use std::path::Path;
 use tempfile::tempdir;
+use vivotk::codec::noop::NoopDecoder;
+use vivotk::codec::Decoder;
 use vivotk::dash::fetcher::Fetcher;
 use vivotk::render::wgpu::builder::RenderBuilder;
 use vivotk::render::wgpu::camera::Camera;
@@ -52,6 +54,9 @@ fn main() {
     };
 
     println!("PATH IS {:?}", path);
+    NoopDecoder::new()
+        .decode_folder(path)
+        .expect("decoding failed");
     let reader = PcdFileReader::from_directory(path);
     println!("There are {:} pcd files", reader.len());
 
