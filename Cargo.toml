@@ -24,25 +24,28 @@ path = "src/lib.rs"
 [dependencies]
 ply-rs = { git = "https://github.com/hungkhoaitay/ply-rs", version = "0.1.3" }
 clap = { version = "3.0.14", features = ["derive"] }
-image = "0.23"
+image = "0.24.3"
 clipboard = "0.5.0"
 thiserror = "1.0"
 byteorder = "1.4.3"
 bytemuck = { version = "1.7.3", features = [ "derive" ] }
-winit = "0.26.1"
-wgpu = "0.12.0"
+winit = "0.27.3"
+wgpu = "0.13.1"
 cgmath = "0.18.0"
 pollster = "0.2.5"
-egui = "0.16.0"
-egui_winit_platform = "0.13.0"
-egui_wgpu_backend = "0.16.0"
-epi = "0.16.0"
+egui = "0.19.0"
+egui_winit_platform = "0.16.0"
+egui_wgpu_backend = "0.19.0"
+epi = "0.17.0"
 rayon = "1.5.1"
 kdam = "0.2"
 reqwest = { version = "0.11", features = ["blocking", "gzip"], default-features = false }
 anyhow = "1.0"
 tempfile="3"
 roxmltree = "0.15"
+clearscreen = "1.0.10"
+kiddo = "0.2.4"
+wgpu_glyph = "0.17.0"
 
 [[bin]]
 name = "ply_to_pcd"
@@ -55,3 +58,6 @@ name = "ply_play"
 
 [[bin]]
 name = "vvdash"
+
+[[bin]]
+name = "vivotk"
