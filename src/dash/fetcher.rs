@@ -52,18 +52,11 @@ impl Fetcher {
         let mut result: HashMap<String, Vec<String>> = HashMap::new();
 
         let parser = PCCDashParser::new(content);
-        let base_url = parser.get_base_url();
         for period in parser.get_periods() {
             for ad in parser.get_adaptation_sets(&period) {
                 for repr in parser.get_representations(&ad) {
-                    let mut urls = Vec::new();
-                    for st in parser.get_segment_templates(&repr) {
-                        urls.push(
-                            String::new()
-                                + &base_url
-                                + st.attribute("media").expect("media attribute should exist"),
-                        );
-                    }
+                    let st = parser.get_segment_template(&repr);
+                    let mut urls = parser.expand_segment_urls(&st)?;
 
                     result
                         .entry(repr.attribute("id").unwrap().to_owned())

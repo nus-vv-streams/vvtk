@@ -46,6 +46,7 @@ roxmltree = "0.15"
 clearscreen = "1.0.10"
 kiddo = "0.2.4"
 wgpu_glyph = "0.17.0"
+regex = "1.6.0"
 
 [[bin]]
 name = "ply_to_pcd"
