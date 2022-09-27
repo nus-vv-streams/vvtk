@@ -9,4 +9,5 @@ pub mod pcd;
 pub mod pipeline;
 pub mod ply;
 pub mod render;
+pub mod transform;
 mod utils;

@@ -1,22 +1,27 @@
 use clap::Parser;
+use rayon::prelude::*;
 use std::ffi::OsString;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 use vivotk::codec::noop::NoopDecoder;
 use vivotk::codec::Decoder;
 use vivotk::dash::fetcher::Fetcher;
+use vivotk::pcd::PointCloudData;
 use vivotk::render::wgpu::builder::RenderBuilder;
 use vivotk::render::wgpu::camera::Camera;
 use vivotk::render::wgpu::controls::Controller;
 use vivotk::render::wgpu::metrics_reader::MetricsReader;
-use vivotk::render::wgpu::reader::{BufRenderReader, PcdFileReader, RenderReader};
+use vivotk::render::wgpu::reader::{BufRenderReader, PcdMemoryReader, RenderReader};
 use vivotk::render::wgpu::renderer::Renderer;
+use vivotk::transform::ply_to_pcd;
 
 /// Plays a folder of pcd files in lexicographical order
 #[derive(Parser)]
 struct Args {
     /// Directory with all the pcd files in lexicographical order
     directory: String,
+    #[clap(short = 'q', long, default_value_t = 0)]
+    quality: u8,
     #[clap(short, long, default_value_t = 30.0)]
     fps: f32,
     #[clap(short = 'x', long, default_value_t = 0.0)]
@@ -44,25 +49,43 @@ struct Args {
 fn main() {
     let args: Args = Args::parse();
     let tmpdir = tempdir().expect("created temp dir to store files");
+    let mut ply_files: Vec<PathBuf> = vec![];
     let path = if args.directory.starts_with("http") {
-        println!("Files downloaded to {}", tmpdir.path().to_str().unwrap());
+        println!("Downloading files to {}", tmpdir.path().to_str().unwrap());
 
         let fetcher = Fetcher::new(&args.directory);
-        fetcher
-            .download_to(&tmpdir.path().to_path_buf())
+        ply_files = fetcher
+            .download_to(&tmpdir.path().to_path_buf(), Some(args.quality))
             .expect("failed to download files");
 
         tmpdir.path()
     } else {
-        Path::new(&args.directory)
+        let path = Path::new(&args.directory);
+        for entry in std::fs::read_dir(path).unwrap() {
+            let f = entry.unwrap().path();
+            // TODO: change to is_ply_file function
+            if !f.extension().map(|f| "ply".eq(f)).unwrap_or(false) {
+                return;
+            }
+            ply_files.push(f);
+        }
+        path
     };
+    println!("1. Finished downloading to / reading from {:?}", path);
 
-    println!("PATH IS {:?}", path);
+    let pcdvec = ply_files
+        .into_par_iter()
+        .filter_map(|f| ply_to_pcd(f.as_path()).unwrap_or(None))
+        .collect::<Vec<PointCloudData>>();
+    println!("2. finished converting ply to pcd");
+
     NoopDecoder::new()
         .decode_folder(path)
         .expect("decoding failed");
-    let reader = PcdFileReader::from_directory(path);
-    println!("There are {:} pcd files", reader.len());
+
+    println!("3. finished decoding pcd files");
+    let reader = PcdMemoryReader::from_vec(pcdvec);
+    println!("4. There are {:} pcd files", reader.len());
 
     if reader.len() == 0 {
         eprintln!("Must provide at least one file!");

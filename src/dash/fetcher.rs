@@ -1,5 +1,6 @@
 use crate::dash::parser::PCCDashParser;
 use anyhow::{Context, Result};
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::PathBuf;
@@ -27,14 +28,31 @@ impl Fetcher {
         }
     }
 
-    pub fn download_to(&self, out: &PathBuf) -> Result<()> {
-        let urls = self.fetch_mpd()?;
-        for url in urls.get("1").unwrap() {
-            let mut resp = self.http_client.get(url).send()?;
-            let mut dest = File::create(out.join(generate_filename_from_url(url.as_str())))?;
-            resp.copy_to(&mut dest)?;
-        }
-        Ok(())
+    // parallelized download of all segments
+    pub fn download_to(
+        &self,
+        out: &PathBuf,
+        representation_id: Option<u8>,
+    ) -> Result<Vec<PathBuf>> {
+        let mpd = self.fetch_mpd()?;
+        let filepaths = mpd
+            .get(&representation_id.unwrap_or(0).to_string())
+            .unwrap()
+            .into_par_iter()
+            .filter_map(|url: &String| -> Option<PathBuf> {
+                if let Ok(dest_path) = self.http_client.get(url).send().and_then(|mut resp| {
+                    let dest_path = out.join(generate_filename_from_url(url.as_str()));
+                    let mut dest = File::create(&dest_path).unwrap();
+                    resp.copy_to(&mut dest).unwrap();
+                    Ok(dest_path)
+                }) {
+                    Some(dest_path)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<PathBuf>>();
+        Ok(filepaths)
     }
 
     fn fetch_mpd(&self) -> Result<HashMap<String, Vec<String>>> {
@@ -164,9 +182,10 @@ mod tests {
         let fetcher = Fetcher::new("http://localhost:3000/mpd.txt");
         assert_eq!(
             fetcher
-                .download_to(&PathBuf::from("test_files"))
-                .expect("couldn't download files"),
-            ()
+                .download_to(&PathBuf::from("test_files"), Some(2))
+                .expect("couldn't download files")
+                .len(),
+            2,
         );
     }
 }
