@@ -1,22 +1,34 @@
-use std::iter;
-use std::sync::Arc;
-use std::time::{Instant};
-use egui::{Button, CentralPanel, CtxRef, FontDefinitions, Label, Slider};
+use crate::render::wgpu::builder::{
+    Attachable, EventType, RenderEvent, RenderInformation, Windowed,
+};
+use crate::render::wgpu::gpu::WindowGpu;
+use egui::{Button, CentralPanel, Context, FontDefinitions, Label, Slider};
 use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
 use epi::{App, Frame};
+use std::iter;
+use std::sync::Arc;
+use std::time::Instant;
 use winit::dpi::PhysicalSize;
 use winit::event::Event;
 use winit::event_loop::EventLoop;
 use winit::window::{Window, WindowId};
-use crate::render::wgpu::builder::{Attachable, EventType, RenderEvent, RenderInformation, Windowed};
-use crate::render::wgpu::gpu::WindowGpu;
 
-struct EventProxy(std::sync::Mutex<winit::event_loop::EventLoopProxy<RenderEvent>>, WindowId);
+struct EventProxy(
+    std::sync::Mutex<winit::event_loop::EventLoopProxy<RenderEvent>>,
+    WindowId,
+);
 
 impl epi::backend::RepaintSignal for EventProxy {
     fn request_repaint(&self) {
-        self.0.lock().unwrap().send_event(RenderEvent { window_id: self.1, event_type: EventType::Repaint }).ok();
+        self.0
+            .lock()
+            .unwrap()
+            .send_event(RenderEvent {
+                window_id: self.1,
+                event_type: EventType::Repaint,
+            })
+            .ok();
     }
 }
 
@@ -42,11 +54,12 @@ impl Attachable for Controller {
 
         let gpu = pollster::block_on(WindowGpu::new(&window));
 
-        let surface_format = gpu.surface.get_preferred_format(&gpu.adapter).unwrap();
+        let surface_format = gpu.surface.get_supported_formats(&gpu.adapter)[0];
 
-        let event_proxy = Arc::new(EventProxy(std::sync::Mutex::new(
-            event_loop.create_proxy()
-        ),window.id()));
+        let event_proxy = Arc::new(EventProxy(
+            std::sync::Mutex::new(event_loop.create_proxy()),
+            window.id(),
+        ));
 
         // We use the egui_winit_platform crate as the platform.
         let platform = Platform::new(PlatformDescriptor {
@@ -70,7 +83,7 @@ impl Attachable for Controller {
             slider_position: 0,
             slider_end: self.slider_end,
             info: None,
-            listeners: Vec::new()
+            listeners: Vec::new(),
         };
 
         (object, window)
@@ -89,24 +102,35 @@ pub struct ControlWindow {
     slider_position: usize,
     slider_end: usize,
     info: Option<RenderInformation>,
-    listeners: Vec<WindowId>
+    listeners: Vec<WindowId>,
 }
 
-impl App for ControlWindow {
-    fn update(&mut self, ctx: &CtxRef, _frame: &Frame) {
+impl ControlWindow {
+    fn update(&mut self, ctx: &Context, _frame: &Frame) {
         CentralPanel::default().show(ctx, |ui| {
             if ui.add(Button::new("Play / Pause")).clicked() {
                 self.toggle();
             };
 
-            ui.add(Slider::new(&mut self.slider_position, 0..=(self.slider_end))
-                .text(&format!("/ {}", self.slider_end))
-                .integer());
+            ui.add(
+                Slider::new(&mut self.slider_position, 0..=(self.slider_end))
+                    .text(&format!("/ {}", self.slider_end))
+                    .integer(),
+            );
 
             if let Some(info) = self.info {
-                ui.add(Label::new(&format!("Camera Position: {:?}", info.camera.position)));
-                ui.add(Label::new(&format!("Camera Yaw: {:?}", cgmath::Deg::from(info.camera.yaw))));
-                ui.add(Label::new(&format!("Camera Pitch: {:?}", cgmath::Deg::from(info.camera.pitch))));
+                ui.add(Label::new(&format!(
+                    "Camera Position: {:?}",
+                    info.camera.position
+                )));
+                ui.add(Label::new(&format!(
+                    "Camera Yaw: {:?}",
+                    cgmath::Deg::from(info.camera.yaw)
+                )));
+                ui.add(Label::new(&format!(
+                    "Camera Pitch: {:?}",
+                    cgmath::Deg::from(info.camera.pitch)
+                )));
             }
         });
 
@@ -114,7 +138,6 @@ impl App for ControlWindow {
             self.move_to(self.slider_position);
             self.prev_slider_position = self.slider_position;
         }
-
     }
 
     fn name(&self) -> &str {
@@ -130,22 +153,22 @@ impl Windowed for ControlWindow {
     fn handle_event(&mut self, event: &Event<RenderEvent>, window: &Window) {
         self.platform.handle_event(event);
         match event {
-            Event::RedrawRequested(window_id) if *window_id == window.id() => {
-                self.render(window)
-            }
+            Event::RedrawRequested(window_id) if *window_id == window.id() => self.render(window),
 
-            Event::UserEvent(RenderEvent { window_id, event_type })
-                if *window_id == window.id() => {
-                match event_type {
-                    EventType::Repaint => { window.request_redraw(); }
-                    EventType::Info(info) => {
-                        self.info = Some(*info);
-                        self.prev_slider_position = info.current_position;
-                        self.slider_position = info.current_position;
-                    }
-                    _ => {}
+            Event::UserEvent(RenderEvent {
+                window_id,
+                event_type,
+            }) if *window_id == window.id() => match event_type {
+                EventType::Repaint => {
+                    window.request_redraw();
                 }
-            }
+                EventType::Info(info) => {
+                    self.info = Some(*info);
+                    self.prev_slider_position = info.current_position;
+                    self.slider_position = info.current_position;
+                }
+                _ => {}
+            },
             _ => (),
         }
     }
@@ -160,7 +183,12 @@ impl ControlWindow {
         let sender = self.event_proxy.0.lock().unwrap();
 
         for &listener in &self.listeners {
-            sender.send_event(RenderEvent { window_id: listener, event_type: EventType::Toggle }).unwrap();
+            sender
+                .send_event(RenderEvent {
+                    window_id: listener,
+                    event_type: EventType::Toggle,
+                })
+                .unwrap();
         }
     }
 
@@ -168,7 +196,12 @@ impl ControlWindow {
         let sender = self.event_proxy.0.lock().unwrap();
 
         for &listener in &self.listeners {
-            sender.send_event(RenderEvent { window_id: listener, event_type: EventType::MoveTo(position) }).unwrap();
+            sender
+                .send_event(RenderEvent {
+                    window_id: listener,
+                    event_type: EventType::MoveTo(position),
+                })
+                .unwrap();
         }
     }
 
@@ -178,7 +211,8 @@ impl ControlWindow {
         }
 
         let start_time = self.start_time.unwrap();
-        self.platform.update_time(start_time.elapsed().as_secs_f64());
+        self.platform
+            .update_time(start_time.elapsed().as_secs_f64());
 
         let (output_frame, output_view) = match self.gpu.create_view() {
             Ok(frame) => frame,
@@ -196,7 +230,7 @@ impl ControlWindow {
         self.platform.begin_frame();
         let app_output = epi::backend::AppOutput::default();
 
-        let frame =  epi::Frame::new(epi::backend::FrameData {
+        let frame = epi::Frame::new(epi::backend::FrameData {
             info: epi::IntegrationInfo {
                 name: "egui_example",
                 web_info: None,
@@ -212,15 +246,18 @@ impl ControlWindow {
         self.update(&self.platform.context(), &frame);
 
         // End the UI frame. We could now handle the output and draw the UI with the backend.
-        let (_output, paint_commands) = self.platform.end_frame(Some(window));
-        let paint_jobs = self.platform.context().tessellate(paint_commands);
+        let full_output = self.platform.end_frame(Some(window));
+        let paint_jobs = self.platform.context().tessellate(full_output.shapes);
 
         let frame_time = (Instant::now() - egui_start).as_secs_f64() as f32;
         self.previous_frame_time = Some(frame_time);
 
-        let mut encoder = self.gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("encoder"),
-        });
+        let mut encoder = self
+            .gpu
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("encoder"),
+            });
 
         // Upload all resources for the GPU.
         let screen_descriptor = ScreenDescriptor {
@@ -228,9 +265,25 @@ impl ControlWindow {
             physical_height: self.gpu.config.height,
             scale_factor: window.scale_factor() as f32,
         };
-        self.egui_rpass.update_texture(&self.gpu.device, &self.gpu.queue, &self.platform.context().font_image());
-        self.egui_rpass.update_user_textures(&self.gpu.device, &self.gpu.queue);
-        self.egui_rpass.update_buffers(&self.gpu.device, &self.gpu.queue, &paint_jobs, &screen_descriptor);
+
+        self.egui_rpass.add_textures(
+            &self.gpu.device,
+            &self.gpu.queue,
+            &full_output.textures_delta,
+        );
+        // self.egui_rpass.update_texture(
+        //     &self.gpu.device,
+        //     &self.gpu.queue,
+        //     &self.platform.context().font_image(),
+        // );
+        // self.egui_rpass
+        // .update_user_textures(&self.gpu.device, &self.gpu.queue);
+        self.egui_rpass.update_buffers(
+            &self.gpu.device,
+            &self.gpu.queue,
+            &paint_jobs,
+            &screen_descriptor,
+        );
         self.egui_rpass
             .execute(
                 &mut encoder,

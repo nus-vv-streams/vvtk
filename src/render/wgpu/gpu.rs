@@ -6,7 +6,7 @@ pub struct WindowGpu {
     pub adapter: wgpu::Adapter,
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
-    pub size: winit::dpi::PhysicalSize<u32>
+    pub size: winit::dpi::PhysicalSize<u32>,
 }
 
 impl WindowGpu {
@@ -27,7 +27,7 @@ impl WindowGpu {
                 &wgpu::DeviceDescriptor {
                     label: None,
                     features: wgpu::Features::empty(),
-                    limits: wgpu::Limits::default(),
+                    limits: wgpu::Limits::downlevel_webgl2_defaults(),
                 },
                 None, // Trace path
             )
@@ -36,7 +36,7 @@ impl WindowGpu {
 
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface.get_preferred_format(&adapter).unwrap(),
+            format: surface.get_supported_formats(&adapter)[0],
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::Fifo,
@@ -62,9 +62,13 @@ impl WindowGpu {
         }
     }
 
-    pub fn create_view(&self) -> Result<(wgpu::SurfaceTexture, wgpu::TextureView), wgpu::SurfaceError> {
+    pub fn create_view(
+        &self,
+    ) -> Result<(wgpu::SurfaceTexture, wgpu::TextureView), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
-        let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
         Ok((output, view))
     }
 

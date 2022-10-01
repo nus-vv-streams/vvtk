@@ -1,12 +1,13 @@
+use crate::formats::pointxyzrgba::PointXyzRgba;
+use crate::formats::PointCloud;
+use crate::pcd::{read_pcd_file, PointCloudData};
+use crate::render::wgpu::renderer::Renderable;
+use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::fmt::Debug;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, Sender};
-use rayon::prelude::{IntoParallelIterator, ParallelIterator};
-use crate::formats::PointCloud;
-use crate::formats::pointxyzrgba::PointXyzRgba;
-use crate::pcd::read_pcd_file;
-use crate::render::wgpu::renderer::Renderable;
+use wgpu_glyph::ab_glyph::Point;
 
 pub trait RenderReader<T: Renderable> {
     fn get_at(&self, index: usize) -> Option<T>;
@@ -15,7 +16,7 @@ pub trait RenderReader<T: Renderable> {
 }
 
 pub struct PcdFileReader {
-    files: Vec<PathBuf>
+    files: Vec<PathBuf>,
 }
 
 impl PcdFileReader {
@@ -29,16 +30,14 @@ impl PcdFileReader {
                             files.push(entry.path());
                         }
                     }
-                },
+                }
                 Err(e) => {
                     eprintln!("{e}")
                 }
             }
         }
         files.sort();
-        Self {
-            files
-        }
+        Self { files }
     }
 
     pub fn file_at(&self, index: usize) -> Option<&PathBuf> {
@@ -48,7 +47,8 @@ impl PcdFileReader {
 
 impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
     fn get_at(&self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-        self.files.get(index)
+        self.files
+            .get(index)
             .and_then(|f| read_pcd_file(f).ok())
             .map(PointCloud::from)
     }
@@ -62,19 +62,48 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
     }
 }
 
+pub struct PcdMemoryReader {
+    points: Vec<PointCloudData>,
+}
+
+impl PcdMemoryReader {
+    pub fn from_vec(points: Vec<PointCloudData>) -> Self {
+        Self { points }
+    }
+}
+
+impl RenderReader<PointCloud<PointXyzRgba>> for PcdMemoryReader {
+    fn get_at(&self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
+        self.points.get(index).map(|p| PointCloud::from(p.clone()))
+    }
+
+    fn len(&self) -> usize {
+        self.points.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.points.is_empty()
+    }
+}
+
 pub struct BufRenderReader<U: Renderable + Send> {
     size_tx: Sender<usize>,
     receiver: Receiver<(usize, Option<U>)>,
     length: usize,
 }
 
-impl<U> BufRenderReader<U> where U: 'static + Renderable + Send + Debug {
+impl<U> BufRenderReader<U>
+where
+    U: 'static + Renderable + Send + Debug,
+{
     pub fn new<T: 'static + RenderReader<U> + Send + Sync>(buffer_size: usize, reader: T) -> Self {
         let (size_tx, size_rx) = std::sync::mpsc::channel();
         let (sender, receiver) = std::sync::mpsc::channel();
         let length = reader.len();
 
-        let threads = rayon::current_num_threads().saturating_sub(3).min(buffer_size);
+        let threads = rayon::current_num_threads()
+            .saturating_sub(3)
+            .min(buffer_size);
         if threads == 0 {
             panic!("Not enough threads!");
         }
@@ -85,23 +114,21 @@ impl<U> BufRenderReader<U> where U: 'static + Renderable + Send + Debug {
             let length = buffer_size;
             let mut next = 0;
             let (range_tx, range_rx) = std::sync::mpsc::channel::<Range<usize>>();
-            rayon::spawn(move || {
-                loop {
-                    if let Ok(range) = range_rx.recv() {
-                        range
-                            .into_par_iter()
-                            .map(|i| (i, reader.get_at(i)))
-                            .collect::<Vec<(usize, Option<U>)>>()
-                            .into_iter()
-                            .for_each(|out| {
-                                sender.send(out).unwrap();
-                            } );
-                    }
+            rayon::spawn(move || loop {
+                if let Ok(range) = range_rx.recv() {
+                    range
+                        .into_par_iter()
+                        .map(|i| (i, reader.get_at(i)))
+                        .collect::<Vec<(usize, Option<U>)>>()
+                        .into_iter()
+                        .for_each(|out| {
+                            sender.send(out).unwrap();
+                        });
                 }
             });
             loop {
                 if let Ok(pos) = size_rx.try_recv() {
-                    if (started && pos <= current) || pos >= next  {
+                    if (started && pos <= current) || pos >= next {
                         next = pos;
                     }
                     started = true;
@@ -109,12 +136,13 @@ impl<U> BufRenderReader<U> where U: 'static + Renderable + Send + Debug {
                 }
                 if (length - (next - current)) >= threads && next != max {
                     let to = (next + threads).min(max).min(current + length);
-                    range_tx.send(next..to).expect("Failed to send range to worker");
+                    range_tx
+                        .send(next..to)
+                        .expect("Failed to send range to worker");
                     next = to;
                 }
             }
         });
-
 
         Self {
             size_tx,
@@ -124,7 +152,10 @@ impl<U> BufRenderReader<U> where U: 'static + Renderable + Send + Debug {
     }
 }
 
-impl<U> RenderReader<U> for BufRenderReader<U> where U: 'static + Renderable + Send + Debug {
+impl<U> RenderReader<U> for BufRenderReader<U>
+where
+    U: 'static + Renderable + Send + Debug,
+{
     fn get_at(&self, index: usize) -> Option<U> {
         self.size_tx.send(index).unwrap();
         while let Ok((pos, val)) = self.receiver.recv() {
