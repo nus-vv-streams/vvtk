@@ -1,13 +1,13 @@
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
 use crate::pcd::{read_pcd_file, PointCloudData};
-use crate::render::wgpu::renderer::Renderable;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::fmt::Debug;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, Sender};
-use wgpu_glyph::ab_glyph::Point;
+
+use super::renderable::Renderable;
 
 pub trait RenderReader<T: Renderable> {
     fn get_at(&self, index: usize) -> Option<T>;

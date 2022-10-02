@@ -8,11 +8,11 @@ use crate::render::wgpu::reader::RenderReader;
 use std::iter;
 use std::marker::PhantomData;
 use std::time::{Duration, Instant};
-use wgpu::util::{DeviceExt, StagingBelt};
+use wgpu::util::StagingBelt;
 use wgpu::{
-    BindGroup, Buffer, CommandEncoder, Device, Extent3d, LoadOp, Operations, Queue,
-    RenderPassDepthStencilAttachment, RenderPipeline, SurfaceError, Texture, TextureDescriptor,
-    TextureDimension, TextureFormat, TextureUsages, TextureView,
+    BindGroup, Buffer, CommandEncoder, Device, LoadOp, Operations, Queue,
+    RenderPassDepthStencilAttachment, RenderPipeline, SurfaceError, Texture, TextureFormat,
+    TextureView,
 };
 use wgpu_glyph::{ab_glyph, GlyphBrush, GlyphBrushBuilder, Section, Text};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
@@ -21,48 +21,7 @@ use winit::event_loop::{EventLoop, EventLoopProxy};
 use winit::window::{Window, WindowBuilder, WindowId};
 
 use super::metrics_reader::MetricsReader;
-
-pub trait Renderable: Clone {
-    fn buffer_layout_desc<'a>() -> wgpu::VertexBufferLayout<'a>;
-    fn create_render_pipeline(
-        device: &Device,
-        format: TextureFormat,
-        layout: Option<&wgpu::PipelineLayout>,
-    ) -> RenderPipeline;
-    fn create_depth_texture(
-        device: &Device,
-        size: PhysicalSize<u32>,
-    ) -> (wgpu::Texture, wgpu::TextureView) {
-        let depth_texture = device.create_texture(&TextureDescriptor {
-            label: None,
-            size: Extent3d {
-                width: size.width,
-                height: size.height,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::Depth32Float,
-            usage: TextureUsages::RENDER_ATTACHMENT,
-        });
-
-        let depth_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
-        (depth_texture, depth_view)
-    }
-    fn create_buffer(&self, device: &wgpu::Device) -> wgpu::Buffer {
-        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: self.bytes(),
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-        })
-    }
-    fn antialias(&self) -> AntiAlias {
-        AntiAlias::default()
-    }
-    fn bytes(&self) -> &[u8];
-    fn vertices(&self) -> usize;
-}
+use super::renderable::Renderable;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum PlaybackState {

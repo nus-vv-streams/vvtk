@@ -29,14 +29,8 @@ clipboard = "0.5.0"
 thiserror = "1.0"
 byteorder = "1.4.3"
 bytemuck = { version = "1.7.3", features = [ "derive" ] }
-winit = "0.27.3"
-wgpu = "0.13.1"
 cgmath = "0.18.0"
 pollster = "0.2.5"
-egui = "0.19.0"
-egui_winit_platform = "0.16.0"
-egui_wgpu_backend = "0.19.0"
-epi = "0.17.0"
 rayon = "1.5.1"
 kdam = "0.2"
 reqwest = { version = "0.11", features = ["blocking", "gzip"], default-features = false }
@@ -45,7 +39,13 @@ tempfile="3"
 roxmltree = "0.15"
 clearscreen = "1.0.10"
 kiddo = "0.2.4"
-wgpu_glyph = "0.17.0"
+winit = { version = "0.27.3", optional = true }
+wgpu = { version = "0.13.1", optional = true }
+wgpu_glyph = { version = "0.17.0", optional = true }
+egui = { version = "0.19.0", optional = true }
+egui_winit_platform = { version = "0.16.0", optional = true } 
+egui_wgpu_backend = { version = "0.19.0", optional = true }
+epi = { version = "0.17.0", optional = true }
 regex = "1.6.0"
 
 [[bin]]
@@ -62,3 +62,7 @@ name = "vvdash"
 
 [[bin]]
 name = "vivotk"
+
+[features]
+default = ["render"]
+render = ["dep:winit", "dep:wgpu", "dep:wgpu_glyph", "dep:egui", "dep:egui_winit_platform", "dep:egui_wgpu_backend", "dep:epi"]
