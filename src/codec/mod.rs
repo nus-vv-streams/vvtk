@@ -1,10 +1,10 @@
 use anyhow::Result;
-use std::path::Path;
+use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
 
-pub mod noop;
+pub mod decoder;
 
 pub trait Decoder {
-    fn new() -> Self;
-    fn decode(&self, filename: &str) -> String;
+    fn decode(&self, filename: &OsStr) -> Vec<PathBuf>;
     fn decode_folder(&self, foldername: &Path) -> Result<()>;
 }

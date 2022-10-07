@@ -3,7 +3,7 @@ use rayon::prelude::*;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
-use vivotk::codec::noop::NoopDecoder;
+use vivotk::codec::decoder::{DracoDecoder, NoopDecoder};
 use vivotk::codec::Decoder;
 use vivotk::dash::fetcher::Fetcher;
 use vivotk::pcd::PointCloudData;
@@ -44,6 +44,16 @@ struct Args {
     buffer_size: usize,
     #[clap(short, long)]
     metrics: Option<OsString>,
+    #[clap(long, value_enum, default_value_t = DecoderType::Noop)]
+    decoder_type: DecoderType,
+    #[clap(long)]
+    decoder_path: Option<OsString>,
+}
+
+#[derive(clap::ValueEnum, Clone)]
+enum DecoderType {
+    Noop,
+    Draco,
 }
 
 fn main() {
@@ -75,15 +85,17 @@ fn main() {
 
     let pcdvec = ply_files
         .into_par_iter()
+        .flat_map(|p| match &args.decoder_type {
+            DecoderType::Draco => {
+                DracoDecoder::new(args.decoder_path.as_ref().unwrap().as_os_str())
+                    .decode(p.as_os_str())
+            }
+            _ => NoopDecoder::new().decode(&p.as_os_str()),
+        })
         .filter_map(|f| ply_to_pcd(f.as_path()).unwrap_or(None))
         .collect::<Vec<PointCloudData>>();
-    println!("2. finished converting ply to pcd");
+    println!("2. finished decoding and converting ply to pcd");
 
-    NoopDecoder::new()
-        .decode_folder(path)
-        .expect("decoding failed");
-
-    println!("3. finished decoding pcd files");
     let reader = PcdMemoryReader::from_vec(pcdvec);
     println!("4. There are {:} pcd files", reader.len());
 
