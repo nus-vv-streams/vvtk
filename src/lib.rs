@@ -2,6 +2,7 @@
 //#[warn(missing_docs)]
 
 pub mod codec;
+#[cfg(feature = "dash")]
 pub mod dash;
 pub mod formats;
 pub mod metrics;

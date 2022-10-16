@@ -33,12 +33,13 @@ cgmath = "0.18.0"
 pollster = "0.2.5"
 rayon = "1.5.1"
 kdam = "0.2"
-reqwest = { version = "0.11", features = ["blocking", "gzip"], default-features = false }
 anyhow = "1.0"
-tempfile="3"
-roxmltree = "0.15"
 clearscreen = "1.0.10"
 kiddo = "0.2.4"
+async-stream = "0.3"
+futures = "0.3"
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
 winit = { version = "0.27.3", optional = true }
 wgpu = { version = "0.13.1", optional = true }
 wgpu_glyph = { version = "0.17.0", optional = true }
@@ -46,13 +47,19 @@ egui = { version = "0.19.0", optional = true }
 egui_winit_platform = { version = "0.16.0", optional = true } 
 egui_wgpu_backend = { version = "0.19.0", optional = true }
 epi = { version = "0.17.0", optional = true }
-regex = "1.6.0"
+regex = { version = "1.6.0", optional = true }
+reqwest = { version = "0.11", features = ["blocking", "gzip"], optional = true }
+tempfile = { version = "3", optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
+serde_with = { version = "2", optional = true }
+quick-xml = { version = "0.25", features = ["serialize"], optional = true }
 
 [[bin]]
 name = "ply_to_pcd"
 
 [[bin]]
 name = "ply_play"
+required-features = ["render", "dash"]
 
 #[[bin]]
 #name = "pcd_to_png"
@@ -64,5 +71,6 @@ name = "vvdash"
 name = "vivotk"
 
 [features]
-default = ["render"]
+default = ["render", "dash"]
 render = ["dep:winit", "dep:wgpu", "dep:wgpu_glyph", "dep:egui", "dep:egui_winit_platform", "dep:egui_wgpu_backend", "dep:epi"]
+dash = ["dep:reqwest", "dep:regex", "dep:tempfile", "dep:serde", "dep:serde_with", "dep:quick-xml"]
