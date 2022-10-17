@@ -1,3 +1,4 @@
+mod channel;
 mod executor;
 mod subcommands;
 
@@ -24,7 +25,7 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PipelineMessage {
     PointCloud(PointCloud<PointXyzRgba>),
     End,
@@ -40,11 +41,25 @@ pub struct Pipeline;
 
 impl Pipeline {
     pub fn execute() {
-        let pipeline = Self::gather_pipeline_from_args();
+        let (mut executors, mut progresses) = Self::gather_pipeline_from_args();
         let mut handles = vec![];
         let mut names = vec![];
         let mut progress_recvs = vec![];
-        for (exec, progress) in pipeline {
+        let all_input_names: Vec<Vec<String>> = executors.iter().map(|e| e.input_names()).collect();
+
+        for (idx, input_names) in all_input_names.iter().enumerate() {
+            let mut inputs = vec![];
+            for input_name in input_names {
+                for executor in &mut executors {
+                    if executor.output_name().eq(input_name) {
+                        inputs.push(executor.output());
+                    }
+                }
+            }
+            executors[idx].set_inputs(inputs);
+        }
+
+        for (exec, progress) in executors.into_iter().zip(progresses) {
             names.push(exec.name());
             progress_recvs.push(progress);
             handles.push(exec.run());
@@ -81,12 +96,12 @@ impl Pipeline {
         }
     }
 
-    fn gather_pipeline_from_args() -> Vec<(Executor, Receiver<Progress>)> {
+    fn gather_pipeline_from_args() -> (Vec<Executor>, Vec<Receiver<Progress>>) {
         let args = std::env::args();
-        let mut pipeline: Vec<(Executor, Receiver<Progress>)> = vec![];
+        let mut executors = vec![];
+        let mut progresses = vec![];
         let mut command_creator: Option<SubcommandCreator> = None;
         let mut accumulated_args: Vec<String> = vec![];
-        let mut prev_recv: Option<Receiver<PipelineMessage>> = None;
 
         for arg in args.skip(1) {
             let is_command = subcommand(&arg);
@@ -94,12 +109,9 @@ impl Pipeline {
                 if let Some(creator) = command_creator.take() {
                     let forwarded_args = accumulated_args;
                     accumulated_args = vec![];
-                    let (mut executor, recv, progress) = Executor::create(forwarded_args, creator);
-                    if let Some(recv) = prev_recv.take() {
-                        executor.set_input(recv);
-                    }
-                    prev_recv = Some(recv);
-                    pipeline.push((executor, progress));
+                    let (executor, progress) = Executor::create(forwarded_args, creator);
+                    executors.push(executor);
+                    progresses.push(progress);
                 }
                 command_creator = is_command;
             }
@@ -109,12 +121,9 @@ impl Pipeline {
             .take()
             .expect("Should have at least one command");
 
-        let (mut executor, _, progress) = Executor::create(accumulated_args, creator);
-        if let Some(recv) = prev_recv.take() {
-            executor.set_input(recv);
-        }
-        pipeline.push((executor, progress));
-
-        pipeline
+        let (executor, progress) = Executor::create(accumulated_args, creator);
+        executors.push(executor);
+        progresses.push(progress);
+        (executors, progresses)
     }
 }

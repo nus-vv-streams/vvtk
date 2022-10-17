@@ -6,6 +6,7 @@ use crate::pcd::{
     write_pcd_file, PCDDataType, PCDField, PCDFieldSize, PCDFieldType, PCDHeader, PCDVersion,
     PointCloudData,
 };
+use crate::pipeline::channel::Channel;
 use crate::pipeline::{PipelineMessage, Progress};
 use std::path::Path;
 use std::sync::mpsc::Sender;
@@ -41,29 +42,31 @@ impl Write {
 impl Subcommand for Write {
     fn handle(
         &mut self,
-        message: PipelineMessage,
-        out: &Sender<PipelineMessage>,
+        messages: Vec<PipelineMessage>,
+        channel: &Channel,
         progress: &Sender<Progress>,
     ) {
         let output_path = Path::new(&self.args.output_dir);
         let pcd_data_type = self.args.pcd.expect("PCD data type should be provided");
-        match &message {
-            PipelineMessage::PointCloud(pc) => {
-                let pcd = create_pcd(pc);
-                let file_name = format!("{}.pcd", self.count);
-                self.count += 1;
-                let file_name = Path::new(&file_name);
-                let output_file = output_path.join(file_name);
-                if let Err(e) = write_pcd_file(&pcd, pcd_data_type, &output_file) {
-                    println!("Failed to write {:?}\n{e}", output_file);
+        for message in messages {
+            match &message {
+                PipelineMessage::PointCloud(pc) => {
+                    let pcd = create_pcd(pc);
+                    let file_name = format!("{}.pcd", self.count);
+                    self.count += 1;
+                    let file_name = Path::new(&file_name);
+                    let output_file = output_path.join(file_name);
+                    if let Err(e) = write_pcd_file(&pcd, pcd_data_type, &output_file) {
+                        println!("Failed to write {:?}\n{e}", output_file);
+                    }
+                    progress.send(Progress::Incr);
                 }
-                progress.send(Progress::Incr);
+                PipelineMessage::End => {
+                    progress.send(Progress::Completed);
+                }
             }
-            PipelineMessage::End => {
-                progress.send(Progress::Completed);
-            }
+            channel.send(message);
         }
-        out.send(message);
     }
 }
 

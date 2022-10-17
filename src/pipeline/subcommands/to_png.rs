@@ -1,3 +1,4 @@
+use crate::pipeline::channel::Channel;
 use crate::pipeline::{PipelineMessage, Progress};
 use crate::render::wgpu::png::PngWriter;
 use clap::Parser;
@@ -68,19 +69,21 @@ impl<'a> ToPng<'a> {
 impl Subcommand for ToPng<'_> {
     fn handle(
         &mut self,
-        message: PipelineMessage,
-        out: &Sender<PipelineMessage>,
+        messages: Vec<PipelineMessage>,
+        channel: &Channel,
         progress: &Sender<Progress>,
     ) {
-        match &message {
-            PipelineMessage::PointCloud(pc) => {
-                self.writer.write_to_png(pc);
-                progress.send(Progress::Incr);
+        for message in messages {
+            match &message {
+                PipelineMessage::PointCloud(pc) => {
+                    self.writer.write_to_png(pc);
+                    progress.send(Progress::Incr);
+                }
+                PipelineMessage::End => {
+                    progress.send(Progress::Completed);
+                }
             }
-            PipelineMessage::End => {
-                progress.send(Progress::Completed);
-            }
+            channel.send(message);
         }
-        out.send(message);
     }
 }

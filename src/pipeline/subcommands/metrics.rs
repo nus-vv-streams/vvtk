@@ -3,13 +3,14 @@ use std::{
     fs::File,
     io::{BufWriter, Write},
     path::{Path, PathBuf},
+    sync::mpsc::Sender,
 };
 
 use clap::Parser;
 
 use crate::{
     metrics::calculate_metrics,
-    pipeline::{PipelineMessage, Progress},
+    pipeline::{channel::Channel, PipelineMessage, Progress},
     utils::{find_all_files, read_file_to_point_cloud},
 };
 
@@ -48,17 +49,21 @@ impl Metrics {
 impl Subcommand for Metrics {
     fn handle(
         &mut self,
-        message: crate::pipeline::PipelineMessage,
-        out: &std::sync::mpsc::Sender<crate::pipeline::PipelineMessage>,
-        progress: &std::sync::mpsc::Sender<crate::pipeline::Progress>,
+        messages: Vec<PipelineMessage>,
+        channel: &Channel,
+        progress: &Sender<Progress>,
     ) {
-        match &message {
-            PipelineMessage::PointCloud(pc) => {
-                let original = read_file_to_point_cloud(&self.files[self.count]).expect(&format!(
-                    "Failed to read file {:?}",
-                    self.files[self.count].as_os_str()
-                ));
-                let metrics = calculate_metrics(&original, &pc);
+        let mut messages_iter = messages.into_iter();
+        let message_one = messages_iter
+            .next()
+            .expect("Expecting two input streams for metrics");
+        let message_two = messages_iter
+            .next()
+            .expect("Expecting two input streams for metrics");
+
+        match (&message_one, &message_two) {
+            (PipelineMessage::PointCloud(original), PipelineMessage::PointCloud(reconstructed)) => {
+                let metrics = calculate_metrics(original, reconstructed);
                 let output_path = Path::new(&self.output_path);
                 let file_name = format!("{}.metrics", self.count);
                 self.count += 1;
@@ -72,10 +77,9 @@ impl Subcommand for Metrics {
                 metrics.write_to(&mut writer);
                 progress.send(Progress::Incr);
             }
-            PipelineMessage::End => {
+            (PipelineMessage::End, _) | (_, PipelineMessage::End) => {
                 progress.send(Progress::Completed);
             }
         }
-        out.send(message);
     }
 }

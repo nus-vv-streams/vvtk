@@ -1,11 +1,18 @@
-use std::sync::mpsc::{Receiver, Sender};
+use std::{
+    collections::HashSet,
+    sync::mpsc::{Receiver, Sender},
+};
 
-use super::{subcommands::Subcommand, PipelineMessage, Progress, SubcommandCreator};
+use super::{
+    channel::Channel, subcommands::Subcommand, PipelineMessage, Progress, SubcommandCreator,
+};
 
 pub struct Executor {
     name: String,
-    input: Option<Receiver<PipelineMessage>>,
-    output: Sender<PipelineMessage>,
+    input_stream_names: Vec<String>,
+    output_name: String,
+    inputs: Vec<Receiver<PipelineMessage>>,
+    channel: Channel,
     progress: Sender<Progress>,
     handler: Box<dyn Subcommand>,
 }
@@ -13,26 +20,59 @@ pub struct Executor {
 unsafe impl Send for Executor {}
 
 impl Executor {
-    pub fn create(
-        args: Vec<String>,
-        creator: SubcommandCreator,
-    ) -> (Self, Receiver<PipelineMessage>, Receiver<Progress>) {
+    pub fn create(args: Vec<String>, creator: SubcommandCreator) -> (Self, Receiver<Progress>) {
         let name = args.first().expect("Should have command name").clone();
-        let handler = creator(args);
-        let (pipeline_tx, pipeline_rx) = std::sync::mpsc::channel();
+        let mut inner_args = Vec::new();
+        let mut input_stream_names = Vec::new();
+        let mut output_name = "".to_string();
+        for arg in args {
+            if arg.starts_with("+input") {
+                let input_streams = arg
+                    .split("=")
+                    .nth(1)
+                    .expect("Expected name of input stream");
+                for input_name in input_streams.split(",") {
+                    input_stream_names.push(input_name.to_string());
+                }
+            } else if arg.starts_with("+output") {
+                output_name = arg
+                    .split("=")
+                    .nth(1)
+                    .expect("Expected name of output stream")
+                    .to_string();
+            } else {
+                inner_args.push(arg);
+            }
+        }
+        let handler = creator(inner_args);
+        let channel = Channel::new();
         let (progress_tx, progress_rx) = std::sync::mpsc::channel();
         let executor = Self {
             name,
-            input: None,
-            output: pipeline_tx,
+            input_stream_names,
+            output_name,
+            inputs: vec![],
+            channel,
             progress: progress_tx,
             handler,
         };
-        (executor, pipeline_rx, progress_rx)
+        (executor, progress_rx)
     }
 
-    pub fn set_input(&mut self, recv: Receiver<PipelineMessage>) {
-        self.input = Some(recv);
+    pub fn input_names(&self) -> Vec<String> {
+        self.input_stream_names.clone()
+    }
+
+    pub fn output_name(&self) -> &str {
+        &self.output_name
+    }
+
+    pub fn output(&mut self) -> Receiver<PipelineMessage> {
+        self.channel.subscribe()
+    }
+
+    pub fn set_inputs(&mut self, inputs: Vec<Receiver<PipelineMessage>>) {
+        self.inputs = inputs;
     }
 
     pub fn run(self) -> std::thread::JoinHandle<()> {
@@ -44,20 +84,25 @@ impl Executor {
     }
 
     fn start(mut self) {
-        if self.input.is_none() {
-            self.handler
-                .handle(PipelineMessage::End, &self.output, &self.progress);
+        if self.inputs.is_empty() {
+            self.handler.handle(vec![], &self.channel, &self.progress);
             return;
         }
-        let input = self.input.unwrap();
-        while let Ok(message) = input.recv() {
-            let should_break = if let PipelineMessage::End = message {
-                true
-            } else {
-                false
-            };
+        while let Ok(messages) = self
+            .inputs
+            .iter()
+            .map(|recv| recv.recv())
+            .collect::<Result<Vec<PipelineMessage>, _>>()
+        {
+            let should_break = messages.iter().any(|message| {
+                if let PipelineMessage::End = message {
+                    true
+                } else {
+                    false
+                }
+            });
 
-            self.handler.handle(message, &self.output, &self.progress);
+            self.handler.handle(messages, &self.channel, &self.progress);
 
             if should_break {
                 break;

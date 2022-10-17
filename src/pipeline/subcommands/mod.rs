@@ -10,13 +10,13 @@ pub use read::Read;
 pub use to_png::ToPng;
 pub use write::Write;
 
-use super::{PipelineMessage, Progress};
+use super::{channel::Channel, PipelineMessage, Progress};
 
 pub trait Subcommand {
     fn handle(
         &mut self,
-        message: PipelineMessage,
-        out: &Sender<PipelineMessage>,
+        messages: Vec<PipelineMessage>,
+        out: &Channel,
         progress: &Sender<Progress>,
     );
 }
