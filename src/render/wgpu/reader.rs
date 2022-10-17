@@ -86,6 +86,60 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdMemoryReader {
     }
 }
 
+#[cfg(feature = "dash")]
+pub struct PcdAsyncReader {
+    current_frame: u64,
+    rx: Receiver<PointCloud<PointXyzRgba>>,
+    tx: Sender<FrameRequest>,
+}
+
+#[cfg(feature = "dash")]
+#[derive(Debug)]
+pub struct FrameRequest {
+    pub object_id: u8,
+    pub quality: u8,
+    pub frame_offset: u64,
+}
+
+#[cfg(feature = "dash")]
+impl PcdAsyncReader {
+    pub fn new(rx: Receiver<PointCloud<PointXyzRgba>>, tx: Sender<FrameRequest>) -> Self {
+        Self {
+            current_frame: 0,
+            rx,
+            tx,
+        }
+    }
+}
+
+#[cfg(feature = "dash")]
+impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
+    fn get_at(&self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
+        println!("get_at called with {}", index);
+        let a = self.tx.send(FrameRequest {
+            object_id: 0u8,
+            quality: 0u8,
+            frame_offset: index as u64,
+        });
+        if let Err(x) = a {
+            println!("Error sending frame request: {:?}", x);
+        }
+        if let Ok(data) = self.rx.recv() {
+            Some(data)
+        } else {
+            None
+        }
+    }
+
+    fn len(&self) -> usize {
+        30
+    }
+
+    fn is_empty(&self) -> bool {
+        false
+    }
+}
+
 pub struct BufRenderReader<U: Renderable + Send> {
     size_tx: Sender<usize>,
     receiver: Receiver<(usize, Option<U>)>,

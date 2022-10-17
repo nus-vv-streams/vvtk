@@ -11,4 +11,4 @@ pub mod pipeline;
 pub mod ply;
 pub mod render;
 pub mod transform;
-mod utils;
+pub mod utils;

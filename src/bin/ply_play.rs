@@ -1,19 +1,19 @@
 use clap::Parser;
-use rayon::prelude::*;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 use vivotk::codec::decoder::{DracoDecoder, NoopDecoder};
 use vivotk::codec::Decoder;
 use vivotk::dash::fetcher::Fetcher;
-use vivotk::pcd::PointCloudData;
 use vivotk::render::wgpu::builder::RenderBuilder;
 use vivotk::render::wgpu::camera::Camera;
 use vivotk::render::wgpu::controls::Controller;
 use vivotk::render::wgpu::metrics_reader::MetricsReader;
-use vivotk::render::wgpu::reader::{BufRenderReader, PcdMemoryReader, RenderReader};
+use vivotk::render::wgpu::reader::{
+    BufRenderReader, PcdAsyncReader, RenderReader,
+};
 use vivotk::render::wgpu::renderer::Renderer;
-use vivotk::transform::ply_to_pcd;
+use vivotk::utils::read_file_to_point_cloud;
 
 /// Plays a folder of pcd files in lexicographical order
 #[derive(Parser)]
@@ -58,51 +58,66 @@ enum DecoderType {
 
 fn main() {
     let args: Args = Args::parse();
-    let tmpdir = tempdir().expect("created temp dir to store files");
-    let mut ply_files: Vec<PathBuf> = vec![];
-    let path = if args.directory.starts_with("http") {
-        println!("Downloading files to {}", tmpdir.path().to_str().unwrap());
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let (req_tx, req_rx) = std::sync::mpsc::channel();
+    let (resp_tx, resp_rx) = std::sync::mpsc::channel();
+    let reader = PcdAsyncReader::new(resp_rx, req_tx);
 
-        let fetcher = Fetcher::new(&args.directory);
-        ply_files = fetcher
-            .download_to(&tmpdir.path().to_path_buf(), Some(args.quality))
-            .expect("failed to download files");
+    // We run a tokio runtime on a separate thread
+    std::thread::spawn(move || {
+        rt.block_on(async {
+            if args.directory.starts_with("http") {
+                let tmpdir = tempdir().expect("created temp dir to store files");
+                let path = tmpdir.path();
+                println!("Downloading files to {}", path.to_str().unwrap());
+                let fetcher = Fetcher::new(&args.directory, path).await;
 
-        tmpdir.path()
-    } else {
-        let path = Path::new(&args.directory);
-        for entry in std::fs::read_dir(path).unwrap() {
-            let f = entry.unwrap().path();
-            // TODO: change to is_ply_file function
-            if !f.extension().map(|f| "ply".eq(f)).unwrap_or(false) {
-                return;
-            }
-            ply_files.push(f);
-        }
-        path
-    };
-    println!("1. Finished downloading to / reading from {:?}", path);
+                loop {
+                    let req = req_rx.recv().unwrap();
+                    // TODO: handle errors gracefully.
+                    let p = fetcher.download(req.object_id, req.quality, req.frame_offset).await.unwrap();
+                    // TODO: move this to non-blocking
+                    let a = match &args.decoder_type {
+                        DecoderType::Draco => {
+                            DracoDecoder::new(args.decoder_path.as_ref().unwrap().as_os_str())
+                                .decode(p.as_os_str())
+                        }
+                        _ => NoopDecoder::new().decode(&p.as_os_str()),
+                    };
+                    let resp_tx = resp_tx.clone();
+                    tokio::task::spawn_blocking(move || {
+                        let pcd = read_file_to_point_cloud(&a.get(0).unwrap()).unwrap();
+                        resp_tx.send(pcd).unwrap();
+                    }).await.unwrap();
+                }
 
-    let pcdvec = ply_files
-        .into_par_iter()
-        .flat_map(|p| match &args.decoder_type {
-            DecoderType::Draco => {
-                DracoDecoder::new(args.decoder_path.as_ref().unwrap().as_os_str())
-                    .decode(p.as_os_str())
-            }
-            _ => NoopDecoder::new().decode(&p.as_os_str()),
-        })
-        .filter_map(|f| ply_to_pcd(f.as_path()).unwrap_or(None))
-        .collect::<Vec<PointCloudData>>();
-    println!("2. finished decoding and converting ply to pcd");
+                _ = tmpdir.close();
+            } else {
+                let path = Path::new(&args.directory);
+                let mut ply_files: Vec<PathBuf> = vec![];
+                println!("1. Finished downloading to / reading from {:?}", path);
 
-    let reader = PcdMemoryReader::from_vec(pcdvec);
-    println!("4. There are {:} pcd files", reader.len());
+                let mut dir = tokio::fs::read_dir(path).await.unwrap();
+                while let Some(entry) = dir.next_entry().await.unwrap() {
+                    let f = entry.path();
+                    // TODO: change to is_ply_file function
+                    if !f.extension().map(|f| "ply".eq(f)).unwrap_or(false) {
+                        continue;
+                    }
+                    ply_files.push(f);
+                }
+                ply_files.sort();
+                
+                loop {
+                    let req = req_rx.recv().unwrap();
+                    println!("still here! request: {:?}", req);
+                    let pcd = read_file_to_point_cloud(&ply_files.get(req.frame_offset as usize).unwrap()).unwrap();
+                    resp_tx.send(pcd).unwrap();
+                }
+            };
 
-    if reader.len() == 0 {
-        eprintln!("Must provide at least one file!");
-        return;
-    }
+        });
+    });
 
     let camera = Camera::new(
         (args.camera_x, args.camera_y, args.camera_z),
@@ -114,23 +129,24 @@ fn main() {
         .map(|os_str| MetricsReader::from_directory(Path::new(&os_str)));
     let mut builder = RenderBuilder::default();
     let slider_end = reader.len() - 1;
-    let render = if args.buffer_size > 1 {
-        builder.add_window(Renderer::new(
-            BufRenderReader::new(args.buffer_size, reader),
-            args.fps,
-            camera,
-            (args.width, args.height),
-            metrics,
-        ))
-    } else {
+    let render = 
+    // if args.buffer_size > 1 {
+    //     builder.add_window(Renderer::new(
+    //         BufRenderReader::new(args.buffer_size, reader),
+    //         args.fps,
+    //         camera,
+    //         (args.width, args.height),
+    //         metrics,
+    //     ))
+    // } else {
         builder.add_window(Renderer::new(
             reader,
             args.fps,
             camera,
             (args.width, args.height),
             metrics,
-        ))
-    };
+        ));
+    // };
     if args.show_controls {
         let controls = builder.add_window(Controller { slider_end });
         builder
@@ -143,5 +159,4 @@ fn main() {
             .add_output(render);
     }
     builder.run();
-    _ = tmpdir.close();
 }
