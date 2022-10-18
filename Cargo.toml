@@ -36,10 +36,8 @@ kdam = "0.2"
 anyhow = "1.0"
 clearscreen = "1.0.10"
 kiddo = "0.2.4"
-async-stream = "0.3"
-futures = "0.3"
-tokio = { version = "1", features = ["full"] }
-tokio-stream = "0.1"
+futures = { version = "0.3", optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
 winit = { version = "0.27.3", optional = true }
 wgpu = { version = "0.13.1", optional = true }
 wgpu_glyph = { version = "0.17.0", optional = true }
@@ -73,4 +71,4 @@ name = "vivotk"
 [features]
 default = ["render", "dash"]
 render = ["dep:winit", "dep:wgpu", "dep:wgpu_glyph", "dep:egui", "dep:egui_winit_platform", "dep:egui_wgpu_backend", "dep:epi"]
-dash = ["dep:reqwest", "dep:regex", "dep:tempfile", "dep:serde", "dep:serde_with", "dep:quick-xml"]
+dash = ["dep:reqwest", "dep:regex", "dep:tempfile", "dep:serde", "dep:serde_with", "dep:quick-xml", "dep:tokio", "dep:futures"]

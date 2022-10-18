@@ -35,10 +35,8 @@ pub struct DracoDecoder {
 }
 
 impl DracoDecoder {
-    pub fn new(path: &OsStr) -> Self {
-        DracoDecoder {
-            path: PathBuf::from(path),
-        }
+    pub fn new<P: Into<PathBuf>>(path: P) -> Self {
+        DracoDecoder { path: path.into() }
     }
 }
 
@@ -52,9 +50,8 @@ impl Decoder for DracoDecoder {
             .arg(filename)
             .arg("-o")
             .arg(output_filename.to_str().unwrap())
-            .status()
-            .expect("failed to execute process");
-        if status.success() {
+            .status();
+        if status.is_ok() {
             vec![output_filename]
         } else {
             vec![]

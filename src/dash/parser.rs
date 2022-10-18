@@ -13,6 +13,7 @@ use std::time::Duration;
 
 const FPS: u64 = 30;
 
+#[derive(Clone)]
 pub(crate) struct PCCDashParser {
     mpd: MPD,
     framestamps: Vec<u64>,

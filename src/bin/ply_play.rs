@@ -10,7 +10,7 @@ use vivotk::render::wgpu::camera::Camera;
 use vivotk::render::wgpu::controls::Controller;
 use vivotk::render::wgpu::metrics_reader::MetricsReader;
 use vivotk::render::wgpu::reader::{
-    BufRenderReader, PcdAsyncReader, RenderReader,
+    PcdAsyncReader, RenderReader,
 };
 use vivotk::render::wgpu::renderer::Renderer;
 use vivotk::utils::read_file_to_point_cloud;
@@ -50,7 +50,7 @@ struct Args {
     decoder_path: Option<OsString>,
 }
 
-#[derive(clap::ValueEnum, Clone)]
+#[derive(clap::ValueEnum, Clone, Copy)]
 enum DecoderType {
     Noop,
     Draco,
@@ -59,39 +59,75 @@ enum DecoderType {
 fn main() {
     let args: Args = Args::parse();
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let (req_tx, req_rx) = std::sync::mpsc::channel();
+    // important to use tokio::mpsc here instead of std because it is bridging from sync -> async
+    let (req_tx, mut req_rx) = tokio::sync::mpsc::unbounded_channel();
     let (resp_tx, resp_rx) = std::sync::mpsc::channel();
     let reader = PcdAsyncReader::new(resp_rx, req_tx);
+
+    // copy variables to be moved into the async block
+    let directory = args.directory.clone();
+    let decoder_type = args.decoder_type;
+    let decoder_path = args.decoder_path.clone();
 
     // We run a tokio runtime on a separate thread
     std::thread::spawn(move || {
         rt.block_on(async {
-            if args.directory.starts_with("http") {
+            if directory.starts_with("http") {
                 let tmpdir = tempdir().expect("created temp dir to store files");
                 let path = tmpdir.path();
                 println!("Downloading files to {}", path.to_str().unwrap());
-                let fetcher = Fetcher::new(&args.directory, path).await;
 
+                let fetcher = Fetcher::new(&directory, path).await;
                 loop {
-                    let req = req_rx.recv().unwrap();
-                    // TODO: handle errors gracefully.
-                    let p = fetcher.download(req.object_id, req.quality, req.frame_offset).await.unwrap();
-                    // TODO: move this to non-blocking
-                    let a = match &args.decoder_type {
-                        DecoderType::Draco => {
-                            DracoDecoder::new(args.decoder_path.as_ref().unwrap().as_os_str())
-                                .decode(p.as_os_str())
-                        }
-                        _ => NoopDecoder::new().decode(&p.as_os_str()),
-                    };
-                    let resp_tx = resp_tx.clone();
-                    tokio::task::spawn_blocking(move || {
-                        let pcd = read_file_to_point_cloud(&a.get(0).unwrap()).unwrap();
-                        resp_tx.send(pcd).unwrap();
-                    }).await.unwrap();
-                }
+                    println!("getting frame requests");
+                    let req = req_rx.recv().await.unwrap();
+                    println!("got frame requests {:?}", req);
 
+                    let fetcher = fetcher.clone();
+                    let decoder_path = decoder_path.clone();
+                    let resp_tx = resp_tx.clone();
+                    _ = tokio::spawn(async move {
+                        let p = fetcher.download(req.object_id, req.quality, req.frame_offset).await;
+                        let p = match p {
+                            Ok(p) => p,
+                            Err(e) => {
+                                println!("Error downloading file: {}", e);
+                                return;
+                            }
+                        };
+                                    
+                        println!("Downloaded {} successfully", p.to_str().unwrap());
+                        // Run decoder if needed
+                        let decoded_files = tokio::task::spawn_blocking(move || {
+                            match decoder_type {
+                                DecoderType::Draco => {
+                                    DracoDecoder::new(decoder_path.as_ref().unwrap().as_os_str())
+                                        .decode(p.as_os_str())
+                                }
+                                _ => NoopDecoder::new().decode(&p.as_os_str()),
+                            }
+                        }).await.unwrap();
+                        println!("Decoded {:?} successfully", decoded_files);
+                        
+                        for f in decoded_files {
+                            // let p = f.clone();
+                            // let pcd = tokio::task::spawn_blocking(move || {
+                            //     read_file_to_point_cloud(&p)
+                            // }).await.unwrap().unwrap();
+                            let pcd = read_file_to_point_cloud(&f).unwrap();
+                            println!("reading decoded file {}", f.to_str().unwrap());
+
+                            println!("sending pcd...");
+                            resp_tx.send(pcd).unwrap();
+                            println!("finished sending pcd...")
+                        }            
+                    }).await;
+                                   
+                }
+                
+                // use tmpdir here so it is not dropped before
                 _ = tmpdir.close();
+
             } else {
                 let path = Path::new(&args.directory);
                 let mut ply_files: Vec<PathBuf> = vec![];
@@ -109,7 +145,7 @@ fn main() {
                 ply_files.sort();
                 
                 loop {
-                    let req = req_rx.recv().unwrap();
+                    let req = req_rx.recv().await.unwrap();
                     println!("still here! request: {:?}", req);
                     let pcd = read_file_to_point_cloud(&ply_files.get(req.frame_offset as usize).unwrap()).unwrap();
                     resp_tx.send(pcd).unwrap();

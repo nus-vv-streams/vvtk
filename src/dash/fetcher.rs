@@ -7,6 +7,7 @@ use tokio::fs::File;
 
 pub type HttpClient = reqwest::Client;
 
+#[derive(Clone)]
 pub struct Fetcher {
     http_client: HttpClient,
     parser: PCCDashParser,
@@ -56,6 +57,7 @@ impl Fetcher {
         let output_path = self
             .download_dir
             .join(generate_filename_from_url(url.as_str()));
+        println!("Downloading {} to {}", url, output_path.display());
         let (content, file) = tokio::join!(
             self.http_client
                 .get(&url)
@@ -63,6 +65,7 @@ impl Fetcher {
                 .and_then(|resp| resp.bytes()),
             File::create(&output_path)
         );
+        println!("Downloaded {}", url);
         tokio::io::copy(&mut content?.as_ref(), &mut file?).await?;
         Ok(output_path)
     }
