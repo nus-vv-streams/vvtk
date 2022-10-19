@@ -34,7 +34,7 @@ impl Clone for PointCloudData {
     fn clone(&self) -> Self {
         Self {
             header: self.header.clone(),
-            data: self.data.clone()
+            data: self.data.clone(),
         }
     }
 }

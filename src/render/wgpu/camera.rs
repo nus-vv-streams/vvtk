@@ -16,12 +16,18 @@ pub struct CameraState {
     camera_controller: CameraController,
     camera_uniform: CameraUniform,
     projection: Projection,
-    mouse_pressed: bool
+    mouse_pressed: bool,
 }
 
 impl CameraState {
     pub fn new(camera: Camera, width: u32, height: u32) -> Self {
-        let projection = Projection::new(width, height, cgmath::Deg(PROJECTION_FOXY), PROJECTION_ZNEAR, PROJECTION_ZFAR);
+        let projection = Projection::new(
+            width,
+            height,
+            cgmath::Deg(PROJECTION_FOXY),
+            PROJECTION_ZNEAR,
+            PROJECTION_ZFAR,
+        );
         let camera_controller = CameraController::new(CAMERA_SPEED, CAMERA_SENSITIVITY);
         let mut camera_uniform = CameraUniform::default();
         camera_uniform.update_view_proj(&camera, &projection);
@@ -31,11 +37,14 @@ impl CameraState {
             camera_controller,
             camera_uniform,
             projection,
-            mouse_pressed: false
+            mouse_pressed: false,
         }
     }
 
-    pub fn create_buffer(&self, device: &wgpu::Device) -> (wgpu::Buffer, wgpu::BindGroupLayout, wgpu::BindGroup) {
+    pub fn create_buffer(
+        &self,
+        device: &wgpu::Device,
+    ) -> (wgpu::Buffer, wgpu::BindGroupLayout, wgpu::BindGroup) {
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
             contents: bytemuck::cast_slice(&[self.camera_uniform]),
@@ -79,7 +88,8 @@ impl CameraState {
 
     pub fn update(&mut self, dt: std::time::Duration) {
         self.camera_controller.update_camera(&mut self.camera, dt);
-        self.camera_uniform.update_view_proj(&self.camera, &self.projection);
+        self.camera_uniform
+            .update_view_proj(&self.camera, &self.projection);
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -91,10 +101,10 @@ impl CameraState {
     pub fn process_input(&mut self, event: &DeviceEvent) -> bool {
         match event {
             DeviceEvent::Key(KeyboardInput {
-                                 virtual_keycode: Some(key),
-                                 state,
-                                 ..
-                             }) => self.camera_controller.process_keyboard(*key, *state),
+                virtual_keycode: Some(key),
+                state,
+                ..
+            }) => self.camera_controller.process_keyboard(*key, *state),
             DeviceEvent::MouseWheel { delta, .. } => {
                 self.camera_controller.process_scroll(delta);
                 true
@@ -139,7 +149,6 @@ impl CameraUniform {
         self.view_proj = (projection.calc_matrix() * camera.calc_matrix()).into()
     }
 }
-
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(

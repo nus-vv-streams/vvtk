@@ -14,15 +14,6 @@ pub struct Fetcher {
     download_dir: PathBuf,
 }
 
-// Assume all frames is shown in 30 fps
-// pub(super) struct Segment {
-//     template: String,
-//     start_frame: u64,
-//     duration_in_frames: u64, // in frames.
-//     representation_id: u8,
-//     adaptation_set_id: u8,
-// }
-
 async fn fetch_mpd(mpd_url: &str, http_client: &HttpClient) -> Result<String> {
     let resp = http_client.get(mpd_url).send().await?;
     let content = resp.text().await?;

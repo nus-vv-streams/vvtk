@@ -85,7 +85,6 @@ fn main() {
                     .send(fetcher.get_total_frames())
                     .expect("sent total frames");
                 loop {
-                    println!("getting frame requests");
                     let req = req_rx.recv().await.unwrap();
                     println!("got frame requests {:?}", req);
 
@@ -119,16 +118,12 @@ fn main() {
                         println!("Decoded {:?} successfully", decoded_files);
 
                         for f in decoded_files {
-                            // let p = f.clone();
-                            // let pcd = tokio::task::spawn_blocking(move || {
-                            //     read_file_to_point_cloud(&p)
-                            // }).await.unwrap().unwrap();
                             let pcd = read_file_to_point_cloud(&f).unwrap();
-                            println!("reading decoded file {}", f.to_str().unwrap());
-
-                            println!("sending pcd...");
+                            println!(
+                                "reading decoded file {} and sending pcd...",
+                                f.to_str().unwrap()
+                            );
                             resp_tx.send(pcd).unwrap();
-                            println!("finished sending pcd...")
                         }
                     })
                     .await;

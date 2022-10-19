@@ -5,7 +5,7 @@ pub mod pointxyzrgba;
 #[derive(Clone, Debug)]
 pub struct PointCloud<T> {
     pub number_of_points: usize,
-    pub points: Vec<T>
+    pub points: Vec<T>,
 }
 
 impl<T> From<PointCloudData> for PointCloud<T> {
@@ -20,7 +20,7 @@ impl<T> From<PointCloudData> for PointCloud<T> {
         };
         Self {
             number_of_points,
-            points
+            points,
         }
     }
 }

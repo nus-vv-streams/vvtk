@@ -61,35 +61,6 @@ impl PCCDashParser {
         *self.framestamps.last().unwrap() as usize
     }
 
-    // pub fn get_adaptation_sets(&'a self, period: &Node<'a, 'a>) -> Vec<Node<'a, 'a>> {
-    //     period
-    //         .children()
-    //         .filter(|n| n.has_tag_name("AdaptationSet"))
-    //         .collect()
-    // }
-
-    // pub fn get_representations(&'a self, adaptation_set: &Node<'a, 'a>) -> Vec<Node<'a, 'a>> {
-    //     adaptation_set
-    //         .children()
-    //         .filter(|n| n.has_tag_name("Representation"))
-    //         .collect()
-    // }
-
-    // pub fn get_segment_template(&'a self, representation: &Node<'a, 'a>) -> Node<'a, 'a> {
-    //     representation
-    //         .children()
-    //         .find(|n| n.has_tag_name("SegmentTemplate"))
-    //         .expect("no segment templates found!")
-    // }
-
-    // pub fn get_duration_in_seconds(&'a self, period: &Node<'a, 'a>) -> Result<Duration> {
-    //     let duration = period
-    //         .attribute("duration")
-    //         .expect("Provide a duration for the period");
-
-    //     parse_xs_duration(duration)
-    // }
-
     // From https://dashif.org/docs/DASH-IF-IOP-v4.3.pdf:
     // "For the avoidance of doubt, only %0[width]d is permitted and no other identifiers. The reason
     // is that such a string replacement can be easily implemented without requiring a specific library."
@@ -171,60 +142,6 @@ impl PCCDashParser {
                 )
                 .as_str()
     }
-
-    // fn expand_segment_urls(
-    //     &'a self,
-    //     segment_template: &Node<'a, 'a>,
-    //     start: Option<u64>,
-    //     end: Option<u64>,
-    // ) -> Result<impl Stream<Item = String>> {
-    //     let period = segment_template
-    //         .ancestors()
-    //         .find(|n| n.has_tag_name("Period"))
-    //         .unwrap();
-    //     let representation_id = segment_template
-    //         .ancestors()
-    //         .find(|n| n.has_tag_name("Representation"))
-    //         .unwrap()
-    //         .attribute("id")
-    //         .unwrap();
-    //     let period_dur = self.get_duration_in_seconds(&period).unwrap();
-    //     let segment_dur = segment_template
-    //         .attribute("duration")
-    //         .expect("Provide a duration for the segment template")
-    //         .parse::<u64>()?;
-    //     let timescale = segment_template
-    //         .attribute("timescale")
-    //         .unwrap_or("1")
-    //         .parse::<u64>()?;
-
-    //     let number_of_frames = period_dur.as_secs() * timescale / segment_dur;
-    //     let media = self.get_base_url()
-    //         + Regex::new(r"\$RepresentationID\$")
-    //             .unwrap()
-    //             .replace(
-    //                 segment_template
-    //                     .attribute("media")
-    //                     .expect("Provide a media attribute for the segment template"),
-    //                 representation_id,
-    //             )
-    //             .as_ref();
-    //     let start_number = segment_template
-    //         .attribute("startNumber")
-    //         .unwrap_or("1")
-    //         .parse::<u64>()?;
-
-    //     let start_offset = std::cmp::max(0, start.unwrap_or(0));
-    //     let end_offset = std::cmp::min(number_of_frames, end.unwrap_or(number_of_frames));
-    //     let number_re = Regex::new(r"\$Number\$").unwrap();
-    //     Ok(stream! {
-    //         for i in (start_offset..end_offset) {
-    //             let number = start_number + i;
-    //             let url = number_re.replace(&media, &number.to_string()).to_string();
-    //             yield url;
-    //         }
-    //     })
-    // }
 }
 
 // Modified from https://github.com/emarsden/dash-mpd-rs

@@ -177,7 +177,6 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
     }
 
     fn len(&self) -> usize {
-        // TODO: change this to be the total number of frames
         self.total_frames as usize
     }
 
