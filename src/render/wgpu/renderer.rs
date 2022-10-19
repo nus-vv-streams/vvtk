@@ -187,14 +187,19 @@ where
     fn new(
         event_proxy: EventLoopProxy<RenderEvent>,
         gpu: WindowGpu,
-        reader: T,
+        mut reader: T,
         fps: f32,
         camera_state: CameraState,
         metrics_reader: Option<MetricsReader>,
     ) -> Self {
         let initial_render = reader
-            .get_at(0)
+            .start()
             .expect("There should be at least one point cloud to render!");
+        for i in 1..9 {
+            println!("called get_at {}", i);
+            reader.get_at(i);
+            println!("get_at {} returned", i);
+        }
         let pcd_renderer = PointCloudRenderer::new(
             &gpu.device,
             gpu.config.format,
@@ -253,8 +258,11 @@ where
 
     fn move_to(&mut self, position: usize) {
         if position < self.reader.len() {
-            self.current_position = position;
-            self.update_vertices();
+            if self.update_vertices() {
+                self.current_position = position;
+            } else {
+                std::thread::sleep(std::time::Duration::from_millis(30));
+            }
             self.update_stats();
         }
     }
@@ -277,7 +285,7 @@ where
         self.current_position
     }
 
-    fn current(&self) -> Option<U> {
+    fn current(&mut self) -> Option<U> {
         self.reader.get_at(self.current_position())
     }
 
@@ -336,11 +344,13 @@ where
         self.render()
     }
 
-    fn update_vertices(&mut self) {
+    fn update_vertices(&mut self) -> bool {
         if let Some(data) = self.current() {
             self.pcd_renderer
                 .update_vertices(&self.gpu.device, &self.gpu.queue, &data);
+            return true;
         }
+        return false;
     }
 
     fn update_stats(&mut self) {
