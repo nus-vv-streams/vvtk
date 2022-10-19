@@ -69,6 +69,10 @@ impl Fetcher {
         tokio::io::copy(&mut content?.as_ref(), &mut file?).await?;
         Ok(output_path)
     }
+
+    pub fn get_total_frames(&self) -> usize {
+        self.parser.get_total_frames()
+    }
 }
 
 fn generate_filename_from_url(url: &str) -> &str {

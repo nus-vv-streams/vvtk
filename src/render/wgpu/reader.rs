@@ -15,6 +15,7 @@ pub trait RenderReader<T: Renderable> {
     fn get_at(&mut self, index: usize) -> Option<T>;
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
+    fn set_len(&mut self, len: usize);
 }
 
 pub struct PcdFileReader {
@@ -66,6 +67,8 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
     fn is_empty(&self) -> bool {
         self.files.is_empty()
     }
+
+    fn set_len(&mut self, _len: usize) {}
 }
 
 pub struct PcdMemoryReader {
@@ -94,12 +97,15 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdMemoryReader {
     fn is_empty(&self) -> bool {
         self.points.is_empty()
     }
+
+    fn set_len(&mut self, _len: usize) {}
 }
 
 #[cfg(feature = "dash")]
 pub struct PcdAsyncReader {
     current_frame: u64,
     next_to_get: u64,
+    total_frames: u64,
     rx: Receiver<PointCloud<PointXyzRgba>>,
     tx: UnboundedSender<FrameRequest>,
 }
@@ -120,6 +126,7 @@ impl PcdAsyncReader {
             next_to_get: 0,
             rx,
             tx,
+            total_frames: 30, // default number of frames
         }
     }
 }
@@ -171,11 +178,15 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
 
     fn len(&self) -> usize {
         // TODO: change this to be the total number of frames
-        30
+        self.total_frames as usize
     }
 
     fn is_empty(&self) -> bool {
         false
+    }
+
+    fn set_len(&mut self, len: usize) {
+        self.total_frames = len as u64;
     }
 }
 

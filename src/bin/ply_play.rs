@@ -5,21 +5,23 @@ use tempfile::tempdir;
 use vivotk::codec::decoder::{DracoDecoder, NoopDecoder};
 use vivotk::codec::Decoder;
 use vivotk::dash::fetcher::Fetcher;
-use vivotk::render::wgpu::builder::RenderBuilder;
-use vivotk::render::wgpu::camera::Camera;
-use vivotk::render::wgpu::controls::Controller;
-use vivotk::render::wgpu::metrics_reader::MetricsReader;
-use vivotk::render::wgpu::reader::{
-    PcdAsyncReader, RenderReader,
+use vivotk::render::wgpu::{
+    builder::RenderBuilder,
+    camera::Camera,
+    controls::Controller,
+    metrics_reader::MetricsReader,
+    reader::{PcdAsyncReader, RenderReader},
+    renderer::Renderer,
 };
-use vivotk::render::wgpu::renderer::Renderer;
 use vivotk::utils::read_file_to_point_cloud;
 
 /// Plays a folder of pcd files in lexicographical order
 #[derive(Parser)]
 struct Args {
-    /// Directory with all the pcd files in lexicographical order
-    directory: String,
+    /// src can be:
+    /// 1. Directory with all the pcd files in lexicographical order
+    /// 2. location of the mpd file
+    src: String,
     #[clap(short = 'q', long, default_value_t = 0)]
     quality: u8,
     #[clap(short, long, default_value_t = 30.0)]
@@ -62,22 +64,26 @@ fn main() {
     // important to use tokio::mpsc here instead of std because it is bridging from sync -> async
     let (req_tx, mut req_rx) = tokio::sync::mpsc::unbounded_channel();
     let (resp_tx, resp_rx) = std::sync::mpsc::channel();
-    let reader = PcdAsyncReader::new(resp_rx, req_tx);
+    let (total_frames_tx, total_frames_rx) = tokio::sync::oneshot::channel();
+    let mut reader = PcdAsyncReader::new(resp_rx, req_tx);
 
     // copy variables to be moved into the async block
-    let directory = args.directory.clone();
+    let src = args.src.clone();
     let decoder_type = args.decoder_type;
     let decoder_path = args.decoder_path.clone();
 
     // We run a tokio runtime on a separate thread
     std::thread::spawn(move || {
         rt.block_on(async {
-            if directory.starts_with("http") {
+            if src.starts_with("http") {
                 let tmpdir = tempdir().expect("created temp dir to store files");
                 let path = tmpdir.path();
                 println!("Downloading files to {}", path.to_str().unwrap());
 
-                let fetcher = Fetcher::new(&directory, path).await;
+                let fetcher = Fetcher::new(&src, path).await;
+                total_frames_tx
+                    .send(fetcher.get_total_frames())
+                    .expect("sent total frames");
                 loop {
                     println!("getting frame requests");
                     let req = req_rx.recv().await.unwrap();
@@ -87,7 +93,9 @@ fn main() {
                     let decoder_path = decoder_path.clone();
                     let resp_tx = resp_tx.clone();
                     _ = tokio::spawn(async move {
-                        let p = fetcher.download(req.object_id, req.quality, req.frame_offset).await;
+                        let p = fetcher
+                            .download(req.object_id, req.quality, req.frame_offset)
+                            .await;
                         let p = match p {
                             Ok(p) => p,
                             Err(e) => {
@@ -95,20 +103,21 @@ fn main() {
                                 return;
                             }
                         };
-                                    
+
                         println!("Downloaded {} successfully", p.to_str().unwrap());
                         // Run decoder if needed
-                        let decoded_files = tokio::task::spawn_blocking(move || {
-                            match decoder_type {
+                        let decoded_files =
+                            tokio::task::spawn_blocking(move || match decoder_type {
                                 DecoderType::Draco => {
                                     DracoDecoder::new(decoder_path.as_ref().unwrap().as_os_str())
                                         .decode(p.as_os_str())
                                 }
                                 _ => NoopDecoder::new().decode(&p.as_os_str()),
-                            }
-                        }).await.unwrap();
+                            })
+                            .await
+                            .unwrap();
                         println!("Decoded {:?} successfully", decoded_files);
-                        
+
                         for f in decoded_files {
                             // let p = f.clone();
                             // let pcd = tokio::task::spawn_blocking(move || {
@@ -120,40 +129,45 @@ fn main() {
                             println!("sending pcd...");
                             resp_tx.send(pcd).unwrap();
                             println!("finished sending pcd...")
-                        }            
-                    }).await;
-                                   
+                        }
+                    })
+                    .await;
                 }
-                
+
                 // use tmpdir here so it is not dropped before
                 _ = tmpdir.close();
-
             } else {
-                let path = Path::new(&args.directory);
+                let path = Path::new(&args.src);
                 let mut ply_files: Vec<PathBuf> = vec![];
                 println!("1. Finished downloading to / reading from {:?}", path);
 
                 let mut dir = tokio::fs::read_dir(path).await.unwrap();
                 while let Some(entry) = dir.next_entry().await.unwrap() {
                     let f = entry.path();
-                    // TODO: change to is_ply_file function
                     if !f.extension().map(|f| "ply".eq(f)).unwrap_or(false) {
                         continue;
                     }
                     ply_files.push(f);
                 }
+                total_frames_tx
+                    .send(ply_files.len())
+                    .expect("sent total frames");
                 ply_files.sort();
-                
+
                 loop {
                     let req = req_rx.recv().await.unwrap();
-                    println!("still here! request: {:?}", req);
-                    let pcd = read_file_to_point_cloud(&ply_files.get(req.frame_offset as usize).unwrap()).unwrap();
+                    let pcd = read_file_to_point_cloud(
+                        &ply_files.get(req.frame_offset as usize).unwrap(),
+                    )
+                    .unwrap();
                     resp_tx.send(pcd).unwrap();
                 }
             };
-
         });
     });
+
+    // set the reader max length
+    reader.set_len(total_frames_rx.blocking_recv().unwrap());
 
     let camera = Camera::new(
         (args.camera_x, args.camera_y, args.camera_z),
@@ -165,7 +179,7 @@ fn main() {
         .map(|os_str| MetricsReader::from_directory(Path::new(&os_str)));
     let mut builder = RenderBuilder::default();
     let slider_end = reader.len() - 1;
-    let render = 
+    let render =
     // if args.buffer_size > 1 {
     //     builder.add_window(Renderer::new(
     //         BufRenderReader::new(args.buffer_size, reader),

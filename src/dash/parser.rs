@@ -57,6 +57,10 @@ impl PCCDashParser {
         }
     }
 
+    pub fn get_total_frames(&self) -> usize {
+        *self.framestamps.last().unwrap() as usize
+    }
+
     // pub fn get_adaptation_sets(&'a self, period: &Node<'a, 'a>) -> Vec<Node<'a, 'a>> {
     //     period
     //         .children()
