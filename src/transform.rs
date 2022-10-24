@@ -52,7 +52,7 @@ fn create_pcd(vertices: Vec<Vertex>) -> PointCloudData {
             PCDField::new(
                 "rgb".to_string(),
                 PCDFieldSize::Four,
-                PCDFieldType::Float,
+                PCDFieldType::Unsigned,
                 1,
             )
             .unwrap(),

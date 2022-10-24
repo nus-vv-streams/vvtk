@@ -49,6 +49,9 @@ impl ply_rs::ply::PropertyAccess for PointXyzRgba {
 
     fn set_property(&mut self, key: &String, property: Property) {
         match (key.as_ref(), property) {
+            ("x", Property::Double(v)) => self.x = v as f32,
+            ("y", Property::Double(v)) => self.y = v as f32,
+            ("z", Property::Double(v)) => self.z = v as f32,
             ("x", Property::Float(v)) => self.x = v,
             ("y", Property::Float(v)) => self.y = v,
             ("z", Property::Float(v)) => self.z = v,
