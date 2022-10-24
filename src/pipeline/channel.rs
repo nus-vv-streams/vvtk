@@ -1,20 +1,34 @@
-use std::sync::mpsc::{channel, Receiver, SendError, Sender};
+use std::sync::mpsc::{channel, Receiver, Sender};
 
-use super::PipelineMessage;
+use super::{PipelineMessage, Progress};
 
 pub struct Channel {
+    progress_tx: Sender<Progress>,
     listeners: Vec<Sender<PipelineMessage>>,
 }
 
 impl Channel {
-    pub fn new() -> Self {
-        Self { listeners: vec![] }
+    pub fn new(progress_tx: Sender<Progress>) -> Self {
+        Self {
+            progress_tx,
+            listeners: vec![],
+        }
     }
 
-    pub fn send(&self, message: PipelineMessage) -> Result<Vec<()>, SendError<PipelineMessage>> {
+    pub fn send(&self, message: PipelineMessage) -> Vec<()> {
+        match &message {
+            PipelineMessage::End => self.progress_tx.send(Progress::Completed),
+            _ => self.progress_tx.send(Progress::Incr),
+        }
+        .expect("Should be able to send progress");
+
         self.listeners
             .iter()
-            .map(|sender| sender.send(message.clone()))
+            .map(|sender| {
+                sender
+                    .send(message.clone())
+                    .expect("Should be able to send a message through the channel")
+            })
             .collect()
     }
 

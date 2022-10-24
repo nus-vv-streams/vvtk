@@ -261,7 +261,8 @@ impl<R: BufRead> Parser<R> {
                                 .parse::<f64>()
                                 .map_err(|e| InvalidData(e.to_string()))?,
                         ),
-                    }?;
+                    }
+                    .unwrap();
                     index += 1;
                 }
             }

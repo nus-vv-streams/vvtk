@@ -17,12 +17,12 @@ pub struct Psnr;
 impl Psnr {
     pub fn calculate_metric(
         original: &Vec<PointXyzRgba>,
-        original_tree: &KdTree<f32, usize, 3>,
-        reconstructed: &Vec<PointXyzRgba>,
+        _original_tree: &KdTree<f32, usize, 3>,
+        _reconstructed: &Vec<PointXyzRgba>,
         reconstructed_tree: &KdTree<f32, usize, 3>,
         metrics: &mut Metrics,
     ) {
-        let time = std::time::Instant::now();
+        // let time = std::time::Instant::now();
         let drms: f32 = original
             .par_iter()
             .map(|pt| {
@@ -34,7 +34,7 @@ impl Psnr {
             })
             .sum();
 
-        eprintln!("{:?}", std::time::Instant::now() - time);
+        // eprintln!("{:?}", std::time::Instant::now() - time);
         let n = original.len() as f64;
         let drms = drms as f64 / n;
         let psnr_drms = get_psnr(drms, RESOLUTION, 3.0);

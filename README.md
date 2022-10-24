@@ -13,40 +13,59 @@ We follow the [official Rust coding style](https://github.com/rust-dev-tools/fmt
 
 ## Binaries
 
-### `ply_to_pcd`
+### `vivotk`
 
-Converts ply files that are in Point_XYZRGBA format to pcd files
+Provides subcommands that can be chained together. The inputs and outputs of a subcommand must be specified with the `+input=` followed by a comma separated list of inputs or `+output=` to denote the name of its output stream.
 
+**Example**
 ```shell
-Converts ply files that are in Point_XYZRGBA format to pcd files
-
-This assumes that the given ply files contain vertices and that the vertices are the first field in
-the ply file.
-
-USAGE:
-    ply_to_pcd.exe [OPTIONS] --output-dir <OUTPUT_DIR> [FILES]...
-
-ARGS:
-    <FILES>...
-            Files, glob patterns, directories
-
-OPTIONS:
-    -h, --help
-            Print help information
-
-    -o, --output-dir <OUTPUT_DIR>
-
-
-    -s, --storage-type <STORAGE_TYPE>
-            Storage type can be either "ascii" or "binary" [default: binary]
+vivotk read ./Plys +output=plys \
+        write --pcd ascii -o ./Pcds +input=plys
 ```
 
-### Example
+#### `read`
 
-The following command will convert all `.ply` files in the `./plys/` directory to binary `.pcd` format and place them in `./converted_pcds/`.
+Reads in one of our supported file formats. Files can be of the type `.pcd` `.ply` `.metrics`
 
 ```shell
-ply_to_pcd -o ./converted_pcds -s binary ./plys/*
+vivotk read ./Ply +output=plys
+```
+
+#### `to_png`
+
+Writes point clouds from the input stream into images
+
+```shell
+vivotk read ./Ply +output=plys \
+        to_png -o ./Pngs +input=plys
+```
+
+#### `metrics`
+
+Calculates the metrics given two input streams where the first input stream is the original and the second is the reconstructed one.
+
+```shell
+vivotk read ./original +output=original \
+        read ./reconstructed +output=reconstructed \
+        metrics +input=original,reconstructed
+```
+
+#### `write`
+
+Writes from input stream into a file
+
+**Writing metrics**
+```shell
+vivotk read ./original +output=original \
+        read ./reconstructed +output=reconstructed \
+        metrics +input=original,reconstructed +output=metrics \
+        write +input=metrics 
+```
+
+**Writing pcds**
+```shell
+vivotk read ./Plys +output=plys \
+        write -o ./Pcds +input=plys
 ```
 
 ### `ply_play`
@@ -114,38 +133,6 @@ You can buffer the render with a set number of frames using `-b`
 
 ```shell
 ply_play ./pcds -b 100
-```
-
-### `pcd_to_png`
-
-Converts a folder of .pcd files to a folder of .png images
-
-```shell
-Converts a folder of .pcd files to a folder of .png images
-
-USAGE:
-    pcd_to_png.exe [OPTIONS] --pcds <PCDS> --output-dir <OUTPUT_DIR>
-
-OPTIONS:
-    -h, --height <HEIGHT>            [default: 900]
-        --help                       Print help information
-    -n, --frames <FRAMES>            Number of pcd files to convert
-    -o, --output-dir <OUTPUT_DIR>    Directory to store output png images
-        --pcds <PCDS>                Directory with all the pcd files in lexicographical order
-        --pitch <CAMERA_PITCH>       [default: 0]
-    -w, --width <WIDTH>              [default: 1600]
-    -x, --camera-x <CAMERA_X>        [default: 0]
-    -y, --camera-y <CAMERA_Y>        [default: 0]
-        --yaw <CAMERA_YAW>           [default: -90]
-    -z, --camera-z <CAMERA_Z>        [default: 1.3]
-```
-
-### Example
-
-The following command will convert 20 `.pcd` files in `./pcds/` to `.png` images in `./pngs/`
-
-```shell
-pcd_to_png --pcds ./pcds/ -o ./pngs/ -n 20
 ```
 
 ### `vvdash`

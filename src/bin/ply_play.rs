@@ -6,14 +6,15 @@ use tempfile::tempdir;
 use vivotk::codec::noop::NoopDecoder;
 use vivotk::codec::Decoder;
 use vivotk::dash::fetcher::Fetcher;
-use vivotk::pcd::PointCloudData;
+use vivotk::formats::pointxyzrgba::PointXyzRgba;
+use vivotk::formats::PointCloud;
+use vivotk::ply::read_ply;
 use vivotk::render::wgpu::builder::RenderBuilder;
 use vivotk::render::wgpu::camera::Camera;
 use vivotk::render::wgpu::controls::Controller;
 use vivotk::render::wgpu::metrics_reader::MetricsReader;
 use vivotk::render::wgpu::reader::{BufRenderReader, PcdMemoryReader, RenderReader};
 use vivotk::render::wgpu::renderer::Renderer;
-use vivotk::transform::ply_to_pcd;
 
 /// Plays a folder of pcd files in lexicographical order
 #[derive(Parser)]
@@ -75,8 +76,8 @@ fn main() {
 
     let pcdvec = ply_files
         .into_par_iter()
-        .filter_map(|f| ply_to_pcd(f.as_path()).unwrap_or(None))
-        .collect::<Vec<PointCloudData>>();
+        .filter_map(|f| read_ply(f.as_path()))
+        .collect::<Vec<PointCloud<PointXyzRgba>>>();
     println!("2. finished converting ply to pcd");
 
     NoopDecoder::new()

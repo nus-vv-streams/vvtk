@@ -7,9 +7,9 @@ use crate::pcd::{
     PointCloudData,
 };
 use crate::pipeline::channel::Channel;
-use crate::pipeline::{PipelineMessage, Progress};
+use crate::pipeline::PipelineMessage;
+use std::fs::File;
 use std::path::Path;
-use std::sync::mpsc::Sender;
 
 use super::Subcommand;
 
@@ -30,9 +30,6 @@ pub struct Write {
 impl Write {
     pub fn from_args(args: Vec<String>) -> Box<dyn Subcommand> {
         let args = Args::parse_from(args);
-        if args.pcd.is_none() {
-            panic!("PCD output type should be specified");
-        }
         std::fs::create_dir_all(Path::new(&args.output_dir))
             .expect("Failed to create output directory");
         Box::from(Write { args, count: 0 })
@@ -40,17 +37,12 @@ impl Write {
 }
 
 impl Subcommand for Write {
-    fn handle(
-        &mut self,
-        messages: Vec<PipelineMessage>,
-        channel: &Channel,
-        progress: &Sender<Progress>,
-    ) {
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         let output_path = Path::new(&self.args.output_dir);
-        let pcd_data_type = self.args.pcd.expect("PCD data type should be provided");
         for message in messages {
             match &message {
                 PipelineMessage::PointCloud(pc) => {
+                    let pcd_data_type = self.args.pcd.expect("PCD data type should be provided");
                     let pcd = create_pcd(pc);
                     let file_name = format!("{}.pcd", self.count);
                     self.count += 1;
@@ -59,11 +51,17 @@ impl Subcommand for Write {
                     if let Err(e) = write_pcd_file(&pcd, pcd_data_type, &output_file) {
                         println!("Failed to write {:?}\n{e}", output_file);
                     }
-                    progress.send(Progress::Incr);
                 }
-                PipelineMessage::End => {
-                    progress.send(Progress::Completed);
+                PipelineMessage::Metrics(metrics) => {
+                    let file_name = format!("{}.metrics", self.count);
+                    self.count += 1;
+                    let file_name = Path::new(&file_name);
+                    let output_file = output_path.join(file_name);
+                    File::create(output_file)
+                        .and_then(|mut f| metrics.write_to(&mut f))
+                        .expect("Should be able to create file to write metrics to");
                 }
+                PipelineMessage::End => {}
             }
             channel.send(message);
         }
@@ -80,7 +78,7 @@ fn create_pcd(point_cloud: &PointCloud<PointXyzRgba>) -> PointCloudData {
             PCDField::new(
                 "rgb".to_string(),
                 PCDFieldSize::Four,
-                PCDFieldType::Float,
+                PCDFieldType::Unsigned,
                 1,
             )
             .unwrap(),

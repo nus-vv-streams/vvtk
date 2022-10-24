@@ -1,14 +1,14 @@
+use crate::render::wgpu::camera::Camera;
 use std::collections::HashMap;
 use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
-use winit::event_loop::{ControlFlow, EventLoop};
+use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowId};
-use crate::render::wgpu::camera::Camera;
 
 #[derive(Debug)]
 pub struct RenderEvent {
     pub(crate) window_id: WindowId,
-    pub(crate) event_type: EventType
+    pub(crate) event_type: EventType,
 }
 
 #[derive(Debug)]
@@ -16,7 +16,7 @@ pub enum EventType {
     MoveTo(usize),
     Toggle,
     Info(RenderInformation),
-    Repaint
+    Repaint,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -35,7 +35,7 @@ pub trait Attachable {
 pub struct WindowedObject {
     pub window: Window,
     pub object: Box<dyn Windowed>,
-    pub focused: bool
+    pub focused: bool,
 }
 
 pub trait Windowed {
@@ -52,19 +52,29 @@ pub struct RenderBuilder {
 impl Default for RenderBuilder {
     fn default() -> Self {
         Self {
-            event_loop: EventLoop::with_user_event(),
-            window_objects: HashMap::new()
+            event_loop: EventLoopBuilder::<RenderEvent>::with_user_event().build(),
+            window_objects: HashMap::new(),
         }
     }
 }
 
 impl RenderBuilder {
     pub fn add_window<T>(&mut self, attachable: T) -> WindowId
-        where T: Attachable, <T as Attachable>::Output: 'static {
+    where
+        T: Attachable,
+        <T as Attachable>::Output: 'static,
+    {
         let (object, window) = attachable.attach(&self.event_loop);
         let id = window.id();
         let object = Box::new(object);
-        self.window_objects.insert(id, WindowedObject { window, object, focused: true });
+        self.window_objects.insert(
+            id,
+            WindowedObject {
+                window,
+                object,
+                focused: true,
+            },
+        );
         id
     }
 
@@ -83,7 +93,7 @@ impl RenderBuilder {
                 }
                 Event::WindowEvent {
                     ref event,
-                    window_id
+                    window_id,
                 } => {
                     if let Some(windowed_object) = self.window_objects.get_mut(window_id) {
                         match event {
@@ -91,21 +101,27 @@ impl RenderBuilder {
                             | WindowEvent::Destroyed
                             | WindowEvent::KeyboardInput {
                                 input:
-                                KeyboardInput {
-                                    state: ElementState::Pressed,
-                                    virtual_keycode: Some(VirtualKeyCode::Escape),
-                                    ..
-                                },
+                                    KeyboardInput {
+                                        state: ElementState::Pressed,
+                                        virtual_keycode: Some(VirtualKeyCode::Escape),
+                                        ..
+                                    },
                                 ..
                             } => {
                                 *control_flow = ControlFlow::Exit;
-                            },
-                            WindowEvent::Resized(physical_size) => { windowed_object.object.resize(*physical_size); }
-                            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => { windowed_object.object.resize(**new_inner_size); }
-                            WindowEvent::Focused(focus) => { windowed_object.focused = *focus },
+                            }
+                            WindowEvent::Resized(physical_size) => {
+                                windowed_object.object.resize(*physical_size);
+                            }
+                            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                                windowed_object.object.resize(**new_inner_size);
+                            }
+                            WindowEvent::Focused(focus) => windowed_object.focused = *focus,
                             _ => {
                                 if windowed_object.focused {
-                                    windowed_object.object.handle_event(&new_event, &windowed_object.window)
+                                    windowed_object
+                                        .object
+                                        .handle_event(&new_event, &windowed_object.window)
                                 }
                             }
                         }
@@ -113,16 +129,28 @@ impl RenderBuilder {
                 }
                 Event::RedrawRequested(window_id) => {
                     if let Some(windowed_object) = self.window_objects.get_mut(window_id) {
-                        windowed_object.object.handle_event(&new_event, &windowed_object.window)
+                        windowed_object
+                            .object
+                            .handle_event(&new_event, &windowed_object.window)
                     }
                 }
                 Event::UserEvent(RenderEvent { window_id, .. }) => {
                     if let Some(windowed_object) = self.window_objects.get_mut(window_id) {
-                        windowed_object.object.handle_event(&new_event, &windowed_object.window)
+                        windowed_object
+                            .object
+                            .handle_event(&new_event, &windowed_object.window)
                     }
                 }
                 _ => {
-                    for (_, WindowedObject { object, window, focused }) in self.window_objects.iter_mut() {
+                    for (
+                        _,
+                        WindowedObject {
+                            object,
+                            window,
+                            focused,
+                        },
+                    ) in self.window_objects.iter_mut()
+                    {
                         if *focused {
                             object.handle_event(&new_event, window);
                         }

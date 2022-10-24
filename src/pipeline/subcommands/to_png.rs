@@ -1,9 +1,8 @@
 use crate::pipeline::channel::Channel;
-use crate::pipeline::{PipelineMessage, Progress};
+use crate::pipeline::PipelineMessage;
 use crate::render::wgpu::png::PngWriter;
 use clap::Parser;
 use std::ffi::OsString;
-use std::sync::mpsc::Sender;
 
 use super::Subcommand;
 
@@ -13,9 +12,6 @@ struct Args {
     /// Directory to store output png images
     #[clap(short, long)]
     output_dir: OsString,
-    /// Number of pcd files to convert
-    #[clap(short = 'n', long)]
-    frames: Option<usize>,
     #[clap(short = 'x', long, default_value_t = 0.0)]
     camera_x: f32,
     #[clap(short = 'y', long, default_value_t = 0.0)]
@@ -40,7 +36,6 @@ impl<'a> ToPng<'a> {
     pub fn from_args(args: Vec<String>) -> Box<dyn Subcommand> {
         let Args {
             output_dir,
-            frames,
             camera_x,
             camera_y,
             camera_z,
@@ -53,7 +48,6 @@ impl<'a> ToPng<'a> {
         Box::from(ToPng {
             writer: PngWriter::new(
                 output_dir,
-                frames,
                 camera_x,
                 camera_y,
                 camera_z,
@@ -67,21 +61,13 @@ impl<'a> ToPng<'a> {
 }
 
 impl Subcommand for ToPng<'_> {
-    fn handle(
-        &mut self,
-        messages: Vec<PipelineMessage>,
-        channel: &Channel,
-        progress: &Sender<Progress>,
-    ) {
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         for message in messages {
             match &message {
                 PipelineMessage::PointCloud(pc) => {
                     self.writer.write_to_png(pc);
-                    progress.send(Progress::Incr);
                 }
-                PipelineMessage::End => {
-                    progress.send(Progress::Completed);
-                }
+                _ => {}
             }
             channel.send(message);
         }

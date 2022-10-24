@@ -4,14 +4,15 @@ mod subcommands;
 
 use std::sync::mpsc::Receiver;
 
-use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
+use crate::{
+    formats::{pointxyzrgba::PointXyzRgba, PointCloud},
+    metrics::Metrics,
+};
 
 use self::{
     executor::Executor,
-    subcommands::{Metrics, Read, Subcommand, ToPng, Write},
+    subcommands::{MetricsCalculator, Read, Subcommand, ToPng, Write},
 };
-
-use clearscreen;
 
 pub type SubcommandCreator = Box<dyn Fn(Vec<String>) -> Box<dyn Subcommand>>;
 
@@ -20,7 +21,7 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
         "write" => Some(Box::from(Write::from_args)),
         "to_png" => Some(Box::from(ToPng::from_args)),
         "read" => Some(Box::from(Read::from_args)),
-        "metrics" => Some(Box::from(Metrics::from_args)),
+        "metrics" => Some(Box::from(MetricsCalculator::from_args)),
         _ => None,
     }
 }
@@ -28,20 +29,20 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
 #[derive(Debug, Clone)]
 pub enum PipelineMessage {
     PointCloud(PointCloud<PointXyzRgba>),
+    Metrics(Metrics),
     End,
 }
 
 #[derive(Debug)]
 pub enum Progress {
     Incr,
-    Length(usize),
     Completed,
 }
 pub struct Pipeline;
 
 impl Pipeline {
     pub fn execute() {
-        let (mut executors, mut progresses) = Self::gather_pipeline_from_args();
+        let (mut executors, progresses) = Self::gather_pipeline_from_args();
         let mut handles = vec![];
         let mut names = vec![];
         let mut progress_recvs = vec![];
@@ -67,7 +68,6 @@ impl Pipeline {
 
         let mut completed = 0;
         let mut progress = vec![0; progress_recvs.len()];
-        let mut length = 0;
         while completed < progress_recvs.len() {
             for (idx, recv) in progress_recvs.iter().enumerate() {
                 while let Ok(prog) = recv.try_recv() {
@@ -78,16 +78,14 @@ impl Pipeline {
                         Progress::Completed => {
                             completed += 1;
                         }
-                        Progress::Length(l) => {
-                            length = l;
-                        }
                     }
                 }
             }
-            clearscreen::clear().expect("Failed to clear screen");
+            println!("=======================");
             for i in 0..progress.len() {
-                println!("{}: {} / {}", names[i], progress[i], length)
+                println!("{}: {}", names[i], progress[i])
             }
+            println!("=======================");
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
 

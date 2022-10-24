@@ -11,6 +11,7 @@ use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
 
 use self::psnr::Psnr;
 
+#[derive(Debug, Clone)]
 pub struct Metrics(BTreeMap<String, String>);
 
 impl Metrics {

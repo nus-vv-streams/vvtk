@@ -1,7 +1,4 @@
-use std::{
-    collections::HashSet,
-    sync::mpsc::{Receiver, Sender},
-};
+use std::sync::mpsc::Receiver;
 
 use super::{
     channel::Channel, subcommands::Subcommand, PipelineMessage, Progress, SubcommandCreator,
@@ -13,7 +10,6 @@ pub struct Executor {
     output_name: String,
     inputs: Vec<Receiver<PipelineMessage>>,
     channel: Channel,
-    progress: Sender<Progress>,
     handler: Box<dyn Subcommand>,
 }
 
@@ -45,15 +41,15 @@ impl Executor {
             }
         }
         let handler = creator(inner_args);
-        let channel = Channel::new();
+
         let (progress_tx, progress_rx) = std::sync::mpsc::channel();
+        let channel = Channel::new(progress_tx);
         let executor = Self {
             name,
             input_stream_names,
             output_name,
             inputs: vec![],
             channel,
-            progress: progress_tx,
             handler,
         };
         (executor, progress_rx)
@@ -85,7 +81,7 @@ impl Executor {
 
     fn start(mut self) {
         if self.inputs.is_empty() {
-            self.handler.handle(vec![], &self.channel, &self.progress);
+            self.handler.handle(vec![], &self.channel);
             return;
         }
         while let Ok(messages) = self
@@ -102,7 +98,7 @@ impl Executor {
                 }
             });
 
-            self.handler.handle(messages, &self.channel, &self.progress);
+            self.handler.handle(messages, &self.channel);
 
             if should_break {
                 break;

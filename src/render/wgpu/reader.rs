@@ -1,6 +1,6 @@
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
-use crate::pcd::{read_pcd_file, PointCloudData};
+use crate::pcd::read_pcd_file;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::fmt::Debug;
 use std::ops::Range;
@@ -63,18 +63,18 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
 }
 
 pub struct PcdMemoryReader {
-    points: Vec<PointCloudData>,
+    points: Vec<PointCloud<PointXyzRgba>>,
 }
 
 impl PcdMemoryReader {
-    pub fn from_vec(points: Vec<PointCloudData>) -> Self {
+    pub fn from_vec(points: Vec<PointCloud<PointXyzRgba>>) -> Self {
         Self { points }
     }
 }
 
 impl RenderReader<PointCloud<PointXyzRgba>> for PcdMemoryReader {
     fn get_at(&self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-        self.points.get(index).map(|p| PointCloud::from(p.clone()))
+        self.points.get(index).map(|pc| pc.clone())
     }
 
     fn len(&self) -> usize {

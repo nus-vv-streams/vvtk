@@ -5,7 +5,7 @@ use crate::render::wgpu::gpu::WindowGpu;
 use egui::{Button, CentralPanel, Context, FontDefinitions, Label, Slider};
 use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
-use epi::{App, Frame};
+use epi::Frame;
 use std::iter;
 use std::sync::Arc;
 use std::time::Instant;
@@ -139,10 +139,6 @@ impl ControlWindow {
             self.prev_slider_position = self.slider_position;
         }
     }
-
-    fn name(&self) -> &str {
-        "Control Window"
-    }
 }
 
 impl Windowed for ControlWindow {
@@ -266,18 +262,14 @@ impl ControlWindow {
             scale_factor: window.scale_factor() as f32,
         };
 
-        self.egui_rpass.add_textures(
-            &self.gpu.device,
-            &self.gpu.queue,
-            &full_output.textures_delta,
-        );
-        // self.egui_rpass.update_texture(
-        //     &self.gpu.device,
-        //     &self.gpu.queue,
-        //     &self.platform.context().font_image(),
-        // );
-        // self.egui_rpass
-        // .update_user_textures(&self.gpu.device, &self.gpu.queue);
+        self.egui_rpass
+            .add_textures(
+                &self.gpu.device,
+                &self.gpu.queue,
+                &full_output.textures_delta,
+            )
+            .expect("Should be able to add textures to control window");
+
         self.egui_rpass.update_buffers(
             &self.gpu.device,
             &self.gpu.queue,
