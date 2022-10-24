@@ -15,7 +15,6 @@ pub mod wgpu {
         impl<'a> PngWriter<'a> {
             pub fn new(
                 output_dir: OsString,
-                frames: Option<usize>,
                 camera_x: f32,
                 camera_y: f32,
                 camera_z: f32,

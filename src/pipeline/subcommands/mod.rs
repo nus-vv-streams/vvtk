@@ -1,8 +1,10 @@
+mod downsample;
 mod metrics;
 mod read;
 mod to_png;
 mod write;
 
+pub use downsample::Downsampler;
 pub use metrics::MetricsCalculator;
 pub use read::Read;
 pub use to_png::ToPng;
