@@ -11,7 +11,7 @@ use crate::{
 
 use self::{
     executor::Executor,
-    subcommands::{Downsampler, MetricsCalculator, Read, Subcommand, ToPng, Write},
+    subcommands::{Downsampler, MetricsCalculator, Read, Subcommand, ToPng, Upsampler, Write},
 };
 
 pub type SubcommandCreator = Box<dyn Fn(Vec<String>) -> Box<dyn Subcommand>>;
@@ -23,6 +23,7 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
         "read" => Some(Box::from(Read::from_args)),
         "metrics" => Some(Box::from(MetricsCalculator::from_args)),
         "downsample" => Some(Box::from(Downsampler::from_args)),
+        "upsample" => Some(Box::from(Upsampler::from_args)),
         _ => None,
     }
 }

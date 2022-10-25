@@ -11,4 +11,5 @@ pub mod pcd;
 pub mod pipeline;
 pub mod ply;
 pub mod render;
+pub mod upsample;
 pub mod utils;
