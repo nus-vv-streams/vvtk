@@ -139,9 +139,9 @@ fn main() {
                 let mut dir = tokio::fs::read_dir(path).await.unwrap();
                 while let Some(entry) = dir.next_entry().await.unwrap() {
                     let f = entry.path();
-                    // if !f.extension().map(|f| "ply".eq(f)).unwrap_or(false) {
-                    //     continue;
-                    // }
+                    if !f.extension().map(|f| "ply".eq(f)).unwrap_or(false) {
+                        continue;
+                    }
                     ply_files.push(f);
                 }
                 total_frames_tx
