@@ -5,12 +5,14 @@ use tempfile::tempdir;
 use vivotk::codec::decoder::{DracoDecoder, NoopDecoder};
 use vivotk::codec::Decoder;
 use vivotk::dash::fetcher::Fetcher;
+use vivotk::formats::pointxyzrgba::PointXyzRgba;
+use vivotk::formats::PointCloud;
 use vivotk::render::wgpu::{
     builder::RenderBuilder,
     camera::Camera,
     controls::Controller,
     metrics_reader::MetricsReader,
-    reader::{PcdAsyncReader, RenderReader},
+    reader::{FrameRequest, PcdAsyncReader, RenderReader},
     renderer::Renderer,
 };
 use vivotk::utils::read_file_to_point_cloud;
@@ -42,8 +44,8 @@ struct Args {
     height: u32,
     #[clap(long = "controls")]
     show_controls: bool,
-    #[clap(short, long, default_value_t = 1)]
-    buffer_size: usize,
+    #[clap(short, long)]
+    buffer_size: Option<u8>,
     #[clap(short, long)]
     metrics: Option<OsString>,
     #[clap(long, value_enum, default_value_t = DecoderType::Noop)]
@@ -58,14 +60,59 @@ enum DecoderType {
     Draco,
 }
 
+async fn handle_frame_req(
+    fetcher: Fetcher,
+    req: FrameRequest,
+    decoder_path: Option<OsString>,
+    decoder_type: DecoderType,
+    resp_tx: std::sync::mpsc::Sender<(FrameRequest, PointCloud<PointXyzRgba>)>,
+) {
+    let p = fetcher
+        .download(req.object_id, req.quality, req.frame_offset)
+        .await;
+    let p = match p {
+        Ok(p) => p,
+        Err(e) => {
+            println!("Error downloading file: {}", e);
+            return;
+        }
+    };
+
+    println!("Downloaded frame {} successfully", req.frame_offset);
+    // Run decoder if needed
+    let decoded_files = tokio::task::spawn_blocking(move || match decoder_type {
+        DecoderType::Draco => {
+            DracoDecoder::new(decoder_path.as_ref().unwrap().as_os_str()).decode(p.as_os_str())
+        }
+        _ => NoopDecoder::new().decode(&p.as_os_str()),
+    })
+    .await
+    .unwrap();
+    println!("Decoded frame {} successfully", req.frame_offset);
+
+    for f in decoded_files {
+        let pcd = read_file_to_point_cloud(&f).unwrap();
+        println!(
+            "reading decoded file {} and sending pcd...",
+            f.to_str().unwrap()
+        );
+        // FIXME: this assumes 1 decoded file per frame
+        resp_tx.send((req.clone(), pcd)).unwrap();
+    }
+}
+
 fn main() {
     let args: Args = Args::parse();
-    let rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(4)
+        .enable_all()
+        .build()
+        .unwrap();
     // important to use tokio::mpsc here instead of std because it is bridging from sync -> async
     let (req_tx, mut req_rx) = tokio::sync::mpsc::unbounded_channel();
     let (resp_tx, resp_rx) = std::sync::mpsc::channel();
     let (total_frames_tx, total_frames_rx) = tokio::sync::oneshot::channel();
-    let mut reader = PcdAsyncReader::new(resp_rx, req_tx);
+    let mut reader = PcdAsyncReader::new(resp_rx, req_tx, args.buffer_size);
 
     // copy variables to be moved into the async block
     let src = args.src.clone();
@@ -92,41 +139,11 @@ fn main() {
                     let decoder_path = decoder_path.clone();
                     let resp_tx = resp_tx.clone();
                     _ = tokio::spawn(async move {
-                        let p = fetcher
-                            .download(req.object_id, req.quality, req.frame_offset)
-                            .await;
-                        let p = match p {
-                            Ok(p) => p,
-                            Err(e) => {
-                                println!("Error downloading file: {}", e);
-                                return;
-                            }
-                        };
-
-                        println!("Downloaded {} successfully", p.to_str().unwrap());
-                        // Run decoder if needed
-                        let decoded_files =
-                            tokio::task::spawn_blocking(move || match decoder_type {
-                                DecoderType::Draco => {
-                                    DracoDecoder::new(decoder_path.as_ref().unwrap().as_os_str())
-                                        .decode(p.as_os_str())
-                                }
-                                _ => NoopDecoder::new().decode(&p.as_os_str()),
-                            })
-                            .await
-                            .unwrap();
-                        println!("Decoded {:?} successfully", decoded_files);
-
-                        for f in decoded_files {
-                            let pcd = read_file_to_point_cloud(&f).unwrap();
-                            println!(
-                                "reading decoded file {} and sending pcd...",
-                                f.to_str().unwrap()
-                            );
-                            resp_tx.send(pcd).unwrap();
-                        }
-                    })
-                    .await;
+                        std::mem::drop(
+                            handle_frame_req(fetcher, req, decoder_path, decoder_type, resp_tx)
+                                .await,
+                        );
+                    });
                 }
 
                 // use tmpdir here so it is not dropped before
@@ -155,7 +172,7 @@ fn main() {
                         &ply_files.get(req.frame_offset as usize).unwrap(),
                     )
                     .unwrap();
-                    resp_tx.send(pcd).unwrap();
+                    resp_tx.send((req, pcd)).unwrap();
                 }
             };
         });

@@ -109,7 +109,7 @@ where
 
     // Playback
     current_position: usize,
-    fps: f32,
+    fps: f32, // the average playout fps
     time_to_advance: std::time::Duration,
     state: PlaybackState,
     time_since_last_update: std::time::Duration,
@@ -194,11 +194,6 @@ where
         let initial_render = reader
             .start()
             .expect("There should be at least one point cloud to render!");
-        for i in 1..9 {
-            println!("called get_at {}", i);
-            reader.get_at(i);
-            println!("get_at {} returned", i);
-        }
         let pcd_renderer = PointCloudRenderer::new(
             &gpu.device,
             gpu.config.format,
@@ -256,14 +251,24 @@ where
     }
 
     fn move_to(&mut self, position: usize) {
-        if position < self.reader.len() {
-            if self.update_vertices() {
-                self.current_position = position;
-            } else {
-                std::thread::sleep(std::time::Duration::from_millis(30));
-            }
-            self.update_stats();
+        if position >= self.reader.len() {
+            return;
         }
+        let now = Instant::now();
+        let tmp = self.current_position;
+        self.current_position = position;
+        if !self.update_vertices() {
+            self.current_position = tmp;
+        }
+        self.update_stats();
+        // FIXME: avg_fps might not be accurately when a frame fails to render. but it's not a big deal
+        let time_taken = now.elapsed();
+        println!(
+            "time taken: {}",
+            time_taken.max(self.time_to_advance).as_secs_f32()
+        );
+        self.fps =
+            0.9 * self.fps + 0.1 * (1.0 / time_taken.max(self.time_to_advance).as_secs_f32());
     }
 
     fn back(&mut self) {
@@ -273,6 +278,10 @@ where
     }
 
     fn advance(&mut self) {
+        // println!(
+        //     "[renderer.rs] advanced called. current_position: {}",
+        //     self.current_position
+        // );
         if self.current_position == self.reader.len() - 1 {
             self.move_to(0);
         } else {
@@ -280,12 +289,8 @@ where
         }
     }
 
-    fn current_position(&self) -> usize {
-        self.current_position
-    }
-
     fn current(&mut self) -> Option<U> {
-        self.reader.get_at(self.current_position())
+        self.reader.get_at(self.current_position)
     }
 
     fn handle_device_event(&mut self, event: &DeviceEvent) {
