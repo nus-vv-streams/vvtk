@@ -53,6 +53,9 @@ serde_with = { version = "2", optional = true }
 quick-xml = { version = "0.25", features = ["serialize"], optional = true }
 crossbeam-channel = "0.5.6"
 
+[dev-dependencies]
+criterion = "0.3"
+
 [[bin]]
 name = "ply_play"
 required-features = ["render", "dash"]
@@ -67,3 +70,7 @@ name = "vivotk"
 default = ["render", "dash"]
 render = ["dep:winit", "dep:wgpu", "dep:wgpu_glyph", "dep:egui", "dep:egui_winit_platform", "dep:egui_wgpu_backend", "dep:epi"]
 dash = ["dep:reqwest", "dep:regex", "dep:tempfile", "dep:serde", "dep:serde_with", "dep:quick-xml", "dep:tokio", "dep:futures"]
+
+[[bench]]
+name = "reader"
+harness = false

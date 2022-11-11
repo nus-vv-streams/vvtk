@@ -1,6 +1,7 @@
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
 use crate::pcd::read_pcd_file;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
@@ -104,12 +105,15 @@ pub struct PcdAsyncReader {
     current_frame: u64,
     next_to_get: u64,
     total_frames: u64,
-    rx: Receiver<PointCloud<PointXyzRgba>>,
+    /// PcdAsyncReader tries to maintain this level of buffer occupancy at any time
+    buffer_size: u8,
+    buffer: HashMap<FrameRequest, PointCloud<PointXyzRgba>>,
+    rx: Receiver<(FrameRequest, PointCloud<PointXyzRgba>)>,
     tx: UnboundedSender<FrameRequest>,
 }
 
 #[cfg(feature = "dash")]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FrameRequest {
     pub object_id: u8,
     pub quality: u8,
@@ -118,43 +122,30 @@ pub struct FrameRequest {
 
 #[cfg(feature = "dash")]
 impl PcdAsyncReader {
-    pub fn new(rx: Receiver<PointCloud<PointXyzRgba>>, tx: UnboundedSender<FrameRequest>) -> Self {
+    pub fn new(
+        rx: Receiver<(FrameRequest, PointCloud<PointXyzRgba>)>,
+        tx: UnboundedSender<FrameRequest>,
+        buffer_size: Option<u8>,
+    ) -> Self {
+        let buffer_size = buffer_size.unwrap_or(10);
         Self {
             current_frame: 0,
             next_to_get: 0,
             rx,
             tx,
+            buffer_size,
+            buffer: HashMap::with_capacity(buffer_size as usize),
             total_frames: 30, // default number of frames
         }
     }
-}
 
-#[cfg(feature = "dash")]
-impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
-    fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
-        for i in 0..9 {
-            self.tx
-                .send(FrameRequest {
-                    object_id: 0,
-                    quality: 0,
-                    frame_offset: i,
-                })
-                .unwrap();
-        }
-        self.next_to_get = 9;
-        loop {
-            if let Some(data) = self.get_at(0) {
-                self.current_frame += 1;
-                break Some(data);
-            }
-            std::thread::sleep(std::time::Duration::from_secs(1));
-        }
-    }
-
-    fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-        println!("get_at called with {}", index);
-
-        if self.next_to_get - self.current_frame < 10 {
+    fn send_next_req(&mut self) {
+        println!(
+            "next_to_get {}, current_frame {}, buffer_size {}",
+            self.next_to_get, self.current_frame, self.buffer_size
+        );
+        while self.next_to_get - self.current_frame < self.buffer_size as u64 {
+            // FIXME: change the object_id and quality.
             self.tx
                 .send(FrameRequest {
                     object_id: 0u8,
@@ -164,13 +155,65 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
                 .unwrap();
             self.next_to_get = (self.next_to_get + 1) % (self.len() as u64);
         }
+    }
+}
 
-        println!("get_at returned... {}", index);
-        if let Ok(data) = self.rx.try_recv() {
+#[cfg(feature = "dash")]
+impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
+    fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
+        for i in 0..self.buffer_size {
+            self.tx
+                .send(FrameRequest {
+                    object_id: 0,
+                    quality: 0,
+                    frame_offset: i as u64,
+                })
+                .unwrap();
+        }
+        self.next_to_get = self.buffer_size as u64;
+        loop {
+            if let Some(data) = self.get_at(0) {
+                break Some(data);
+            }
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
+    }
+
+    fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
+        println!(
+            "get_at called with {}. buffer occupancy is {}",
+            index,
+            self.buffer.len()
+        );
+        let index = index as u64;
+
+        // remove if we have in the buffer.
+        // FIXME: change the object_id and quality.
+        if let Some(data) = self.buffer.remove(&FrameRequest {
+            object_id: 0u8,
+            quality: 0u8,
+            frame_offset: index,
+        }) {
+            println!("get_at returned from buffer ... {}", index);
             self.current_frame = (self.current_frame + 1) % (self.len() as u64);
-            Some(data)
-        } else {
-            None
+            self.send_next_req();
+            return Some(data);
+        }
+
+        loop {
+            println!("{} looping...", index);
+            if let Ok((req, data)) = self.rx.recv() {
+                if req.frame_offset == index {
+                    println!("get_at returned from channel ... {}", req.frame_offset);
+                    self.current_frame = (self.current_frame + 1) % (self.len() as u64);
+                    self.send_next_req();
+                    return Some(data);
+                }
+
+                // enqueues the data into our buffer and preemptively start the next request.
+                println!("get_at buffers... {}", req.frame_offset);
+                self.buffer.insert(req, data);
+            }
         }
     }
 

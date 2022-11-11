@@ -46,8 +46,8 @@ impl Attachable for Controller {
             .with_transparent(false)
             .with_title("Controls")
             .with_inner_size(winit::dpi::PhysicalSize {
-                width: 300i32,
-                height: 150i32,
+                width: 600i32,
+                height: 300i32,
             })
             .build(event_loop)
             .unwrap();
@@ -131,6 +131,7 @@ impl ControlWindow {
                     "Camera Pitch: {:?}",
                     cgmath::Deg::from(info.camera.pitch)
                 )));
+                ui.add(Label::new(&format!("Avg fps: {:?}", info.fps)));
             }
         });
 

@@ -24,7 +24,7 @@ async fn fetch_mpd(mpd_url: &str, http_client: &HttpClient) -> Result<String> {
 impl Fetcher {
     pub async fn new<P: Into<PathBuf>>(mpd_url: &str, download_dir: P) -> Fetcher {
         let client = reqwest::Client::builder()
-            .timeout(Duration::new(10, 0))
+            .timeout(Duration::new(30, 0))
             .gzip(true)
             .build()
             .context("building reqwest HTTP client")
@@ -48,7 +48,14 @@ impl Fetcher {
         let output_path = self
             .download_dir
             .join(generate_filename_from_url(url.as_str()));
-        println!("Downloading {} to {}", url, output_path.display());
+        // TODO: add check if file exists.. no need to download again..
+        let now = std::time::Instant::now();
+        // println!(
+        //     "[Fetcher] ({:?}) Downloading {} to {}",
+        //     now,
+        //     url,
+        //     output_path.display()
+        // );
         let (content, file) = tokio::join!(
             self.http_client
                 .get(&url)
@@ -56,8 +63,24 @@ impl Fetcher {
                 .and_then(|resp| resp.bytes()),
             File::create(&output_path)
         );
-        println!("Downloaded {}", url);
+        let elapsed = now.elapsed();
+        let now = std::time::Instant::now();
+        println!(
+            "[Fetcher] ({:?}) downloaded frame {} in {}.{:06}us",
+            now,
+            frame,
+            elapsed.as_secs(),
+            elapsed.subsec_micros(),
+        );
         tokio::io::copy(&mut content?.as_ref(), &mut file?).await?;
+        // let elapsed = now.elapsed();
+        // println!(
+        //     "[Fetcher] ({:?}) write frame {} in {}.{:06}us",
+        //     now,
+        //     frame,
+        //     elapsed.as_secs(),
+        //     elapsed.subsec_micros(),
+        // );
         Ok(output_path)
     }
 
