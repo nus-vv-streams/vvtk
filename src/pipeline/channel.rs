@@ -1,6 +1,8 @@
-use std::sync::mpsc::{channel, Receiver, Sender};
+use crossbeam_channel::{bounded, Receiver, Sender};
 
 use super::{PipelineMessage, Progress};
+
+const MAX_MESSAGES: usize = 30;
 
 pub struct Channel {
     progress_tx: Sender<Progress>,
@@ -33,7 +35,7 @@ impl Channel {
     }
 
     pub fn subscribe(&mut self) -> Receiver<PipelineMessage> {
-        let (tx, rx) = channel();
+        let (tx, rx) = bounded(MAX_MESSAGES);
         self.listeners.push(tx);
         rx
     }

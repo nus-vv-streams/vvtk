@@ -1,4 +1,4 @@
-use std::sync::mpsc::Receiver;
+use crossbeam_channel::{unbounded, Receiver};
 
 use super::{
     channel::Channel, subcommands::Subcommand, PipelineMessage, Progress, SubcommandCreator,
@@ -42,7 +42,7 @@ impl Executor {
         }
         let handler = creator(inner_args);
 
-        let (progress_tx, progress_rx) = std::sync::mpsc::channel();
+        let (progress_tx, progress_rx) = unbounded();
         let channel = Channel::new(progress_tx);
         let executor = Self {
             name,

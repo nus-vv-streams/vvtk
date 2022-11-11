@@ -2,7 +2,7 @@ mod channel;
 mod executor;
 mod subcommands;
 
-use std::sync::mpsc::Receiver;
+use crossbeam_channel::Receiver;
 
 use crate::{
     formats::{pointxyzrgba::PointXyzRgba, PointCloud},

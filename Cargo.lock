@@ -3050,6 +3050,7 @@ dependencies = [
  "cgmath",
  "clap",
  "clipboard",
+ "crossbeam-channel",
  "egui 0.19.0",
  "egui_wgpu_backend",
  "egui_winit_platform",
