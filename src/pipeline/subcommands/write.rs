@@ -1,11 +1,7 @@
 use clap::Parser;
+use log::warn;
 
-use crate::formats::pointxyzrgba::PointXyzRgba;
-use crate::formats::PointCloud;
-use crate::pcd::{
-    write_pcd_file, PCDDataType, PCDField, PCDFieldSize, PCDFieldType, PCDHeader, PCDVersion,
-    PointCloudData,
-};
+use crate::pcd::{write_pcd_file, PCDDataType};
 use crate::pipeline::channel::Channel;
 use crate::pipeline::PipelineMessage;
 use std::fs::File;
@@ -43,13 +39,13 @@ impl Subcommand for Write {
             match &message {
                 PipelineMessage::PointCloud(pc) => {
                     let pcd_data_type = self.args.pcd.expect("PCD data type should be provided");
-                    let pcd = create_pcd(pc);
+                    let pcd = pc.into();
                     let file_name = format!("{}.pcd", self.count);
                     self.count += 1;
                     let file_name = Path::new(&file_name);
                     let output_file = output_path.join(file_name);
                     if let Err(e) = write_pcd_file(&pcd, pcd_data_type, &output_file) {
-                        println!("Failed to write {:?}\n{e}", output_file);
+                        warn!("Failed to write {:?}\n{e}", output_file);
                     }
                 }
                 PipelineMessage::Metrics(metrics) => {
@@ -66,36 +62,4 @@ impl Subcommand for Write {
             channel.send(message);
         }
     }
-}
-
-fn create_pcd(point_cloud: &PointCloud<PointXyzRgba>) -> PointCloudData {
-    let header = PCDHeader::new(
-        PCDVersion::V0_7,
-        vec![
-            PCDField::new("x".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
-            PCDField::new("y".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
-            PCDField::new("z".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
-            PCDField::new(
-                "rgb".to_string(),
-                PCDFieldSize::Four,
-                PCDFieldType::Unsigned,
-                1,
-            )
-            .unwrap(),
-        ],
-        point_cloud.number_of_points as u64,
-        1,
-        [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-        point_cloud.number_of_points as u64,
-    )
-    .unwrap();
-    let bytes = unsafe {
-        let mut points = std::mem::ManuallyDrop::new(point_cloud.points.clone());
-        Vec::from_raw_parts(
-            points.as_mut_ptr() as *mut u8,
-            point_cloud.number_of_points * std::mem::size_of::<PointXyzRgba>(),
-            points.capacity() * std::mem::size_of::<PointXyzRgba>(),
-        )
-    };
-    PointCloudData::new(header, bytes).unwrap()
 }

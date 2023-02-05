@@ -2,6 +2,10 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt::{Debug, Formatter};
 use std::str::FromStr;
 
+use serde::Serialize;
+
+use crate::formats::PointCloud;
+
 /// This struct represents a single .pcd file
 pub struct PointCloudData {
     pub(crate) header: PCDHeader,
@@ -27,6 +31,37 @@ impl PointCloudData {
 
     pub fn data(&self) -> &[u8] {
         &self.data
+    }
+}
+
+impl<T> From<&PointCloud<T>> for PointCloudData
+where
+    T: Clone + Serialize,
+{
+    fn from(point_cloud: &PointCloud<T>) -> Self {
+        let header = PCDHeader::new(
+            PCDVersion::V0_7,
+            vec![
+                PCDField::new("x".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
+                PCDField::new("y".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
+                PCDField::new("z".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
+                PCDField::new(
+                    "rgb".to_string(),
+                    PCDFieldSize::Four,
+                    PCDFieldType::Unsigned,
+                    1,
+                )
+                .unwrap(),
+            ],
+            point_cloud.number_of_points as u64,
+            1,
+            [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+            point_cloud.number_of_points as u64,
+        )
+        .unwrap();
+        // bincode makes use of serde to serialize the data into bytes
+        let bytes = bincode::serialize(&point_cloud.points).unwrap();
+        PointCloudData::new(header, bytes[8..].into()).unwrap()
     }
 }
 
