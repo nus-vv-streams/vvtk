@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use kiddo::{distance::squared_euclidean, KdTree};
+use log::warn;
 
 use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
 
@@ -74,7 +75,7 @@ pub fn upsample(point_cloud: PointCloud<PointXyzRgba>, factor: usize) -> PointCl
                     }
                 }
                 Err(e) => {
-                    println!("{:?}", e);
+                    warn!("{:?}", e);
                     continue;
                 }
             }

@@ -1,6 +1,7 @@
 use super::parser::PCCDashParser;
 use anyhow::{Context, Result};
 use futures::TryFutureExt;
+use log::info;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::fs::File;
@@ -50,7 +51,7 @@ impl Fetcher {
             .join(generate_filename_from_url(url.as_str()));
         // TODO: add check if file exists.. no need to download again..
         let now = std::time::Instant::now();
-        // println!(
+        // trace!(
         //     "[Fetcher] ({:?}) Downloading {} to {}",
         //     now,
         //     url,
@@ -65,7 +66,7 @@ impl Fetcher {
         );
         let elapsed = now.elapsed();
         let now = std::time::Instant::now();
-        println!(
+        info!(
             "[Fetcher] ({:?}) downloaded frame {} in {}.{:06}us",
             now,
             frame,
@@ -74,7 +75,7 @@ impl Fetcher {
         );
         tokio::io::copy(&mut content?.as_ref(), &mut file?).await?;
         // let elapsed = now.elapsed();
-        // println!(
+        // debug!(
         //     "[Fetcher] ({:?}) write frame {} in {}.{:06}us",
         //     now,
         //     frame,

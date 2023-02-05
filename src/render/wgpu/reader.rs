@@ -1,6 +1,7 @@
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
 use crate::pcd::read_pcd_file;
+use log::{debug, trace};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
@@ -140,7 +141,7 @@ impl PcdAsyncReader {
     }
 
     fn send_next_req(&mut self) {
-        println!(
+        debug!(
             "next_to_get {}, current_frame {}, buffer_size {}",
             self.next_to_get, self.current_frame, self.buffer_size
         );
@@ -180,7 +181,7 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
     }
 
     fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-        println!(
+        trace!(
             "get_at called with {}. buffer occupancy is {}",
             index,
             self.buffer.len()
@@ -194,24 +195,24 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
             quality: 0u8,
             frame_offset: index,
         }) {
-            println!("get_at returned from buffer ... {}", index);
+            trace!("get_at returned from buffer ... {}", index);
             self.current_frame = (self.current_frame + 1) % (self.len() as u64);
             self.send_next_req();
             return Some(data);
         }
 
         loop {
-            println!("{} looping...", index);
+            trace!("{} looping...", index);
             if let Ok((req, data)) = self.rx.recv() {
                 if req.frame_offset == index {
-                    println!("get_at returned from channel ... {}", req.frame_offset);
+                    debug!("get_at returned from channel ... {}", req.frame_offset);
                     self.current_frame = (self.current_frame + 1) % (self.len() as u64);
                     self.send_next_req();
                     return Some(data);
                 }
 
                 // enqueues the data into our buffer and preemptively start the next request.
-                println!("get_at buffers... {}", req.frame_offset);
+                debug!("get_at buffers... {}", req.frame_offset);
                 self.buffer.insert(req, data);
             }
         }

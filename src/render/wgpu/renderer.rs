@@ -4,6 +4,7 @@ use crate::render::wgpu::builder::{
 use crate::render::wgpu::camera::{Camera, CameraState, CameraUniform};
 use crate::render::wgpu::gpu::WindowGpu;
 use crate::render::wgpu::reader::RenderReader;
+use log::info;
 use std::iter;
 use std::marker::PhantomData;
 use std::time::{Duration, Instant};
@@ -263,7 +264,7 @@ where
         self.update_stats();
         // FIXME: avg_fps might not be accurately when a frame fails to render. but it's not a big deal
         let time_taken = now.elapsed();
-        println!(
+        info!(
             "time taken: {}",
             time_taken.max(self.time_to_advance).as_secs_f32()
         );
