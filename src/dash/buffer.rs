@@ -5,6 +5,7 @@ use tokio::sync::{mpsc, Mutex};
 /// This is a bounded buffer.
 pub struct Buffer<T> {
     tx: mpsc::Sender<T>,
+    capacity: usize,
     length: Arc<Mutex<usize>>,
 }
 
@@ -19,6 +20,7 @@ where
             Self {
                 tx: decoder_tx,
                 length: length.clone(),
+                capacity,
             },
             Receiver {
                 chan: decoder_rx,
@@ -35,6 +37,10 @@ where
     /// this function might be sometimes off by 1 when used concurrently.
     pub async fn len_approx(&self) -> usize {
         *self.length.lock().await
+    }
+
+    pub async fn slack(&self) -> usize {
+        self.capacity - self.len_approx().await
     }
 }
 
