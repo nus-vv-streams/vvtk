@@ -1,7 +1,6 @@
 use super::parser::PCCDashParser;
 use anyhow::{Context, Result};
-use futures::TryFutureExt;
-use log::info;
+use futures::future;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::fs::File;
@@ -14,6 +13,8 @@ pub struct Fetcher {
     parser: PCCDashParser,
     download_dir: PathBuf,
 }
+
+pub struct FetchResult(pub [Option<PathBuf>; 6]);
 
 async fn fetch_mpd(mpd_url: &str, http_client: &HttpClient) -> Result<String> {
     let resp = http_client.get(mpd_url).send().await?;
@@ -43,37 +44,51 @@ impl Fetcher {
     }
 
     // object_id is adaptation set id
-    // quality is representation id (0 is highest quality)
-    pub async fn download(&self, object_id: u8, quality: u8, frame: u64) -> Result<PathBuf> {
-        let url = self.parser.get_url(object_id, quality, frame);
-        let output_path = self
-            .download_dir
-            .join(generate_filename_from_url(url.as_str()));
+    pub async fn download(&self, object_id: u8, frame: u64) -> Result<FetchResult> {
+        let mut paths = core::array::from_fn(|_| None);
+
+        // quality is representation id (0 is highest quality)
+        let mut urls: [String; 6] = core::array::from_fn(|_| String::new());
+
+        for i in 0..6 {
+            // TODO: fix hard code representation id
+            urls[i] = self.parser.get_url(object_id, 1, i as u8, frame);
+            let output_path = self
+                .download_dir
+                .join(generate_filename_from_url(urls[i].as_str()));
+            paths[i] = Some(output_path);
+        }
         // TODO: add check if file exists.. no need to download again..
-        let now = std::time::Instant::now();
+        // let now = std::time::Instant::now();
         // trace!(
         //     "[Fetcher] ({:?}) Downloading {} to {}",
         //     now,
         //     url,
         //     output_path.display()
         // );
-        let (content, file) = tokio::join!(
-            self.http_client
-                .get(&url)
-                .send()
-                .and_then(|resp| resp.bytes()),
-            File::create(&output_path)
-        );
-        let elapsed = now.elapsed();
-        let now = std::time::Instant::now();
-        info!(
-            "[Fetcher] ({:?}) downloaded frame {} in {}.{:06}us",
-            now,
-            frame,
-            elapsed.as_secs(),
-            elapsed.subsec_micros(),
-        );
-        tokio::io::copy(&mut content?.as_ref(), &mut file?).await?;
+        let contents = future::join_all(urls.into_iter().map(|url| {
+            let client = &self.http_client;
+            async move {
+                dbg!(&url);
+                let resp = client.get(url).send().await?;
+                resp.bytes().await
+            }
+        }))
+        .await;
+        // let elapsed = now.elapsed();
+        // let now = std::time::Instant::now();
+        // info!(
+        //     "[Fetcher] ({:?}) downloaded frame {} in {}.{:06}us",
+        //     now,
+        //     frame,
+        //     elapsed.as_secs(),
+        //     elapsed.subsec_micros(),
+        // );
+        for (i, content) in contents.into_iter().enumerate() {
+            let mut file = File::create(&paths[i].clone().unwrap()).await?;
+            tokio::io::copy(&mut content?.as_ref(), &mut file).await?;
+        }
+        // tokio::io::copy(&mut content?.as_ref(), &mut file?).await?;
         // let elapsed = now.elapsed();
         // debug!(
         //     "[Fetcher] ({:?}) write frame {} in {}.{:06}us",
@@ -82,11 +97,15 @@ impl Fetcher {
         //     elapsed.as_secs(),
         //     elapsed.subsec_micros(),
         // );
-        Ok(output_path)
+        Ok(FetchResult(paths))
     }
 
-    pub fn get_total_frames(&self) -> usize {
-        self.parser.get_total_frames()
+    pub fn total_frames(&self) -> usize {
+        self.parser.total_frames()
+    }
+
+    pub fn segment_size(&self) -> u64 {
+        self.parser.segment_size()
     }
 }
 

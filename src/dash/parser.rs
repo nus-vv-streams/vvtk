@@ -57,8 +57,20 @@ impl PCCDashParser {
         }
     }
 
-    pub fn get_total_frames(&self) -> usize {
+    pub fn total_frames(&self) -> usize {
         *self.framestamps.last().unwrap() as usize
+    }
+
+    pub fn segment_size(&self) -> u64 {
+        self.mpd.periods[0].adaptations.as_ref().unwrap()[0]
+            .representations
+            .as_ref()
+            .unwrap()[0]
+            .segment_template
+            .as_ref()
+            .unwrap()
+            .duration
+            .unwrap()
     }
 
     // From https://dashif.org/docs/DASH-IF-IOP-v4.3.pdf:
@@ -97,8 +109,9 @@ impl PCCDashParser {
     // frame offset is calculated from the beginning of the video / MPD
     pub fn get_url(
         &self,
-        adaptation_set_id: u8,
+        object_id: u8,
         representation_id: u8,
+        view_id: u8,
         frame_offset: u64,
     ) -> String {
         let period_idx =
@@ -113,7 +126,11 @@ impl PCCDashParser {
             .adaptations
             .as_ref()
             .unwrap()
-            .get(adaptation_set_id as usize)
+            .iter()
+            .find(|as_| {
+                as_.viewId.unwrap_or_default() == view_id as u64
+                    && as_.srcObjectId.unwrap_or_default() == object_id as u64
+            })
             .unwrap();
         let representation = adaptation_set
             .representations
@@ -126,7 +143,7 @@ impl PCCDashParser {
         base_url
             + self
                 .resolve_url_template(
-                    &media,
+                    media,
                     &HashMap::from_iter(vec![
                         (
                             "RepresentationID",
@@ -134,7 +151,8 @@ impl PCCDashParser {
                         ),
                         (
                             "Number",
-                            (frame_offset - self.framestamps.get(period_idx).unwrap()
+                            ((frame_offset - self.framestamps.get(period_idx).unwrap())
+                                * st.duration.unwrap()
                                 + st.startNumber.expect("start number not provided"))
                             .to_string(),
                         ),
@@ -287,7 +305,7 @@ pub(super) struct SegmentTemplate {
     // note: the spec says this is an unsigned int, not an xs:duration. In practice, some manifests
     // use a floating point value (eg.
     // https://dash.akamaized.net/akamai/bbb_30fps/bbb_with_multiple_tiled_thumbnails.mpd)
-    pub duration: Option<f64>,
+    pub duration: Option<u64>,
     pub timescale: Option<u64>,
 }
 
@@ -327,6 +345,8 @@ pub(super) struct AdaptationSet {
     pub mimeType: Option<String>,
     #[serde(rename = "Representation")]
     pub representations: Option<Vec<Representation>>,
+    pub viewId: Option<u64>,
+    pub srcObjectId: Option<u64>,
 }
 
 /// Describes a chunk of the content with a start time and a duration. Content can be split up into
@@ -442,7 +462,7 @@ mod tests {
             <MPD format="pointcloud/pcd" type="static">
                 <BaseURL>http://localhost:3000/</BaseURL>
                 <Period id="1" duration="PT10S">
-                    <AdaptationSet id="0">
+                    <AdaptationSet viewId="0">
                         <Representation id="0" bandwidth="13631488">
                             <SegmentTemplate media="longdress/$RepresentationID$/longdress_vox10_$Number$.ply" duration="1" timescale="30" startNumber="1051"></SegmentTemplate>
                         </Representation>
@@ -467,7 +487,7 @@ mod tests {
         let reprs = first_ad.representations.as_ref().unwrap();
         assert_eq!(reprs.len(), 3);
         assert_eq!(
-            p.get_url(0, 2, 4),
+            p.get_url(0, 2, 0, 4),
             p.get_base_url() + "longdress/2/longdress_vox10_1055.ply"
         );
     }

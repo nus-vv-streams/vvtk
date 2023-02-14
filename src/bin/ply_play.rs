@@ -1,12 +1,11 @@
 use clap::Parser;
+use log::{debug, warn};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
-use vivotk::codec::decoder::{DracoDecoder, NoopDecoder};
+use vivotk::codec::decoder::{DracoDecoder, MultiplaneDecodeReq, MultiplaneDecoder, NoopDecoder};
 use vivotk::codec::Decoder;
-use vivotk::dash::fetcher::Fetcher;
-use vivotk::formats::pointxyzrgba::PointXyzRgba;
-use vivotk::formats::PointCloud;
+use vivotk::dash::fetcher::{FetchResult, Fetcher};
 use vivotk::render::wgpu::{
     builder::RenderBuilder,
     camera::Camera,
@@ -58,92 +57,76 @@ struct Args {
 enum DecoderType {
     Noop,
     Draco,
-}
-
-async fn handle_frame_req(
-    fetcher: Fetcher,
-    req: FrameRequest,
-    decoder_path: Option<OsString>,
-    decoder_type: DecoderType,
-    resp_tx: std::sync::mpsc::Sender<(FrameRequest, PointCloud<PointXyzRgba>)>,
-) {
-    let p = fetcher
-        .download(req.object_id, req.quality, req.frame_offset)
-        .await;
-    let p = match p {
-        Ok(p) => p,
-        Err(e) => {
-            println!("Error downloading file: {}", e);
-            return;
-        }
-    };
-
-    println!("Downloaded frame {} successfully", req.frame_offset);
-    // Run decoder if needed
-    let decoded_files = tokio::task::spawn_blocking(move || match decoder_type {
-        DecoderType::Draco => {
-            DracoDecoder::new(decoder_path.as_ref().unwrap().as_os_str()).decode(p.as_os_str())
-        }
-        _ => NoopDecoder::new().decode(&p.as_os_str()),
-    })
-    .await
-    .unwrap();
-    println!("Decoded frame {} successfully", req.frame_offset);
-
-    for f in decoded_files {
-        let pcd = read_file_to_point_cloud(&f).unwrap();
-        println!(
-            "reading decoded file {} and sending pcd...",
-            f.to_str().unwrap()
-        );
-        // FIXME: this assumes 1 decoded file per frame
-        resp_tx.send((req.clone(), pcd)).unwrap();
-    }
+    Multiplane,
 }
 
 fn main() {
     let args: Args = Args::parse();
-    let rt = tokio::runtime::Builder::new_multi_thread()
+    let fetcher_rt = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
+        .unwrap();
+    let decoder_rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(4)
         .enable_all()
         .build()
         .unwrap();
     // important to use tokio::mpsc here instead of std because it is bridging from sync -> async
-    let (req_tx, mut req_rx) = tokio::sync::mpsc::unbounded_channel();
-    let (resp_tx, resp_rx) = std::sync::mpsc::channel();
+    // the content is sent by the renderer and read by the fetcher
+    let (frame_req_tx, mut frame_req_rx) = tokio::sync::mpsc::unbounded_channel();
+    let (decoder_tx, mut decoder_rx) = tokio::sync::mpsc::channel(100);
+    // the content is sent by the decoder and read by the renderer
+    let (pc_tx, pc_rx) = std::sync::mpsc::channel();
+    // the total frame number we are expecting. This is for display purposes in the renderer only.
     let (total_frames_tx, total_frames_rx) = tokio::sync::oneshot::channel();
-    let mut reader = PcdAsyncReader::new(resp_rx, req_tx, args.buffer_size);
 
     // copy variables to be moved into the async block
     let src = args.src.clone();
     let decoder_type = args.decoder_type;
     let decoder_path = args.decoder_path.clone();
+    let pc_tx2 = pc_tx.clone();
 
-    // We run a tokio runtime on a separate thread
+    // We run the fetcher as a tokio runtime on a separate thread.
+    // Fetcher will fetch data and send it over to the buffer.
     std::thread::spawn(move || {
-        rt.block_on(async {
+        fetcher_rt.block_on(async {
             if src.starts_with("http") {
                 let tmpdir = tempdir().expect("created temp dir to store files");
                 let path = tmpdir.path();
-                println!("Downloading files to {}", path.to_str().unwrap());
+                debug!("Downloading files to {}", path.to_str().unwrap());
 
                 let fetcher = Fetcher::new(&src, path).await;
                 total_frames_tx
-                    .send(fetcher.get_total_frames())
+                    .send(fetcher.total_frames())
                     .expect("sent total frames");
-                loop {
-                    let req = req_rx.recv().await.unwrap();
-                    println!("got frame requests {:?}", req);
 
-                    let fetcher = fetcher.clone();
-                    let decoder_path = decoder_path.clone();
-                    let resp_tx = resp_tx.clone();
-                    _ = tokio::spawn(async move {
-                        std::mem::drop(
-                            handle_frame_req(fetcher, req, decoder_path, decoder_type, resp_tx)
-                                .await,
-                        );
-                    });
+                let mut frame_range = (0, 0);
+
+                loop {
+                    let req: FrameRequest = frame_req_rx.recv().await.unwrap();
+                    debug!("got frame requests {:?}", req);
+
+                    if frame_range.0 < req.frame_offset && req.frame_offset < frame_range.1 {
+                        continue;
+                    }
+
+                    // we should probably do *bounded* retry here
+                    loop {
+                        let p = fetcher.download(req.object_id, req.frame_offset).await;
+
+                        match p {
+                            Ok(res) => {
+                                _ = decoder_tx.send((req.clone(), res)).await;
+                                frame_range.0 = req.frame_offset;
+                                frame_range.1 = req.frame_offset + fetcher.segment_size();
+                                break;
+                            }
+                            Err(e) => {
+                                warn!("Error downloading file: {}", e)
+                            }
+                        }
+                    }
                 }
 
                 // use tmpdir here so it is not dropped before
@@ -151,7 +134,7 @@ fn main() {
             } else {
                 let path = Path::new(&args.src);
                 let mut ply_files: Vec<PathBuf> = vec![];
-                println!("1. Finished downloading to / reading from {:?}", path);
+                debug!("1. Finished downloading to / reading from {:?}", path);
 
                 let mut dir = tokio::fs::read_dir(path).await.unwrap();
                 while let Some(entry) = dir.next_entry().await.unwrap() {
@@ -167,19 +150,66 @@ fn main() {
                 ply_files.sort();
 
                 loop {
-                    let req = req_rx.recv().await.unwrap();
-                    let pcd = read_file_to_point_cloud(
-                        &ply_files.get(req.frame_offset as usize).unwrap(),
-                    )
-                    .unwrap();
-                    resp_tx.send((req, pcd)).unwrap();
+                    let req: FrameRequest = frame_req_rx.recv().await.unwrap();
+                    let pcd =
+                        read_file_to_point_cloud(ply_files.get(req.frame_offset as usize).unwrap())
+                            .unwrap();
+                    pc_tx2.send((req, pcd)).unwrap();
                 }
-            };
+            }
+        })
+    });
+
+    // We run the decoder as a tokio runtime on a separate thread.
+    // Decoder will read the buffer and send it over to the renderer.
+    std::thread::spawn(move || {
+        decoder_rt.block_on(async {
+            loop {
+                let (req, FetchResult(mut p)) = decoder_rx.recv().await.unwrap();
+                let decoder_path = decoder_path.clone();
+                let pc_tx2 = pc_tx.clone();
+                _ = tokio::task::spawn_blocking(move || {
+                    let mut decoder: Box<dyn Decoder> = match decoder_type {
+                        DecoderType::Draco => Box::new(DracoDecoder::new(
+                            decoder_path
+                                .as_ref()
+                                .expect("must provide decoder path for Draco")
+                                .as_os_str(),
+                            p[0].take().unwrap().as_os_str(),
+                        )),
+                        DecoderType::Multiplane => {
+                            Box::new(MultiplaneDecoder::new(MultiplaneDecodeReq {
+                                top: p[0].take().unwrap(),
+                                bottom: p[1].take().unwrap(),
+                                left: p[2].take().unwrap(),
+                                right: p[3].take().unwrap(),
+                                front: p[4].take().unwrap(),
+                                back: p[5].take().unwrap(),
+                            }))
+                        }
+                        _ => Box::new(NoopDecoder::new(p[0].take().unwrap().as_os_str())),
+                    };
+                    decoder.start().unwrap();
+                    let mut i = 0;
+                    while let Some(pcd) = decoder.poll() {
+                        let mut req = req.clone();
+                        // update the frame_offset
+                        req.frame_offset += i;
+                        i += 1;
+                        dbg!(req.frame_offset);
+                        pc_tx2.send((req, pcd)).unwrap();
+                    }
+                })
+                .await
+                .unwrap();
+            }
         });
     });
 
+    let mut reader = PcdAsyncReader::new(pc_rx, frame_req_tx, args.buffer_size);
     // set the reader max length
     reader.set_len(total_frames_rx.blocking_recv().unwrap());
+    dbg!(reader.len());
 
     let camera = Camera::new(
         (args.camera_x, args.camera_y, args.camera_z),

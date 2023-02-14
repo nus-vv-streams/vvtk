@@ -117,7 +117,7 @@ pub struct PcdAsyncReader {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FrameRequest {
     pub object_id: u8,
-    pub quality: u8,
+    // pub quality: u8,
     pub frame_offset: u64,
 }
 
@@ -128,7 +128,7 @@ impl PcdAsyncReader {
         tx: UnboundedSender<FrameRequest>,
         buffer_size: Option<u8>,
     ) -> Self {
-        let buffer_size = buffer_size.unwrap_or(10);
+        let buffer_size = buffer_size.unwrap_or(1);
         Self {
             current_frame: 0,
             next_to_get: 0,
@@ -141,20 +141,27 @@ impl PcdAsyncReader {
     }
 
     fn send_next_req(&mut self) {
-        debug!(
-            "next_to_get {}, current_frame {}, buffer_size {}",
-            self.next_to_get, self.current_frame, self.buffer_size
-        );
-        while self.next_to_get - self.current_frame < self.buffer_size as u64 {
+        while self.next_to_get == 0
+            || self.next_to_get - self.current_frame < self.buffer_size as u64
+        {
+            dbg!(
+                "next_to_get {}, current_frame {}, buffer_size {}",
+                self.next_to_get,
+                self.current_frame,
+                self.buffer_size
+            );
             // FIXME: change the object_id and quality.
             self.tx
                 .send(FrameRequest {
                     object_id: 0u8,
-                    quality: 0u8,
                     frame_offset: self.next_to_get as u64,
                 })
                 .unwrap();
             self.next_to_get = (self.next_to_get + 1) % (self.len() as u64);
+            // FIXME: THIS IS A HACK to handle edge case and loop over.
+            if self.next_to_get == 0 {
+                break;
+            }
         }
     }
 }
@@ -166,12 +173,11 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
             self.tx
                 .send(FrameRequest {
                     object_id: 0,
-                    quality: 0,
                     frame_offset: i as u64,
                 })
                 .unwrap();
         }
-        self.next_to_get = self.buffer_size as u64;
+        self.next_to_get = self.buffer_size as u64 + 1;
         loop {
             if let Some(data) = self.get_at(0) {
                 break Some(data);
@@ -192,12 +198,11 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         // FIXME: change the object_id and quality.
         if let Some(data) = self.buffer.remove(&FrameRequest {
             object_id: 0u8,
-            quality: 0u8,
             frame_offset: index,
         }) {
             trace!("get_at returned from buffer ... {}", index);
-            self.current_frame = (self.current_frame + 1) % (self.len() as u64);
             self.send_next_req();
+            self.current_frame = (self.current_frame + 1) % (self.len() as u64);
             return Some(data);
         }
 
@@ -206,14 +211,15 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
             if let Ok((req, data)) = self.rx.recv() {
                 if req.frame_offset == index {
                     debug!("get_at returned from channel ... {}", req.frame_offset);
-                    self.current_frame = (self.current_frame + 1) % (self.len() as u64);
                     self.send_next_req();
+                    self.current_frame = (self.current_frame + 1) % (self.len() as u64);
                     return Some(data);
                 }
 
                 // enqueues the data into our buffer and preemptively start the next request.
                 debug!("get_at buffers... {}", req.frame_offset);
                 self.buffer.insert(req, data);
+                self.send_next_req();
             }
         }
     }

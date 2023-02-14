@@ -113,6 +113,7 @@ pub struct MultiplaneDecoder {
     back: tmc2rs::Decoder,
 }
 
+/// (5Feb) For now, it is not important to know whether the pathbuf really corresponds to a top, bottom, left, right, front or back image.
 pub struct MultiplaneDecodeReq {
     pub top: PathBuf,
     pub bottom: PathBuf,
