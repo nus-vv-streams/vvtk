@@ -14,6 +14,7 @@ pub struct Fetcher {
     download_dir: PathBuf,
 }
 
+#[derive(Debug)]
 pub struct FetchResult(pub [Option<PathBuf>; 6]);
 
 async fn fetch_mpd(mpd_url: &str, http_client: &HttpClient) -> Result<String> {

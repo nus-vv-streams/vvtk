@@ -5,7 +5,10 @@ use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 use vivotk::codec::decoder::{DracoDecoder, MultiplaneDecodeReq, MultiplaneDecoder, NoopDecoder};
 use vivotk::codec::Decoder;
-use vivotk::dash::fetcher::{FetchResult, Fetcher};
+use vivotk::dash::{
+    buffer::Buffer,
+    fetcher::{FetchResult, Fetcher},
+};
 use vivotk::render::wgpu::{
     builder::RenderBuilder,
     camera::Camera,
@@ -73,10 +76,12 @@ fn main() {
         .build()
         .unwrap();
     // important to use tokio::mpsc here instead of std because it is bridging from sync -> async
-    // the content is sent by the renderer and read by the fetcher
+    // the content is produced by the renderer and consumed by the fetcher
     let (frame_req_tx, mut frame_req_rx) = tokio::sync::mpsc::unbounded_channel();
-    let (decoder_tx, mut decoder_rx) = tokio::sync::mpsc::channel(100);
-    // the content is sent by the decoder and read by the renderer
+    // this buffer is used to store the fetched data.
+    // the content is produced by the fetcher and consumed by the decoder thread.
+    let (buffer, mut decoder_rx) = Buffer::new(args.buffer_size.unwrap_or(10) as usize);
+    // the content is produced by the decode or the local file reader and consumed by the renderer
     let (pc_tx, pc_rx) = std::sync::mpsc::channel();
     // the total frame number we are expecting. This is for display purposes in the renderer only.
     let (total_frames_tx, total_frames_rx) = tokio::sync::oneshot::channel();
@@ -117,7 +122,7 @@ fn main() {
 
                         match p {
                             Ok(res) => {
-                                _ = decoder_tx.send((req.clone(), res)).await;
+                                _ = buffer.push((req.clone(), res)).await;
                                 frame_range.0 = req.frame_offset;
                                 frame_range.1 = req.frame_offset + fetcher.segment_size();
                                 break;
@@ -165,7 +170,7 @@ fn main() {
     std::thread::spawn(move || {
         decoder_rt.block_on(async {
             loop {
-                let (req, FetchResult(mut p)) = decoder_rx.recv().await.unwrap();
+                let (req, FetchResult(mut p)) = decoder_rx.recv().await;
                 let decoder_path = decoder_path.clone();
                 let pc_tx2 = pc_tx.clone();
                 _ = tokio::task::spawn_blocking(move || {
