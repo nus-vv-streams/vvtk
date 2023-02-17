@@ -97,7 +97,7 @@ fn main() {
             let path = tmpdir.path();
             debug!("Downloading files to {}", path.to_str().unwrap());
 
-            let fetcher = Fetcher::new(&src, path).await;
+            let mut fetcher = Fetcher::new(&src, path).await;
             total_frames_tx
                 .send(fetcher.total_frames())
                 .expect("sent total frames");

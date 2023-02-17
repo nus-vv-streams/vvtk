@@ -1,5 +1,5 @@
 //! Heavily simplified implementation of the MPD parser.
-//! Taken from https://github.com/emarsden/dash-mpd-rs/src/lib.rs
+//! Adapted from https://github.com/emarsden/dash-mpd-rs/src/lib.rs
 
 #![allow(non_snake_case)]
 
@@ -14,13 +14,14 @@ use std::time::Duration;
 const FPS: u64 = 30;
 
 #[derive(Clone)]
-pub(crate) struct PCCDashParser {
+pub(crate) struct MPDParser {
     mpd: MPD,
-    framestamps: Vec<u64>,
+    /// contains the first frame number for all `Period` in the MPD and the total number of frames.
+    period_markers: Vec<u64>,
 }
 
-impl PCCDashParser {
-    pub fn new(xml: &str) -> PCCDashParser {
+impl MPDParser {
+    pub fn new(xml: &str) -> MPDParser {
         let mpd = MPD::from_xml(xml).unwrap();
 
         let mut framestamps: Vec<u64> = vec![];
@@ -33,13 +34,13 @@ impl PCCDashParser {
             }
         }
 
-        PCCDashParser {
-            mpd: mpd,
-            framestamps: framestamps,
+        MPDParser {
+            mpd,
+            period_markers: framestamps,
         }
     }
 
-    // only gets the top-most BaseURL
+    /// gets MPD's top-level BaseURL
     pub fn get_base_url(&self) -> String {
         let url = self
             .mpd
@@ -58,9 +59,10 @@ impl PCCDashParser {
     }
 
     pub fn total_frames(&self) -> usize {
-        *self.framestamps.last().unwrap() as usize
+        *self.period_markers.last().unwrap() as usize
     }
 
+    /// Get the segment template's duration. To get the time in seconds, need to divide by segment template's timescale.
     pub fn segment_size(&self) -> u64 {
         self.mpd.periods[0].adaptations.as_ref().unwrap()[0]
             .representations
@@ -107,15 +109,16 @@ impl PCCDashParser {
     }
 
     // frame offset is calculated from the beginning of the video / MPD
-    pub fn get_url(
+    /// Returns the URL and the bandwidth of the segment.
+    pub fn get_info(
         &self,
         object_id: u8,
         representation_id: u8,
         view_id: u8,
         frame_offset: u64,
-    ) -> String {
+    ) -> (String, Option<u64>) {
         let period_idx =
-            match self.framestamps[..].binary_search_by(|probe| probe.cmp(&frame_offset)) {
+            match self.period_markers[..].binary_search_by(|probe| probe.cmp(&frame_offset)) {
                 Ok(idx) => idx,
                 Err(idx) => idx - 1,
             };
@@ -136,29 +139,33 @@ impl PCCDashParser {
             .representations
             .as_ref()
             .unwrap()
-            .get(representation_id as usize)
+            .iter()
+            .find(|r| r.id.as_ref().unwrap().parse::<u8>().unwrap() == representation_id)
             .unwrap();
         let st = representation.segment_template.as_ref().unwrap();
         let media = st.media.as_ref().unwrap();
-        base_url
-            + self
-                .resolve_url_template(
-                    media,
-                    &HashMap::from_iter(vec![
-                        (
-                            "RepresentationID",
-                            representation.id.as_ref().unwrap().clone(),
-                        ),
-                        (
-                            "Number",
-                            ((frame_offset - self.framestamps.get(period_idx).unwrap())
-                                * st.duration.unwrap()
-                                + st.startNumber.expect("start number not provided"))
-                            .to_string(),
-                        ),
-                    ]),
-                )
-                .as_str()
+        (
+            base_url
+                + self
+                    .resolve_url_template(
+                        media,
+                        &HashMap::from_iter(vec![
+                            (
+                                "RepresentationID",
+                                representation.id.as_ref().unwrap().clone(),
+                            ),
+                            (
+                                "Number",
+                                ((frame_offset - self.period_markers.get(period_idx).unwrap())
+                                    * (st.duration.unwrap() / st.timescale.unwrap())
+                                    + st.startNumber.expect("start number not provided"))
+                                .to_string(),
+                            ),
+                        ]),
+                    )
+                    .as_str(),
+            representation.bandwidth,
+        )
     }
 }
 
@@ -457,7 +464,7 @@ mod tests {
 
     #[test]
     pub fn test_run2() {
-        let p = PCCDashParser::new(
+        let p = MPDParser::new(
             r#"<?xml version="1.0" encoding="UTF-8"?>
             <MPD format="pointcloud/pcd" type="static">
                 <BaseURL>http://localhost:3000/</BaseURL>
@@ -487,8 +494,11 @@ mod tests {
         let reprs = first_ad.representations.as_ref().unwrap();
         assert_eq!(reprs.len(), 3);
         assert_eq!(
-            p.get_url(0, 2, 0, 4),
-            p.get_base_url() + "longdress/2/longdress_vox10_1055.ply"
+            p.get_info(0, 2, 0, 4),
+            (
+                p.get_base_url() + "longdress/2/longdress_vox10_1055.ply",
+                Some(204800)
+            )
         );
     }
 }
