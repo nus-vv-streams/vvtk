@@ -44,7 +44,7 @@ struct Args {
     width: u32,
     #[clap(short, long, default_value_t = 900)]
     height: u32,
-    #[clap(long = "controls")]
+    #[clap(long = "controls", default_value_t = true)]
     show_controls: bool,
     #[clap(short, long)]
     buffer_size: Option<u8>,
@@ -64,14 +64,11 @@ enum DecoderType {
 }
 
 fn main() {
+    // initialize logger
+    env_logger::init();
     let args: Args = Args::parse();
-    let fetcher_rt = tokio::runtime::Builder::new_multi_thread()
+    let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
-        .enable_all()
-        .build()
-        .unwrap();
-    let decoder_rt = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(4)
         .enable_all()
         .build()
         .unwrap();
@@ -92,129 +89,126 @@ fn main() {
     let decoder_path = args.decoder_path.clone();
     let pc_tx2 = pc_tx.clone();
 
-    // We run the fetcher as a tokio runtime on a separate thread.
+    // We run the fetcher as a separate tokio task. Although it is an infinite loop, it has a lot of await breakpoints.
     // Fetcher will fetch data and send it over to the buffer.
-    std::thread::spawn(move || {
-        fetcher_rt.block_on(async {
-            if src.starts_with("http") {
-                let tmpdir = tempdir().expect("created temp dir to store files");
-                let path = tmpdir.path();
-                debug!("Downloading files to {}", path.to_str().unwrap());
+    rt.spawn(async move {
+        if src.starts_with("http") {
+            let tmpdir = tempdir().expect("created temp dir to store files");
+            let path = tmpdir.path();
+            debug!("Downloading files to {}", path.to_str().unwrap());
 
-                let fetcher = Fetcher::new(&src, path).await;
-                total_frames_tx
-                    .send(fetcher.total_frames())
-                    .expect("sent total frames");
+            let fetcher = Fetcher::new(&src, path).await;
+            total_frames_tx
+                .send(fetcher.total_frames())
+                .expect("sent total frames");
 
-                let mut frame_range = (0, 0);
+            let mut frame_range = (0, 0);
 
+            loop {
+                let req: FrameRequest = frame_req_rx.recv().await.unwrap();
+                debug!("got frame requests {:?}", req);
+
+                if frame_range.0 < req.frame_offset && req.frame_offset < frame_range.1 {
+                    continue;
+                }
+
+                // we should probably do *bounded* retry here
                 loop {
-                    let req: FrameRequest = frame_req_rx.recv().await.unwrap();
-                    debug!("got frame requests {:?}", req);
+                    let p = fetcher.download(req.object_id, req.frame_offset).await;
 
-                    if frame_range.0 < req.frame_offset && req.frame_offset < frame_range.1 {
-                        continue;
-                    }
-
-                    // we should probably do *bounded* retry here
-                    loop {
-                        let p = fetcher.download(req.object_id, req.frame_offset).await;
-
-                        match p {
-                            Ok(res) => {
-                                _ = buffer.push((req.clone(), res)).await;
-                                frame_range.0 = req.frame_offset;
-                                frame_range.1 = req.frame_offset + fetcher.segment_size();
-                                break;
-                            }
-                            Err(e) => {
-                                warn!("Error downloading file: {}", e)
-                            }
+                    match p {
+                        Ok(res) => {
+                            _ = buffer.push((req.clone(), res)).await;
+                            frame_range.0 = req.frame_offset;
+                            frame_range.1 = req.frame_offset + fetcher.segment_size();
+                            break;
+                        }
+                        Err(e) => {
+                            warn!("Error downloading file: {}", e)
                         }
                     }
                 }
+            }
 
-                // use tmpdir here so it is not dropped before
-                _ = tmpdir.close();
-            } else {
-                let path = Path::new(&args.src);
-                let mut ply_files: Vec<PathBuf> = vec![];
-                debug!("1. Finished downloading to / reading from {:?}", path);
+            // use tmpdir here so it is not dropped before
+            _ = tmpdir.close();
+        } else {
+            let path = Path::new(&args.src);
+            let mut ply_files: Vec<PathBuf> = vec![];
+            debug!("1. Finished downloading to / reading from {:?}", path);
 
-                let mut dir = tokio::fs::read_dir(path).await.unwrap();
-                while let Some(entry) = dir.next_entry().await.unwrap() {
-                    let f = entry.path();
-                    if !f.extension().map(|f| "ply".eq(f)).unwrap_or(false) {
-                        continue;
-                    }
-                    ply_files.push(f);
+            let mut dir = tokio::fs::read_dir(path).await.unwrap();
+            while let Some(entry) = dir.next_entry().await.unwrap() {
+                let f = entry.path();
+                if !f.extension().map(|f| "ply".eq(f)).unwrap_or(false) {
+                    continue;
                 }
-                total_frames_tx
-                    .send(ply_files.len())
-                    .expect("sent total frames");
-                ply_files.sort();
+                ply_files.push(f);
+            }
+            total_frames_tx
+                .send(ply_files.len())
+                .expect("sent total frames");
+            ply_files.sort();
 
-                loop {
-                    let req: FrameRequest = frame_req_rx.recv().await.unwrap();
-                    let pcd =
-                        read_file_to_point_cloud(ply_files.get(req.frame_offset as usize).unwrap())
-                            .unwrap();
+            loop {
+                let req: FrameRequest = frame_req_rx.recv().await.unwrap();
+                debug!("got frame requests {:?}", req);
+                let pcd =
+                    read_file_to_point_cloud(ply_files.get(req.frame_offset as usize).unwrap())
+                        .unwrap();
+                pc_tx2.send((req, pcd)).unwrap();
+            }
+        }
+    });
+
+    // We run the decoder as a separate tokio task.
+    // Decoder will read the buffer and send it over to the renderer.
+    rt.spawn(async move {
+        loop {
+            let (req, FetchResult(mut p)) = decoder_rx.recv().await;
+            let decoder_path = decoder_path.clone();
+            let pc_tx2 = pc_tx.clone();
+            _ = tokio::task::spawn_blocking(move || {
+                let mut decoder: Box<dyn Decoder> = match decoder_type {
+                    DecoderType::Draco => Box::new(DracoDecoder::new(
+                        decoder_path
+                            .as_ref()
+                            .expect("must provide decoder path for Draco")
+                            .as_os_str(),
+                        p[0].take().unwrap().as_os_str(),
+                    )),
+                    DecoderType::Multiplane => {
+                        Box::new(MultiplaneDecoder::new(MultiplaneDecodeReq {
+                            top: p[0].take().unwrap(),
+                            bottom: p[1].take().unwrap(),
+                            left: p[2].take().unwrap(),
+                            right: p[3].take().unwrap(),
+                            front: p[4].take().unwrap(),
+                            back: p[5].take().unwrap(),
+                        }))
+                    }
+                    _ => Box::new(NoopDecoder::new(p[0].take().unwrap().as_os_str())),
+                };
+                decoder.start().unwrap();
+                let mut i = 0;
+                while let Some(pcd) = decoder.poll() {
+                    let mut req = req.clone();
+                    // update the frame_offset
+                    req.frame_offset += i;
+                    i += 1;
+                    dbg!(req.frame_offset);
                     pc_tx2.send((req, pcd)).unwrap();
                 }
-            }
-        })
+            })
+            .await
+            .unwrap();
+        }
     });
 
-    // We run the decoder as a tokio runtime on a separate thread.
-    // Decoder will read the buffer and send it over to the renderer.
-    std::thread::spawn(move || {
-        decoder_rt.block_on(async {
-            loop {
-                let (req, FetchResult(mut p)) = decoder_rx.recv().await;
-                let decoder_path = decoder_path.clone();
-                let pc_tx2 = pc_tx.clone();
-                _ = tokio::task::spawn_blocking(move || {
-                    let mut decoder: Box<dyn Decoder> = match decoder_type {
-                        DecoderType::Draco => Box::new(DracoDecoder::new(
-                            decoder_path
-                                .as_ref()
-                                .expect("must provide decoder path for Draco")
-                                .as_os_str(),
-                            p[0].take().unwrap().as_os_str(),
-                        )),
-                        DecoderType::Multiplane => {
-                            Box::new(MultiplaneDecoder::new(MultiplaneDecodeReq {
-                                top: p[0].take().unwrap(),
-                                bottom: p[1].take().unwrap(),
-                                left: p[2].take().unwrap(),
-                                right: p[3].take().unwrap(),
-                                front: p[4].take().unwrap(),
-                                back: p[5].take().unwrap(),
-                            }))
-                        }
-                        _ => Box::new(NoopDecoder::new(p[0].take().unwrap().as_os_str())),
-                    };
-                    decoder.start().unwrap();
-                    let mut i = 0;
-                    while let Some(pcd) = decoder.poll() {
-                        let mut req = req.clone();
-                        // update the frame_offset
-                        req.frame_offset += i;
-                        i += 1;
-                        dbg!(req.frame_offset);
-                        pc_tx2.send((req, pcd)).unwrap();
-                    }
-                })
-                .await
-                .unwrap();
-            }
-        });
-    });
-
-    let mut reader = PcdAsyncReader::new(pc_rx, frame_req_tx, args.buffer_size);
+    let mut pcd_reader = PcdAsyncReader::new(pc_rx, frame_req_tx, args.buffer_size);
     // set the reader max length
-    reader.set_len(total_frames_rx.blocking_recv().unwrap());
-    dbg!(reader.len());
+    pcd_reader.set_len(total_frames_rx.blocking_recv().unwrap());
+    dbg!(pcd_reader.len());
 
     let camera = Camera::new(
         (args.camera_x, args.camera_y, args.camera_z),
@@ -224,9 +218,12 @@ fn main() {
     let metrics = args
         .metrics
         .map(|os_str| MetricsReader::from_directory(Path::new(&os_str)));
+
     let mut builder = RenderBuilder::default();
-    let slider_end = reader.len() - 1;
-    let render =
+    let slider_end = pcd_reader.len() - 1;
+
+    // This is the main window that renders the point cloud
+    let render_window_id =
     // if args.buffer_size > 1 {
     //     builder.add_window(Renderer::new(
     //         BufRenderReader::new(args.buffer_size, reader),
@@ -237,7 +234,7 @@ fn main() {
     //     ))
     // } else {
         builder.add_window(Renderer::new(
-            reader,
+            pcd_reader,
             args.fps,
             camera,
             (args.width, args.height),
@@ -245,15 +242,15 @@ fn main() {
         ));
     // };
     if args.show_controls {
-        let controls = builder.add_window(Controller { slider_end });
+        let controls_window_id = builder.add_window(Controller { slider_end });
         builder
-            .get_windowed_mut(render)
+            .get_windowed_mut(render_window_id)
             .unwrap()
-            .add_output(controls);
+            .add_output(controls_window_id);
         builder
-            .get_windowed_mut(controls)
+            .get_windowed_mut(controls_window_id)
             .unwrap()
-            .add_output(render);
+            .add_output(render_window_id);
     }
     builder.run();
 }

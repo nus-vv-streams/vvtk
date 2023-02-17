@@ -11,7 +11,9 @@ use tokio::sync::mpsc::UnboundedSender;
 use super::renderable::Renderable;
 
 pub trait RenderReader<T: Renderable> {
+    /// get the first frame
     fn start(&mut self) -> Option<T>;
+    /// get the `index`-th frame
     fn get_at(&mut self, index: usize) -> Option<T>;
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
@@ -108,7 +110,7 @@ pub struct PcdAsyncReader {
     total_frames: u64,
     /// PcdAsyncReader tries to maintain this level of buffer occupancy at any time
     buffer_size: u8,
-    buffer: HashMap<FrameRequest, PointCloud<PointXyzRgba>>,
+    cache: HashMap<FrameRequest, PointCloud<PointXyzRgba>>,
     rx: Receiver<(FrameRequest, PointCloud<PointXyzRgba>)>,
     tx: UnboundedSender<FrameRequest>,
 }
@@ -135,25 +137,24 @@ impl PcdAsyncReader {
             rx,
             tx,
             buffer_size,
-            buffer: HashMap::with_capacity(buffer_size as usize),
-            total_frames: 30, // default number of frames
+            cache: HashMap::with_capacity(buffer_size as usize),
+            total_frames: 30, // default number of frames. Use `set_len` to overwrite this value
         }
     }
 
-    fn send_next_req(&mut self) {
+    fn send_next_req(&mut self, object_id: u8) {
+        assert_eq!(object_id, 0, "only one object supported for now");
         while self.next_to_get == 0
-            || self.next_to_get - self.current_frame < self.buffer_size as u64
+            || self.next_to_get - self.current_frame <= self.buffer_size as u64 + 1
         {
-            dbg!(
+            debug!(
                 "next_to_get {}, current_frame {}, buffer_size {}",
-                self.next_to_get,
-                self.current_frame,
-                self.buffer_size
+                self.next_to_get, self.current_frame, self.buffer_size
             );
-            // FIXME: change the object_id and quality.
+            // FIXME: change the object_id.
             self.tx
                 .send(FrameRequest {
-                    object_id: 0u8,
+                    object_id,
                     frame_offset: self.next_to_get as u64,
                 })
                 .unwrap();
@@ -177,7 +178,7 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
                 })
                 .unwrap();
         }
-        self.next_to_get = self.buffer_size as u64 + 1;
+        self.next_to_get = self.buffer_size as u64;
         loop {
             if let Some(data) = self.get_at(0) {
                 break Some(data);
@@ -187,21 +188,21 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
     }
 
     fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-        trace!(
-            "get_at called with {}. buffer occupancy is {}",
+        debug!(
+            "reader::get_at called with {}. buffer occupancy is {}",
             index,
-            self.buffer.len()
+            self.cache.len()
         );
         let index = index as u64;
 
         // remove if we have in the buffer.
         // FIXME: change the object_id and quality.
-        if let Some(data) = self.buffer.remove(&FrameRequest {
+        if let Some(data) = self.cache.remove(&FrameRequest {
             object_id: 0u8,
             frame_offset: index,
         }) {
             trace!("get_at returned from buffer ... {}", index);
-            self.send_next_req();
+            self.send_next_req(0);
             self.current_frame = (self.current_frame + 1) % (self.len() as u64);
             return Some(data);
         }
@@ -209,17 +210,20 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         loop {
             trace!("{} looping...", index);
             if let Ok((req, data)) = self.rx.recv() {
+                dbg!(req.frame_offset);
                 if req.frame_offset == index {
                     debug!("get_at returned from channel ... {}", req.frame_offset);
-                    self.send_next_req();
+                    self.send_next_req(0);
                     self.current_frame = (self.current_frame + 1) % (self.len() as u64);
                     return Some(data);
                 }
 
-                // enqueues the data into our buffer and preemptively start the next request.
+                // enqueues the data into our cache and preemptively start the next request.
                 debug!("get_at buffers... {}", req.frame_offset);
-                self.buffer.insert(req, data);
-                self.send_next_req();
+                self.cache.insert(req, data);
+                self.send_next_req(0);
+            } else {
+                break None;
             }
         }
     }

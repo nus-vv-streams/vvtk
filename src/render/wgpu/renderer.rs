@@ -290,10 +290,6 @@ where
         }
     }
 
-    fn current(&mut self) -> Option<U> {
-        self.reader.get_at(self.current_position)
-    }
-
     fn handle_device_event(&mut self, event: &DeviceEvent) {
         self.camera_state.process_input(event);
         if let DeviceEvent::Key(KeyboardInput {
@@ -350,7 +346,7 @@ where
     }
 
     fn update_vertices(&mut self) -> bool {
-        if let Some(data) = self.current() {
+        if let Some(data) = self.reader.get_at(self.current_position) {
             self.pcd_renderer
                 .update_vertices(&self.gpu.device, &self.gpu.queue, &data);
             return true;
