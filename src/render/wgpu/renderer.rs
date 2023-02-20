@@ -234,7 +234,7 @@ where
         state.update_stats();
         match state.render() {
             Ok(_) => {}
-            Err(wgpu::SurfaceError::OutOfMemory) => {}
+            Err(wgpu::SurfaceError::OutOfMemory) => eprintln!("Out of memory"),
             Err(e) => eprintln!("Dropped frame due to {:?}", e),
         }
         state

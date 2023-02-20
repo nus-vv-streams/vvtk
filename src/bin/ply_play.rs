@@ -104,7 +104,6 @@ fn main() {
                 .expect("sent total frames");
 
             let mut frame_range = (0, 0);
-
             loop {
                 // buffer is full, so we yield and come back later
                 if buffer.slack().await == 0 {
@@ -113,12 +112,11 @@ fn main() {
                 }
 
                 let req: FrameRequest = frame_req_rx.recv().await.unwrap();
-                debug!("got frame requests {:?}", req);
+                debug!("got frame requests {:?}", &req);
 
                 if frame_range.0 < req.frame_offset && req.frame_offset < frame_range.1 {
                     continue;
                 }
-
                 // we should probably do *bounded* retry here
                 loop {
                     let p = fetcher.download(req.object_id, req.frame_offset).await;
@@ -203,7 +201,6 @@ fn main() {
                     // update the frame_offset
                     req.frame_offset += i;
                     i += 1;
-                    dbg!(req.frame_offset);
                     pc_tx2.send((req, pcd)).unwrap();
                 }
             })

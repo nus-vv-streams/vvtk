@@ -30,17 +30,18 @@ where
     }
 
     pub async fn push(&self, item: T) {
-        self.tx.send(item).await.unwrap();
         *self.length.lock().await += 1;
+        self.tx.send(item).await.unwrap();
     }
 
-    /// this function might be sometimes off by 1 when used concurrently.
     pub async fn len_approx(&self) -> usize {
         *self.length.lock().await
     }
 
     pub async fn slack(&self) -> usize {
-        self.capacity - self.len_approx().await
+        let len = self.len_approx().await;
+        // To avoid underflow, as len might be greater than capacity
+        std::cmp::max(self.capacity, len) - len
     }
 }
 

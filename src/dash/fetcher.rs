@@ -27,6 +27,7 @@ pub struct SimpleRunningAverage<const N: usize> {
     /// pointer to the next value to be overwritten
     next: usize,
     avg: usize,
+    divide_by: usize,
 }
 
 impl<const N: usize> SimpleRunningAverage<N> {
@@ -35,14 +36,16 @@ impl<const N: usize> SimpleRunningAverage<N> {
             values: [0; N],
             next: 0,
             avg: 0,
+            divide_by: 1,
         }
     }
 
     /// Adds a new datapoint to the running average, removing the oldest
     fn add(&mut self, value: usize) {
+        self.avg = self.avg + (value - self.values[self.next as usize]) / self.divide_by;
         self.values[self.next as usize] = value;
         self.next = (self.next + 1) % N;
-        self.avg = self.avg + (value - self.values[(self.next + N - 1) % N]) / N;
+        self.divide_by = std::cmp::min(self.divide_by + 1, N);
     }
 
     /// Gets the running average
@@ -88,54 +91,72 @@ impl Fetcher {
     pub async fn download(&mut self, object_id: u8, frame: u64) -> Result<FetchResult> {
         let mut paths = core::array::from_fn(|_| None);
 
-        // quality is representation id (0 is highest quality)
+        // quality is representation id (0 is lowest quality)
         let mut urls: [String; 6] = core::array::from_fn(|_| String::new());
         let mut bandwidths = [None; 6];
 
-        for i in 0..6 {
+        for view_id in 0..6 {
             // TODO: fix hard code representation id
-            let (url, bandwidth) =
-                self.mpd_parser
-                    .get_info(object_id, 1 + (i as u8 % 3), i as u8, frame);
-            urls[i] = url;
-            bandwidths[i] = bandwidth;
+            let (url, bandwidth) = self.mpd_parser.get_info(object_id, 1, view_id as u8, frame);
+            urls[view_id] = url;
+            bandwidths[view_id] = bandwidth;
             let output_path = self
                 .download_dir
-                .join(generate_filename_from_url(urls[i].as_str()));
-            paths[i] = Some(output_path);
+                .join(generate_filename_from_url(urls[view_id].as_str()));
+            paths[view_id] = Some(output_path);
         }
-        // TODO: add check if file exists.. no need to download again..
         let now = std::time::Instant::now();
 
+        // If file exists, then there is no need to download again.
         let contents = future::join_all(urls.into_iter().map(|url| {
             let client = &self.http_client;
+            let filename = generate_filename_from_url(url.as_str());
+            let local_file_path = self.download_dir.join(filename);
             async move {
-                dbg!(&url);
-                let resp = client.get(url).send().await?;
-                match resp.error_for_status() {
-                    Ok(resp) => resp.bytes().await,
-                    Err(e) => Err(e),
+                let f = File::open(local_file_path).await;
+                if let Ok(_) = f {
+                    // File exists so we should skip downloading
+                    Ok(None)
+                } else {
+                    let resp = client.get(url).send().await?;
+                    match resp.error_for_status() {
+                        Ok(resp) => Ok(resp.bytes().await.ok()),
+                        Err(e) => Err(e),
+                    }
                 }
             }
         }))
         .await;
 
         let elapsed = now.elapsed();
-        debug!("download time: {:?}", elapsed);
 
         let total_bits = contents
             .iter()
             .filter(|c| c.is_ok())
+            .map(|c| c.as_ref().unwrap())
+            .filter(|c| c.is_some())
             .map(|c| c.as_ref().unwrap().len())
             .sum::<usize>()
             * 8;
+
         self.stats
             .avg_bitrate
-            .add(total_bits / elapsed.as_millis() as usize);
+            .add(total_bits / std::cmp::max(1, elapsed.as_millis()) as usize);
+        debug!(
+            "download time: {:?}, bits: {:}, avg_bitrate(latest): {:?}kbps",
+            elapsed,
+            total_bits,
+            self.stats.avg_bitrate.get()
+        );
 
         for (i, content) in contents.into_iter().enumerate() {
-            let mut file = File::create(&paths[i].clone().unwrap()).await?;
-            tokio::io::copy(&mut content?.as_ref(), &mut file).await?;
+            if let Ok(Some(content)) = content {
+                let mut file = File::create(&paths[i].clone().unwrap()).await?;
+                tokio::io::copy(&mut content.as_ref(), &mut file).await?;
+            } else if let Err(e) = content {
+                eprintln!("Error downloading file: {}", e);
+                return Err(e.into());
+            }
         }
         Ok(FetchResult(paths))
     }
