@@ -3,6 +3,7 @@ use log::{debug, warn};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
+use tokio::task::yield_now;
 use vivotk::codec::decoder::{DracoDecoder, MultiplaneDecodeReq, MultiplaneDecoder, NoopDecoder};
 use vivotk::codec::Decoder;
 use vivotk::dash::{
@@ -75,7 +76,7 @@ fn main() {
     // important to use tokio::mpsc here instead of std because it is bridging from sync -> async
     // the content is produced by the renderer and consumed by the fetcher
     let (frame_req_tx, mut frame_req_rx) = tokio::sync::mpsc::unbounded_channel();
-    // this buffer is used to store the fetched data.
+    // this buffer is used to store the fetched data. It is a bounded buffer. It will store the data in segments.
     // the content is produced by the fetcher and consumed by the decoder thread.
     let (buffer, mut decoder_rx) = Buffer::new(args.buffer_size.unwrap_or(10) as usize);
     // the content is produced by the decode or the local file reader and consumed by the renderer
@@ -105,6 +106,12 @@ fn main() {
             let mut frame_range = (0, 0);
 
             loop {
+                // buffer is full, so we yield and come back later
+                if buffer.slack().await == 0 {
+                    yield_now().await;
+                    continue;
+                }
+
                 let req: FrameRequest = frame_req_rx.recv().await.unwrap();
                 debug!("got frame requests {:?}", req);
 
