@@ -11,6 +11,8 @@ use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
 use super::antialias::AntiAlias;
 
 pub trait Renderable: Clone {
+    /// Defines how a buffer is represented in memory.
+    /// This is used by render_pipeline to map the buffer in the shader
     fn buffer_layout_desc<'a>() -> wgpu::VertexBufferLayout<'a>;
     fn create_render_pipeline(
         device: &Device,
@@ -38,6 +40,7 @@ pub trait Renderable: Clone {
         let depth_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
         (depth_texture, depth_view)
     }
+    /// Create buffer that will be used to store the data
     fn create_buffer(&self, device: &wgpu::Device) -> wgpu::Buffer {
         device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
@@ -49,13 +52,15 @@ pub trait Renderable: Clone {
         AntiAlias::default()
     }
     fn bytes(&self) -> &[u8];
-    fn vertices(&self) -> usize;
+    fn num_vertices(&self) -> usize;
 }
 
 impl Renderable for PointCloud<PointXyzRgba> {
     fn buffer_layout_desc<'a>() -> VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
+            // how wide a vertex is
             array_stride: 16,
+            // whether each element of this buffer represents per-vertex or per-instance data
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &[
                 wgpu::VertexAttribute {
@@ -85,8 +90,10 @@ impl Renderable for PointCloud<PointXyzRgba> {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
+                // type of vertices to pass to the vertex shader
                 buffers: &[Self::buffer_layout_desc()],
             },
+            // we need fragment shader to store color data to the surface
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
                 entry_point: "fs_main",
@@ -96,9 +103,11 @@ impl Renderable for PointCloud<PointXyzRgba> {
                         color: wgpu::BlendComponent::REPLACE,
                         alpha: wgpu::BlendComponent::REPLACE,
                     }),
+                    // write to all colors: red, blue, green, alpha
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
             }),
+            // how to interpret our vertices when converting into triangles
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::PointList,
                 strip_index_format: None,
@@ -119,6 +128,7 @@ impl Renderable for PointCloud<PointXyzRgba> {
                 bias: Default::default(),
             }),
             multisample: wgpu::MultisampleState {
+                // how many samples the pipeline will use.
                 count: 1,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
@@ -159,15 +169,10 @@ impl Renderable for PointCloud<PointXyzRgba> {
     }
 
     fn bytes(&self) -> &[u8] {
-        unsafe {
-            std::slice::from_raw_parts(
-                (self.points.as_ptr()) as *const u8,
-                self.number_of_points * std::mem::size_of::<PointXyzRgba>(),
-            )
-        }
+        bytemuck::cast_slice(&self.points)
     }
 
-    fn vertices(&self) -> usize {
+    fn num_vertices(&self) -> usize {
         self.number_of_points
     }
 

@@ -32,9 +32,10 @@ pub trait Attachable {
     fn attach(self, event_loop: &EventLoop<RenderEvent>) -> (Self::Output, Window);
 }
 
+/// A Windowed Object describes a winit::Window and corresponding state data needed to render the window.
 pub struct WindowedObject {
     pub window: Window,
-    pub object: Box<dyn Windowed>,
+    pub state: Box<dyn Windowed>,
     pub focused: bool,
 }
 
@@ -44,6 +45,9 @@ pub trait Windowed {
     fn resize(&mut self, size: PhysicalSize<u32>);
 }
 
+/// RenderBuilder handles the creation of multiple windows and syncs events that are of interest to multiple windows through the central event loop.
+///
+/// This struct owns the windows and the central event loop.
 pub struct RenderBuilder {
     event_loop: EventLoop<RenderEvent>,
     window_objects: HashMap<WindowId, WindowedObject>,
@@ -71,7 +75,7 @@ impl RenderBuilder {
             id,
             WindowedObject {
                 window,
-                object,
+                state: object,
                 focused: true,
             },
         );
@@ -79,9 +83,10 @@ impl RenderBuilder {
     }
 
     pub fn get_windowed_mut(&mut self, id: WindowId) -> Option<&mut Box<dyn Windowed>> {
-        self.window_objects.get_mut(&id).map(|obj| &mut obj.object)
+        self.window_objects.get_mut(&id).map(|obj| &mut obj.state)
     }
 
+    /// Hijacks the calling thread to run the UI event loop.
     pub fn run(mut self) {
         self.event_loop.run(move |new_event, _, control_flow| {
             *control_flow = ControlFlow::Poll;
@@ -111,16 +116,16 @@ impl RenderBuilder {
                                 *control_flow = ControlFlow::Exit;
                             }
                             WindowEvent::Resized(physical_size) => {
-                                windowed_object.object.resize(*physical_size);
+                                windowed_object.state.resize(*physical_size);
                             }
                             WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                                windowed_object.object.resize(**new_inner_size);
+                                windowed_object.state.resize(**new_inner_size);
                             }
                             WindowEvent::Focused(focus) => windowed_object.focused = *focus,
                             _ => {
                                 if windowed_object.focused {
                                     windowed_object
-                                        .object
+                                        .state
                                         .handle_event(&new_event, &windowed_object.window)
                                 }
                             }
@@ -130,14 +135,14 @@ impl RenderBuilder {
                 Event::RedrawRequested(window_id) => {
                     if let Some(windowed_object) = self.window_objects.get_mut(window_id) {
                         windowed_object
-                            .object
+                            .state
                             .handle_event(&new_event, &windowed_object.window)
                     }
                 }
                 Event::UserEvent(RenderEvent { window_id, .. }) => {
                     if let Some(windowed_object) = self.window_objects.get_mut(window_id) {
                         windowed_object
-                            .object
+                            .state
                             .handle_event(&new_event, &windowed_object.window)
                     }
                 }
@@ -145,7 +150,7 @@ impl RenderBuilder {
                     for (
                         _,
                         WindowedObject {
-                            object,
+                            state: object,
                             window,
                             focused,
                         },

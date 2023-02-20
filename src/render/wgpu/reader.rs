@@ -11,9 +11,9 @@ use tokio::sync::mpsc::UnboundedSender;
 use super::renderable::Renderable;
 
 pub trait RenderReader<T: Renderable> {
-    /// get the first frame
+    /// Initialize the input reader for our renderer. Returns the first frame, if any.
     fn start(&mut self) -> Option<T>;
-    /// get the `index`-th frame
+    /// Returns the `index`-th frame
     fn get_at(&mut self, index: usize) -> Option<T>;
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;

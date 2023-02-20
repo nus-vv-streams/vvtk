@@ -62,6 +62,7 @@ impl WindowGpu {
         }
     }
 
+    /// Reconfigure the surface every time the window's size changes
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
             self.size = new_size;
@@ -71,6 +72,7 @@ impl WindowGpu {
         }
     }
 
+    /// Returns a new `SurfaceTexture` that we will render to and a `TextureView` with default settings
     pub fn create_view(
         &self,
     ) -> Result<(wgpu::SurfaceTexture, wgpu::TextureView), wgpu::SurfaceError> {
@@ -81,6 +83,8 @@ impl WindowGpu {
         Ok((output, view))
     }
 
+    /// Creates a command encoder that will record commands to send to the gpu in a command buffer.
+    /// Call `encoder.finish()` to get the CommandBuffer.
     pub fn create_encoder(&self) -> wgpu::CommandEncoder {
         self.device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
