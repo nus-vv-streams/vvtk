@@ -350,7 +350,7 @@ mod tests {
             Ok(_) => panic!("Parsing should fail"),
             Err(e) => match e {
                 PCDReadError::InvalidHeader { section, .. } => assert_eq!(&section, fail_section),
-                _ => panic!("Error should be due to {}", fail_section),
+                _ => panic!("Error should be due to {fail_section}"),
             },
         }
     }

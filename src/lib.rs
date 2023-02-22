@@ -34,20 +34,20 @@ pub struct PCMetadata {
     pub last5_avg_bitrate: usize,
 }
 
-impl Into<FrameRequest> for PCMetadata {
-    fn into(self) -> FrameRequest {
+impl From<PCMetadata> for FrameRequest {
+    fn from(val: PCMetadata) -> Self {
         FrameRequest {
-            object_id: self.object_id,
-            frame_offset: self.frame_offset,
+            object_id: val.object_id,
+            frame_offset: val.frame_offset,
         }
     }
 }
 
-impl Into<PCMetadata> for FrameRequest {
-    fn into(self) -> PCMetadata {
+impl From<FrameRequest> for PCMetadata {
+    fn from(val: FrameRequest) -> Self {
         PCMetadata {
-            object_id: self.object_id,
-            frame_offset: self.frame_offset,
+            object_id: val.object_id,
+            frame_offset: val.frame_offset,
             last5_avg_bitrate: 0,
         }
     }

@@ -16,10 +16,10 @@ pub struct NoopDecoder {
 
 impl NoopDecoder {
     pub fn new(filename: &OsStr) -> Self {
-        return NoopDecoder {
+        NoopDecoder {
             to_decode: PathBuf::from(filename),
             pcd: None,
-        };
+        }
     }
 }
 
@@ -129,14 +129,14 @@ pub struct MultiplaneDecodeReq {
 
 impl MultiplaneDecoder {
     pub fn new(req: MultiplaneDecodeReq) -> Self {
-        return MultiplaneDecoder {
+        MultiplaneDecoder {
             top: tmc2rs::Decoder::new(tmc2rs::Params::new(req.top, None)),
             bottom: tmc2rs::Decoder::new(tmc2rs::Params::new(req.bottom, None)),
             left: tmc2rs::Decoder::new(tmc2rs::Params::new(req.left, None)),
             right: tmc2rs::Decoder::new(tmc2rs::Params::new(req.right, None)),
             front: tmc2rs::Decoder::new(tmc2rs::Params::new(req.front, None)),
             back: tmc2rs::Decoder::new(tmc2rs::Params::new(req.back, None)),
-        };
+        }
     }
 }
 
@@ -156,9 +156,7 @@ impl Decoder for MultiplaneDecoder {
         // assume all decoders have the same number of frames
         let now = std::time::Instant::now();
         let front = self.front.recv_frame();
-        if front.is_none() {
-            return None;
-        }
+        front.as_ref()?;
         let front = front.unwrap();
         let back = self.back.recv_frame().unwrap();
         let left = self.left.recv_frame().unwrap();

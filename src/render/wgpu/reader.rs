@@ -2,7 +2,7 @@ use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
 use crate::pcd::read_pcd_file;
 use crate::BufMsg;
-use log::{debug, trace};
+
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
@@ -85,7 +85,7 @@ impl PcdMemoryReader {
 
 impl RenderReader<PointCloud<PointXyzRgba>> for PcdMemoryReader {
     fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-        self.points.get(index).map(|pc| pc.clone())
+        self.points.get(index).cloned()
     }
 
     fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {

@@ -103,8 +103,7 @@ impl Fetcher {
 
         let total_bits = contents
             .iter()
-            .filter(|c| c.is_ok())
-            .map(|c| c.as_ref().unwrap())
+            .filter_map(|c| c.as_ref().ok())
             .filter(|c| c.is_some())
             .map(|c| c.as_ref().unwrap().len())
             .sum::<usize>()
@@ -123,7 +122,7 @@ impl Fetcher {
                 let mut file = File::create(&paths[i].clone().unwrap()).await?;
                 tokio::io::copy(&mut content.as_ref(), &mut file).await?;
             } else if let Err(e) = content {
-                eprintln!("Error downloading file: {}", e);
+                eprintln!("Error downloading file: {e}");
                 return Err(e.into());
             }
         }
@@ -143,7 +142,7 @@ impl Fetcher {
 }
 
 fn generate_filename_from_url(url: &str) -> &str {
-    url.rsplit_terminator("/").nth(0).unwrap()
+    url.rsplit_terminator('/').next().unwrap()
 }
 
 #[cfg(test)]

@@ -21,7 +21,7 @@ impl MetricsReader {
 
     pub fn get_at(&self, index: usize) -> Option<Metrics> {
         self.file_at(index)
-            .map(|f| File::open(f).expect(&format!("Failed to open file {:?}", f.as_os_str())))
+            .map(|f| File::open(f).unwrap_or_else(|_| panic!("Failed to open file {:?}", f.as_os_str())))
             .map(|mut f| Metrics::from_reader(&mut f))
     }
 }

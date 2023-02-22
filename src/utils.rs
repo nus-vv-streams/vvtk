@@ -70,8 +70,8 @@ impl<const N: usize> SimpleRunningAverage<N> {
 
     /// Adds a new datapoint to the running average, removing the oldest
     pub fn add(&mut self, value: usize) {
-        self.avg = self.avg + (value - self.values[self.next as usize]) / self.divide_by;
-        self.values[self.next as usize] = value;
+        self.avg += (value - self.values[self.next]) / self.divide_by;
+        self.values[self.next] = value;
         self.next = (self.next + 1) % N;
         self.divide_by = std::cmp::min(self.divide_by + 1, N);
     }

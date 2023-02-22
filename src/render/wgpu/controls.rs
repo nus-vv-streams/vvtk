@@ -63,8 +63,8 @@ impl Attachable for Controller {
 
         // We use the egui_winit_platform crate as the platform.
         let platform = Platform::new(PlatformDescriptor {
-            physical_width: gpu.size.width as u32,
-            physical_height: gpu.size.height as u32,
+            physical_width: gpu.size.width,
+            physical_height: gpu.size.height,
             scale_factor: window.scale_factor(),
             font_definitions: FontDefinitions::default(),
             style: Default::default(),
@@ -119,19 +119,19 @@ impl ControlWindow {
             );
 
             if let Some(info) = self.info {
-                ui.add(Label::new(&format!(
+                ui.add(Label::new(format!(
                     "Camera Position: {:?}",
                     info.camera.position
                 )));
-                ui.add(Label::new(&format!(
+                ui.add(Label::new(format!(
                     "Camera Yaw: {:?}",
                     cgmath::Deg::from(info.camera.yaw)
                 )));
-                ui.add(Label::new(&format!(
+                ui.add(Label::new(format!(
                     "Camera Pitch: {:?}",
                     cgmath::Deg::from(info.camera.pitch)
                 )));
-                ui.add(Label::new(&format!("Avg fps: {:?}", info.fps)));
+                ui.add(Label::new(format!("Avg fps: {:?}", info.fps)));
             }
         });
 
@@ -217,7 +217,7 @@ impl ControlWindow {
                 return;
             }
             Err(e) => {
-                eprintln!("Dropped frame with error: {}", e);
+                eprintln!("Dropped frame with error: {e}");
                 return;
             }
         };

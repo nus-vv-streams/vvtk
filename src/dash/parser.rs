@@ -51,7 +51,7 @@ impl MPDParser {
             .expect("no base url found")
             .base
             .clone();
-        if url.ends_with("/") {
+        if url.ends_with('/') {
             url
         } else {
             url + "/"
@@ -87,19 +87,19 @@ impl MPDParser {
         let mut result = template.to_string();
         for k in ["RepresentationID", "Number", "Time", "Bandwidth"] {
             // first check for simple case eg $Number$
-            let ident = format!("${}$", k);
+            let ident = format!("${k}$");
             if result.contains(&ident) {
                 if let Some(value) = params.get(k as &str) {
                     result = result.replace(&ident, value);
                 }
             }
             // now check for complex case eg $Number%06d$
-            let re = format!("\\${}%0([\\d])d\\$", k);
+            let re = format!("\\${k}%0([\\d])d\\$");
             let ident_re = Regex::new(&re).unwrap();
             if let Some(cap) = ident_re.captures(&result) {
                 if let Some(value) = params.get(k as &str) {
                     let width: usize = cap[1].parse::<usize>().unwrap();
-                    let count = format!("{:0>width$}", value, width = width);
+                    let count = format!("{value:0>width$}");
                     let m = ident_re.find(&result).unwrap();
                     result = result[..m.start()].to_owned() + &count + &result[m.end()..];
                 }
@@ -217,7 +217,7 @@ fn parse_xs_duration(s: &str) -> Result<Duration> {
                 if s.len() > 9 {
                     s = &s[..9];
                 }
-                let padded = format!("{:0<9}", s);
+                let padded = format!("{s:0<9}");
                 nsecs = padded.parse::<u32>().unwrap();
             }
             if let Some(s) = m.name("seconds") {
@@ -230,23 +230,23 @@ fn parse_xs_duration(s: &str) -> Result<Duration> {
             }
             if let Some(s) = m.name("hours") {
                 let hours = s.as_str().parse::<u64>().unwrap();
-                secs += hours as u64 * 60 * 60;
+                secs += hours * 60 * 60;
             }
             if let Some(s) = m.name("days") {
                 let days = s.as_str().parse::<u64>().unwrap();
-                secs += days as u64 * 60 * 60 * 24;
+                secs += days * 60 * 60 * 24;
             }
             if let Some(s) = m.name("weeks") {
                 let weeks = s.as_str().parse::<u64>().unwrap();
-                secs += weeks as u64 * 60 * 60 * 24 * 7;
+                secs += weeks * 60 * 60 * 24 * 7;
             }
             if let Some(s) = m.name("months") {
                 let months = s.as_str().parse::<u64>().unwrap();
-                secs += months as u64 * 60 * 60 * 24 * 30;
+                secs += months * 60 * 60 * 24 * 30;
             }
             if let Some(s) = m.name("years") {
                 let years = s.as_str().parse::<u64>().unwrap();
-                secs += years as u64 * 60 * 60 * 24 * 365;
+                secs += years * 60 * 60 * 24 * 365;
             }
             if let Some(s) = m.name("sign") {
                 if s.as_str() == "-" {
@@ -286,7 +286,7 @@ where
     if let Some(xs) = oxs {
         let secs = xs.as_secs();
         let ms = xs.subsec_millis();
-        serializer.serialize_str(&format!("PT{}.{:03}S", secs, ms))
+        serializer.serialize_str(&format!("PT{secs}.{ms:03}S"))
     } else {
         // in fact this won't be called because of the #[skip_serializing_none] annotation
         serializer.serialize_none()

@@ -2,10 +2,10 @@ use std::env;
 use std::path::PathBuf;
 use vivotk::codec::decoder::{MultiplaneDecodeReq, MultiplaneDecoder};
 use vivotk::codec::Decoder;
-use vivotk::pcd::{write_pcd_file, PCDDataType, PointCloudData};
+use vivotk::pcd::PointCloudData;
 
 fn main() {
-    let output_file = env::args().nth(1).expect("output file");
+    let _output_file = env::args().nth(1).expect("output file");
     let left = env::args().nth(2).expect("input file");
     let bottom = env::args().nth(3).expect("input file");
     let back = env::args().nth(4).expect("input file");
@@ -21,9 +21,13 @@ fn main() {
         top: PathBuf::from(top),
         front: PathBuf::from(front),
     });
+    let now = std::time::Instant::now();
     decoder.start().unwrap();
     while let Some(pc) = decoder.poll() {
         let pcd = PointCloudData::from(&pc);
-        write_pcd_file(&pcd, PCDDataType::Ascii, &output_file).unwrap();
+        dbg!(pcd.header().points());
+        // write_pcd_file(&pcd, PCDDataType::Ascii, &output_file).unwrap();
     }
+    let elapsed = now.elapsed();
+    dbg!("Decoding took {:?} seconds", elapsed);
 }

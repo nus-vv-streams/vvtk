@@ -161,7 +161,7 @@ where
                     Err(wgpu::SurfaceError::Lost) => self.resize(self.gpu.size),
                     // TODO: The system is out of memory, we should probably quit
                     Err(wgpu::SurfaceError::OutOfMemory) => {}
-                    Err(e) => eprintln!("Dropped frame due to {:?}", e),
+                    Err(e) => eprintln!("Dropped frame due to {e:?}"),
                 }
             }
             Event::UserEvent(RenderEvent {
@@ -235,7 +235,7 @@ where
         match state.render() {
             Ok(_) => {}
             Err(wgpu::SurfaceError::OutOfMemory) => eprintln!("Out of memory"),
-            Err(e) => eprintln!("Dropped frame due to {:?}", e),
+            Err(e) => eprintln!("Dropped frame due to {e:?}"),
         }
         state
     }
@@ -355,7 +355,7 @@ where
                 .update_vertices(&self.gpu.device, &self.gpu.queue, &data);
             return true;
         }
-        return false;
+        false
     }
 
     fn update_stats(&mut self) {
@@ -476,7 +476,7 @@ where
             label: Some("Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 // which texture to save the colors to
-                view: &view,
+                view,
                 // the texture that will receive the resolved output. Same as `view` unless multisampling is enabled.
                 // As we don't need to specify this, we leave it as None.
                 resolve_target: None,

@@ -1,5 +1,5 @@
 use clap::Parser;
-use log::{debug, error, info, warn};
+use log::{debug, warn};
 use lru::LruCache;
 use std::collections::VecDeque;
 use std::ffi::OsString;
@@ -111,11 +111,11 @@ impl BufferManager {
                     // Check in cache whether it exists
                     if let Some(pc) = self.cache.pop(&renderer_req) {
                         // send to the renderer
-                        self.buf_out_sx.send((renderer_req.clone(), pc)).unwrap();
+                        self.buf_out_sx.send((renderer_req, pc)).unwrap();
                     } else {
                         // It doesn't exist in cache, so we send a request to the fetcher to fetch the data
-                        self.buf_in_sx.send(renderer_req.clone()).unwrap();
-                        self.pending_frame_req.push_back(renderer_req.clone());
+                        self.buf_in_sx.send(renderer_req).unwrap();
+                        self.pending_frame_req.push_back(renderer_req);
                     }
 
                     if self.cache.len() < self.cache.cap().get() {
@@ -125,7 +125,7 @@ impl BufferManager {
                         next_frame_req.frame_offset = (next_frame_req.frame_offset
                             + self.segment_size)
                             % self.total_frames as u64;
-                        self.buf_in_sx.send(next_frame_req.clone()).unwrap();
+                        self.buf_in_sx.send(next_frame_req).unwrap();
                         // we don't store this in the pending frame request because it is a preemptive request, not a request by the renderer.
                     }
                 }
@@ -160,7 +160,7 @@ fn main() {
     // the content is produced by the renderer and consumed by the fetcher
     let (buf_in_sx, mut buf_in_rx) = tokio::sync::mpsc::unbounded_channel();
     let (in_dec_sx, mut in_dec_rx) = tokio::sync::mpsc::unbounded_channel();
-    let (to_buf_sx, mut to_buf_rx) = tokio::sync::mpsc::unbounded_channel();
+    let (to_buf_sx, to_buf_rx) = tokio::sync::mpsc::unbounded_channel();
     // this buffer is used to store the fetched data. It is a bounded buffer. It will store the data in segments.
     // the content is produced by the fetcher and consumed by the decoder thread.
     // let (dec_to_buf, decoder_rx) = Buffer::new(args.buffer_size.unwrap_or(10) as usize);
@@ -206,7 +206,7 @@ fn main() {
 
                         match p {
                             Ok(res) => {
-                                _ = in_dec_sx.send((req.clone(), res)).unwrap();
+                                in_dec_sx.send((req, res)).unwrap();
                                 frame_range.0 = req.frame_offset;
                                 frame_range.1 = req.frame_offset + fetcher.segment_size();
                                 break;
@@ -268,7 +268,7 @@ fn main() {
                 debug!("got fetch result {:?}", req);
                 let decoder_path = decoder_path.clone();
                 let to_buf_sx = to_buf_sx.clone();
-                _ = tokio::task::spawn_blocking(move || {
+                tokio::task::spawn_blocking(move || {
                     let mut decoder: Box<dyn Decoder> = match decoder_type {
                         DecoderType::Draco => Box::new(DracoDecoder::new(
                             decoder_path
