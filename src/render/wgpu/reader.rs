@@ -1,8 +1,8 @@
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
 use crate::pcd::read_pcd_file;
+use crate::BufMsg;
 use log::{debug, trace};
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
@@ -121,12 +121,6 @@ pub struct FrameRequest {
     pub object_id: u8,
     // pub quality: u8,
     pub frame_offset: u64,
-}
-
-#[derive(Debug, Clone)]
-pub enum BufMsg {
-    PointCloud((FrameRequest, PointCloud<PointXyzRgba>)),
-    FrameRequest(FrameRequest),
 }
 
 #[cfg(feature = "dash")]

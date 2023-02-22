@@ -1,4 +1,5 @@
 use super::parser::MPDParser;
+use crate::utils::SimpleRunningAverage;
 use anyhow::{Context, Result};
 use futures::future;
 use log::debug;
@@ -21,41 +22,11 @@ pub struct FetchStats {
     pub avg_bitrate: SimpleRunningAverage<5>,
 }
 
-#[derive(Clone, Debug)]
-pub struct SimpleRunningAverage<const N: usize> {
-    values: [usize; N],
-    /// pointer to the next value to be overwritten
-    next: usize,
-    avg: usize,
-    divide_by: usize,
-}
-
-impl<const N: usize> SimpleRunningAverage<N> {
-    fn new() -> Self {
-        SimpleRunningAverage {
-            values: [0; N],
-            next: 0,
-            avg: 0,
-            divide_by: 1,
-        }
-    }
-
-    /// Adds a new datapoint to the running average, removing the oldest
-    fn add(&mut self, value: usize) {
-        self.avg = self.avg + (value - self.values[self.next as usize]) / self.divide_by;
-        self.values[self.next as usize] = value;
-        self.next = (self.next + 1) % N;
-        self.divide_by = std::cmp::min(self.divide_by + 1, N);
-    }
-
-    /// Gets the running average
-    fn get(&self) -> usize {
-        self.avg
-    }
-}
-
 #[derive(Debug)]
-pub struct FetchResult(pub [Option<PathBuf>; 6]);
+pub struct FetchResult {
+    pub paths: [Option<PathBuf>; 6],
+    pub last5_avg_bitrate: usize,
+}
 
 async fn fetch_mpd(mpd_url: &str, http_client: &HttpClient) -> Result<String> {
     let resp = http_client.get(mpd_url).send().await?;
@@ -138,10 +109,8 @@ impl Fetcher {
             .map(|c| c.as_ref().unwrap().len())
             .sum::<usize>()
             * 8;
-
-        self.stats
-            .avg_bitrate
-            .add(total_bits / std::cmp::max(1, elapsed.as_millis()) as usize);
+        let avg_bitrate = total_bits / std::cmp::max(1, elapsed.as_millis()) as usize;
+        self.stats.avg_bitrate.add(avg_bitrate);
         debug!(
             "download time: {:?}, bits: {:}, avg_bitrate(latest): {:?}kbps",
             elapsed,
@@ -158,7 +127,10 @@ impl Fetcher {
                 return Err(e.into());
             }
         }
-        Ok(FetchResult(paths))
+        Ok(FetchResult {
+            paths,
+            last5_avg_bitrate: self.stats.avg_bitrate.get(),
+        })
     }
 
     pub fn total_frames(&self) -> usize {

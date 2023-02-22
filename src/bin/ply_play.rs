@@ -1,6 +1,7 @@
 use clap::Parser;
 use log::{debug, error, info, warn};
-use std::collections::{HashMap, VecDeque};
+use lru::LruCache;
+use std::collections::VecDeque;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
@@ -14,10 +15,11 @@ use vivotk::render::wgpu::{
     camera::Camera,
     controls::Controller,
     metrics_reader::MetricsReader,
-    reader::{BufMsg, FrameRequest, PcdAsyncReader, RenderReader},
+    reader::{FrameRequest, PcdAsyncReader, RenderReader},
     renderer::Renderer,
 };
 use vivotk::utils::read_file_to_point_cloud;
+use vivotk::{BufMsg, PCMetadata};
 
 /// Plays a folder of pcd files in lexicographical order
 #[derive(Parser)]
@@ -47,7 +49,7 @@ struct Args {
     #[clap(long = "controls", default_value_t = true)]
     show_controls: bool,
     #[clap(short, long)]
-    buffer_size: Option<u8>,
+    buffer_size: Option<usize>,
     #[clap(short, long)]
     metrics: Option<OsString>,
     #[clap(long, value_enum, default_value_t = DecoderType::Noop)]
@@ -72,8 +74,9 @@ struct BufferManager {
     buf_in_sx: tokio::sync::mpsc::UnboundedSender<FrameRequest>,
     buf_out_sx: std::sync::mpsc::Sender<(FrameRequest, PointCloud<PointXyzRgba>)>,
     pending_frame_req: VecDeque<FrameRequest>,
-    // TODO: probably change this to Buffer or something...
-    cache: HashMap<FrameRequest, PointCloud<PointXyzRgba>>,
+    cache: LruCache<FrameRequest, PointCloud<PointXyzRgba>>,
+    total_frames: usize,
+    segment_size: u64,
 }
 
 impl BufferManager {
@@ -81,13 +84,18 @@ impl BufferManager {
         to_buf_rx: tokio::sync::mpsc::UnboundedReceiver<BufMsg>,
         buf_in_sx: tokio::sync::mpsc::UnboundedSender<FrameRequest>,
         buf_out_sx: std::sync::mpsc::Sender<(FrameRequest, PointCloud<PointXyzRgba>)>,
+        buffer_size: usize,
+        total_frames: usize,
+        segment_size: u64,
     ) -> Self {
         BufferManager {
             to_buf_rx,
             buf_in_sx,
             buf_out_sx,
-            cache: HashMap::new(),
+            cache: LruCache::new(std::num::NonZeroUsize::new(buffer_size).unwrap()),
             pending_frame_req: VecDeque::new(),
+            total_frames,
+            segment_size,
         }
     }
 
@@ -95,34 +103,43 @@ impl BufferManager {
         loop {
             match self.to_buf_rx.recv().await.unwrap() {
                 BufMsg::FrameRequest(renderer_req) => {
-                    dbg!("renderer sent a frame request {:?}", &renderer_req);
+                    debug!("renderer sent a frame request {:?}", &renderer_req);
 
                     // First, attempt to fulfill the request from the buffer.
                     // TODO: find which quality to download based on the current camera position + network bandwidth.
 
                     // Check in cache whether it exists
-                    if let Some(pc) = self.cache.remove(&renderer_req) {
+                    if let Some(pc) = self.cache.pop(&renderer_req) {
                         // send to the renderer
-                        self.buf_out_sx.send((renderer_req, pc)).unwrap();
+                        self.buf_out_sx.send((renderer_req.clone(), pc)).unwrap();
                     } else {
                         // It doesn't exist in cache, so we send a request to the fetcher to fetch the data
                         self.buf_in_sx.send(renderer_req.clone()).unwrap();
-                        self.pending_frame_req.push_back(renderer_req);
+                        self.pending_frame_req.push_back(renderer_req.clone());
                     }
 
-                    // TODO: send predictive requests to the fetcher
+                    if self.cache.len() < self.cache.cap().get() {
+                        debug!("Cache length: {:}", self.cache.len());
+                        // If the cache is not full, we send a request to the fetcher to fetch the next frame
+                        let mut next_frame_req = renderer_req;
+                        next_frame_req.frame_offset = (next_frame_req.frame_offset
+                            + self.segment_size)
+                            % self.total_frames as u64;
+                        self.buf_in_sx.send(next_frame_req.clone()).unwrap();
+                        // we don't store this in the pending frame request because it is a preemptive request, not a request by the renderer.
+                    }
                 }
                 BufMsg::PointCloud((req, pc)) => {
-                    dbg!("received a point cloud result", &req);
+                    debug!("received a point cloud result {:?}", &req);
                     if !self.pending_frame_req.is_empty()
                         && req.frame_offset == self.pending_frame_req.front().unwrap().frame_offset
                     {
                         // send results to the renderer
-                        self.buf_out_sx.send((req, pc)).unwrap();
+                        self.buf_out_sx.send((req.into(), pc)).unwrap();
                         self.pending_frame_req.pop_front();
                     } else {
-                        // cache the data
-                        self.cache.insert(req, pc);
+                        // cache the point cloud
+                        self.cache.push(req.into(), pc);
                     }
                 }
             }
@@ -169,17 +186,18 @@ fn main() {
 
                 let mut fetcher = Fetcher::new(&src, path).await;
                 total_frames_tx
-                    .send(fetcher.total_frames())
+                    .send((fetcher.total_frames(), fetcher.segment_size()))
                     .expect("sent total frames");
 
                 let mut frame_range = (0, 0);
                 loop {
                     let req: FrameRequest = buf_in_rx.recv().await.unwrap();
-                    dbg!("got frame requests {:?}", &req);
+                    debug!("got frame requests {:?}", &req);
 
-                    // the request has just been recently fetched (or in the buffer), so we can skip it.
-                    // This avoids some redundant requests to the server.
+                    // The request has just been recently fetched (or in the buffer), so we can skip it to avoid some redundant requests to the server.
+                    // However,
                     if frame_range.0 < req.frame_offset && req.frame_offset < frame_range.1 {
+                        tokio::task::yield_now().await;
                         continue;
                     }
                     // we should probably do *bounded* retry here
@@ -216,7 +234,7 @@ fn main() {
                     ply_files.push(f);
                 }
                 total_frames_tx
-                    .send(ply_files.len())
+                    .send((ply_files.len(), 1))
                     .expect("sent total frames");
                 ply_files.sort();
 
@@ -225,8 +243,10 @@ fn main() {
                     debug!("got frame requests {:?}", req);
                     let pcd =
                         read_file_to_point_cloud(ply_files.get(req.frame_offset as usize).unwrap())
-                            .unwrap();
-                    to_buf_sx.send(BufMsg::PointCloud((req, pcd))).unwrap();
+                            .expect("read file to point cloud failed");
+                    to_buf_sx
+                        .send(BufMsg::PointCloud((req.into(), pcd)))
+                        .unwrap();
                 }
             }
         });
@@ -238,8 +258,14 @@ fn main() {
         let to_buf_sx = to_buf_sx.clone();
         rt.spawn(async move {
             loop {
-                let (req, FetchResult(mut p)) = in_dec_rx.recv().await.unwrap();
-                dbg!("got fetch result {:?}", req);
+                let (
+                    req,
+                    FetchResult {
+                        paths: mut p,
+                        last5_avg_bitrate,
+                    },
+                ) = in_dec_rx.recv().await.unwrap();
+                debug!("got fetch result {:?}", req);
                 let decoder_path = decoder_path.clone();
                 let to_buf_sx = to_buf_sx.clone();
                 _ = tokio::task::spawn_blocking(move || {
@@ -267,11 +293,15 @@ fn main() {
                     decoder.start().unwrap();
                     let mut i = 0;
                     while let Some(pcd) = decoder.poll() {
-                        let mut req = req.clone();
-                        // update the frame_offset
-                        req.frame_offset += i;
+                        let pc_metadata = PCMetadata {
+                            last5_avg_bitrate,
+                            frame_offset: req.frame_offset + i,
+                            object_id: req.object_id,
+                        };
                         i += 1;
-                        to_buf_sx.send(BufMsg::PointCloud((req, pcd))).unwrap();
+                        to_buf_sx
+                            .send(BufMsg::PointCloud((pc_metadata, pcd)))
+                            .unwrap();
                     }
                     let elapsed = now.elapsed();
                     dbg!(elapsed);
@@ -282,13 +312,22 @@ fn main() {
         });
     }
 
-    let mut buffer = BufferManager::new(to_buf_rx, buf_in_sx, buf_out_sx);
+    let (total_frames, segment_size) = total_frames_rx.blocking_recv().unwrap();
+
+    let mut buffer = BufferManager::new(
+        to_buf_rx,
+        buf_in_sx,
+        buf_out_sx,
+        args.buffer_size.unwrap_or(60), // 2s buffer
+        total_frames,
+        segment_size,
+    );
     rt.spawn(async move { buffer.run().await });
 
     // let mut pcd_reader = PcdAsyncReader::new(buf_out_rx, out_buf_sx, args.buffer_size);
     let mut pcd_reader = PcdAsyncReader::new(buf_out_rx, to_buf_sx);
     // set the reader max length
-    pcd_reader.set_len(total_frames_rx.blocking_recv().unwrap());
+    pcd_reader.set_len(total_frames);
     dbg!(pcd_reader.len());
 
     let camera = Camera::new(

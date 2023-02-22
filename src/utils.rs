@@ -48,3 +48,36 @@ pub fn expand_directory(p: &Path) -> Vec<PathBuf> {
 
     ply_files
 }
+
+#[derive(Clone, Debug)]
+pub struct SimpleRunningAverage<const N: usize> {
+    values: [usize; N],
+    /// pointer to the next value to be overwritten
+    next: usize,
+    avg: usize,
+    divide_by: usize,
+}
+
+impl<const N: usize> SimpleRunningAverage<N> {
+    pub fn new() -> Self {
+        SimpleRunningAverage {
+            values: [0; N],
+            next: 0,
+            avg: 0,
+            divide_by: 1,
+        }
+    }
+
+    /// Adds a new datapoint to the running average, removing the oldest
+    pub fn add(&mut self, value: usize) {
+        self.avg = self.avg + (value - self.values[self.next as usize]) / self.divide_by;
+        self.values[self.next as usize] = value;
+        self.next = (self.next + 1) % N;
+        self.divide_by = std::cmp::min(self.divide_by + 1, N);
+    }
+
+    /// Gets the running average
+    pub fn get(&self) -> usize {
+        self.avg
+    }
+}

@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::{Error, Result};
+use log::debug;
 
 pub struct NoopDecoder {
     to_decode: PathBuf,
@@ -165,7 +166,7 @@ impl Decoder for MultiplaneDecoder {
         let top = self.top.recv_frame().unwrap();
         let bottom = self.bottom.recv_frame().unwrap();
         let elapsed = now.elapsed();
-        println!("Decoder for 6 frames took {} ms", elapsed.as_millis());
+        debug!("Decoder for 6 frames took {} ms", elapsed.as_millis());
 
         // combining all viewpoints into one
         let front = PointCloud::from(front);
