@@ -25,7 +25,10 @@ impl NoopDecoder {
 impl Decoder for NoopDecoder {
     fn start(&mut self) -> Result<()> {
         self.pcd = read_file_to_point_cloud(&self.to_decode);
-        Ok(())
+        self.pcd
+            .as_ref()
+            .map(|_| ())
+            .ok_or(Error::msg("Fail to read point cloud"))
     }
 
     fn poll(&mut self) -> Option<PointCloud<PointXyzRgba>> {
@@ -150,6 +153,7 @@ impl Decoder for MultiplaneDecoder {
 
     fn poll(&mut self) -> Option<PointCloud<PointXyzRgba>> {
         // assume all decoders have the same number of frames
+        let now = std::time::Instant::now();
         let front = self.front.recv_frame();
         if front.is_none() {
             return None;
@@ -160,6 +164,8 @@ impl Decoder for MultiplaneDecoder {
         let right = self.right.recv_frame().unwrap();
         let top = self.top.recv_frame().unwrap();
         let bottom = self.bottom.recv_frame().unwrap();
+        let elapsed = now.elapsed();
+        println!("Decoder for 6 frames took {} ms", elapsed.as_millis());
 
         // combining all viewpoints into one
         let front = PointCloud::from(front);

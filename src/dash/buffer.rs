@@ -60,4 +60,14 @@ where
         *self.length.lock().await -= 1;
         item
     }
+
+    pub async fn try_recv(&mut self) -> Option<T> {
+        match self.chan.try_recv().ok() {
+            None => return None,
+            Some(item) => {
+                *self.length.lock().await -= 1;
+                return Some(item);
+            }
+        }
+    }
 }
