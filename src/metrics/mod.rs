@@ -41,7 +41,7 @@ impl Metrics {
             if size == 0 {
                 break;
             }
-            let mut split = s.split(",");
+            let mut split = s.split(',');
             map.insert(
                 split.next().expect("Metric name expected").to_string(),
                 split.next().expect("Metric value expected").to_string(),
@@ -55,7 +55,7 @@ impl Metrics {
         W: Write,
     {
         for (key, val) in self.0.iter() {
-            writeln!(writer, "{},{}", key, val)?;
+            writeln!(writer, "{key},{val}")?;
         }
         Ok(())
     }

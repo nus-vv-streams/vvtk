@@ -24,15 +24,15 @@ impl Executor {
         for arg in args {
             if arg.starts_with("+input") {
                 let input_streams = arg
-                    .split("=")
+                    .split('=')
                     .nth(1)
                     .expect("Expected name of input stream");
-                for input_name in input_streams.split(",") {
+                for input_name in input_streams.split(',') {
                     input_stream_names.push(input_name.to_string());
                 }
             } else if arg.starts_with("+output") {
                 output_name = arg
-                    .split("=")
+                    .split('=')
                     .nth(1)
                     .expect("Expected name of output stream")
                     .to_string();

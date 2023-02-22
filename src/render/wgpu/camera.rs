@@ -110,6 +110,10 @@ impl CameraState {
                 true
             }
             DeviceEvent::Button {
+                button: 0, // in mac: touchpad pressed
+                state,
+            }
+            | DeviceEvent::Button {
                 button: 1, // Left Mouse Button
                 state,
             } => {
@@ -129,6 +133,8 @@ impl CameraState {
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+/// Create a uniform buffer: a blob of data that is available to every invocation of a set of shaders.
+/// This buffer is used to store our view projection matrix
 pub struct CameraUniform {
     view_position: [f32; 4],
     view_proj: [[f32; 4]; 4],
@@ -146,7 +152,7 @@ impl Default for CameraUniform {
 impl CameraUniform {
     fn update_view_proj(&mut self, camera: &Camera, projection: &Projection) {
         self.view_position = camera.position.to_homogeneous().into();
-        self.view_proj = (projection.calc_matrix() * camera.calc_matrix()).into()
+        self.view_proj = (projection.matrix() * camera.calc_matrix()).into()
     }
 }
 
@@ -163,20 +169,33 @@ const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 #[derive(Debug, Copy, Clone)]
 pub struct Camera {
     pub position: Point3<f32>,
+    /// Yaw is the rotation around the y axis
     pub yaw: Rad<f32>,
+    /// Pitch is the rotation around the x axis
     pub pitch: Rad<f32>,
+
+    orig_position: Point3<f32>,
+    orig_yaw: Rad<f32>,
+    orig_pitch: Rad<f32>,
 }
 
 impl Camera {
-    pub fn new<V: Into<Point3<f32>>, Y: Into<Rad<f32>>, P: Into<Rad<f32>>>(
+    pub fn new<
+        V: Into<Point3<f32>> + Clone,
+        Y: Into<Rad<f32>> + Clone,
+        P: Into<Rad<f32>> + Clone,
+    >(
         position: V,
         yaw: Y,
         pitch: P,
     ) -> Self {
         Self {
-            position: position.into(),
-            yaw: yaw.into(),
-            pitch: pitch.into(),
+            position: position.clone().into(),
+            yaw: yaw.clone().into(),
+            pitch: pitch.clone().into(),
+            orig_position: position.into(),
+            orig_yaw: yaw.into(),
+            orig_pitch: pitch.into(),
         }
     }
 
@@ -189,6 +208,13 @@ impl Camera {
             Vector3::new(cos_pitch * cos_yaw, sin_pitch, cos_pitch * sin_yaw).normalize(),
             Vector3::unit_y(),
         )
+    }
+
+    /// Resets camera to its first state
+    fn reset(&mut self) {
+        self.position = self.orig_position;
+        self.yaw = self.orig_yaw;
+        self.pitch = self.orig_pitch;
     }
 }
 
@@ -213,12 +239,14 @@ impl Projection {
         self.aspect = width as f32 / height as f32;
     }
 
-    pub fn calc_matrix(&self) -> Matrix4<f32> {
+    /// Get projection matrix
+    pub fn matrix(&self) -> Matrix4<f32> {
         OPENGL_TO_WGPU_MATRIX * perspective(self.fovy, self.aspect, self.znear, self.zfar)
     }
 }
 
 #[derive(Debug)]
+/// Used to control the camera movement by processing user inputs
 pub struct CameraController {
     amount_left: f32,
     amount_right: f32,
@@ -231,6 +259,7 @@ pub struct CameraController {
     scroll: f32,
     speed: f32,
     sensitivity: f32,
+    reset_view_requested: bool,
 }
 
 impl CameraController {
@@ -247,6 +276,7 @@ impl CameraController {
             scroll: 0.0,
             speed,
             sensitivity,
+            reset_view_requested: false,
         }
     }
 
@@ -281,6 +311,10 @@ impl CameraController {
                 self.amount_down = amount;
                 true
             }
+            VirtualKeyCode::R => {
+                self.reset_view_requested = true;
+                true
+            }
             _ => false,
         }
     }
@@ -298,6 +332,11 @@ impl CameraController {
     }
 
     pub fn update_camera(&mut self, camera: &mut Camera, dt: Duration) {
+        if self.reset_view_requested {
+            camera.reset();
+            self.reset_view_requested = false;
+            return;
+        }
         let dt = dt.as_secs_f32();
 
         // Move forward/backward and left/right

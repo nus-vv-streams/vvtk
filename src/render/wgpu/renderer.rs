@@ -93,6 +93,7 @@ where
     }
 }
 
+/// Renderer's state
 pub struct State<T, U>
 where
     T: RenderReader<U>,
@@ -156,8 +157,11 @@ where
                 self.last_render_time = Some(now);
                 match self.update(dt) {
                     Ok(_) => {}
+                    // Reconfigure the surface if lost
+                    Err(wgpu::SurfaceError::Lost) => self.resize(self.gpu.size),
+                    // TODO: The system is out of memory, we should probably quit
                     Err(wgpu::SurfaceError::OutOfMemory) => {}
-                    Err(e) => eprintln!("Dropped frame due to {:?}", e),
+                    Err(e) => eprintln!("Dropped frame due to {e:?}"),
                 }
             }
             Event::UserEvent(RenderEvent {
@@ -230,8 +234,8 @@ where
         state.update_stats();
         match state.render() {
             Ok(_) => {}
-            Err(wgpu::SurfaceError::OutOfMemory) => {}
-            Err(e) => eprintln!("Dropped frame due to {:?}", e),
+            Err(wgpu::SurfaceError::OutOfMemory) => eprintln!("Out of memory"),
+            Err(e) => eprintln!("Dropped frame due to {e:?}"),
         }
         state
     }
@@ -290,10 +294,6 @@ where
         }
     }
 
-    fn current(&mut self) -> Option<U> {
-        self.reader.get_at(self.current_position)
-    }
-
     fn handle_device_event(&mut self, event: &DeviceEvent) {
         self.camera_state.process_input(event);
         if let DeviceEvent::Key(KeyboardInput {
@@ -350,12 +350,12 @@ where
     }
 
     fn update_vertices(&mut self) -> bool {
-        if let Some(data) = self.current() {
+        if let Some(data) = self.reader.get_at(self.current_position) {
             self.pcd_renderer
                 .update_vertices(&self.gpu.device, &self.gpu.queue, &data);
             return true;
         }
-        return false;
+        false
     }
 
     fn update_stats(&mut self) {
@@ -380,6 +380,7 @@ where
         );
 
         self.staging_belt.finish();
+        // Calls encoder.finish() to obtain a CommandBuffer and submits it to the queue.
         self.gpu.queue.submit(iter::once(encoder.finish()));
         output.present();
         self.staging_belt.recall();
@@ -427,7 +428,7 @@ where
         let (depth_texture, depth_view) = T::create_depth_texture(device, initial_size);
 
         let vertex_buffer = initial_render.create_buffer(device);
-        let num_vertices = initial_render.vertices();
+        let num_vertices = initial_render.num_vertices();
 
         Self {
             camera_buffer,
@@ -459,7 +460,7 @@ where
     }
 
     pub fn update_vertices(&mut self, device: &Device, queue: &Queue, data: &T) {
-        let vertices = data.vertices();
+        let vertices = data.num_vertices();
         if vertices > self.num_vertices {
             self.vertex_buffer.destroy();
             self.vertex_buffer = data.create_buffer(device);
@@ -469,19 +470,26 @@ where
         self.num_vertices = vertices;
     }
 
+    /// Stores render commands into encoder, specifying which texture to save the colors to.
     pub fn render(&mut self, encoder: &mut CommandEncoder, view: &TextureView) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &view,
+                // which texture to save the colors to
+                view,
+                // the texture that will receive the resolved output. Same as `view` unless multisampling is enabled.
+                // As we don't need to specify this, we leave it as None.
                 resolve_target: None,
                 ops: wgpu::Operations {
+                    // `load` field tells wgpu how to handle colors stored from the previous frame.
+                    // This will clear the screen with a bluish color.
                     load: wgpu::LoadOp::Clear(wgpu::Color {
                         r: 0.1,
                         g: 0.2,
                         b: 0.3,
                         a: 1.0,
                     }),
+                    // true if we want to store the rendered results to the Texture behind our TextureView (in this case it's the SurfaceTexture).
                     store: true,
                 },
             })],

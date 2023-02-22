@@ -7,13 +7,11 @@ use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
 pub fn read_ply<P: AsRef<Path>>(path_buf: P) -> Option<PointCloud<PointXyzRgba>> {
     let vertex_parser = ply_rs::parser::Parser::<PointXyzRgba>::new();
     let f = std::fs::File::open(path_buf.as_ref())
-        .expect(&format!("Unable to open file {:?}", path_buf.as_ref()));
+        .unwrap_or_else(|_| panic!("Unable to open file {:?}", path_buf.as_ref()));
     let mut f = std::io::BufReader::new(f);
 
-    let header = vertex_parser.read_header(&mut f).expect(&format!(
-        "Failed to read header for ply file {:?}",
-        path_buf.as_ref()
-    ));
+    let header = vertex_parser.read_header(&mut f).unwrap_or_else(|_| panic!("Failed to read header for ply file {:?}",
+        path_buf.as_ref()));
 
     let mut vertex_list = Vec::new();
     for (_, element) in &header.elements {

@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::{Error, Result};
+use log::debug;
 
 pub struct NoopDecoder {
     to_decode: PathBuf,
@@ -15,17 +16,20 @@ pub struct NoopDecoder {
 
 impl NoopDecoder {
     pub fn new(filename: &OsStr) -> Self {
-        return NoopDecoder {
+        NoopDecoder {
             to_decode: PathBuf::from(filename),
             pcd: None,
-        };
+        }
     }
 }
 
 impl Decoder for NoopDecoder {
     fn start(&mut self) -> Result<()> {
         self.pcd = read_file_to_point_cloud(&self.to_decode);
-        Ok(())
+        self.pcd
+            .as_ref()
+            .map(|_| ())
+            .ok_or(Error::msg("Fail to read point cloud"))
     }
 
     fn poll(&mut self) -> Option<PointCloud<PointXyzRgba>> {
@@ -113,6 +117,7 @@ pub struct MultiplaneDecoder {
     back: tmc2rs::Decoder,
 }
 
+/// (5Feb) For now, it is not important to know whether the pathbuf really corresponds to a top, bottom, left, right, front or back image.
 pub struct MultiplaneDecodeReq {
     pub top: PathBuf,
     pub bottom: PathBuf,
@@ -124,14 +129,14 @@ pub struct MultiplaneDecodeReq {
 
 impl MultiplaneDecoder {
     pub fn new(req: MultiplaneDecodeReq) -> Self {
-        return MultiplaneDecoder {
+        MultiplaneDecoder {
             top: tmc2rs::Decoder::new(tmc2rs::Params::new(req.top, None)),
             bottom: tmc2rs::Decoder::new(tmc2rs::Params::new(req.bottom, None)),
             left: tmc2rs::Decoder::new(tmc2rs::Params::new(req.left, None)),
             right: tmc2rs::Decoder::new(tmc2rs::Params::new(req.right, None)),
             front: tmc2rs::Decoder::new(tmc2rs::Params::new(req.front, None)),
             back: tmc2rs::Decoder::new(tmc2rs::Params::new(req.back, None)),
-        };
+        }
     }
 }
 
@@ -149,16 +154,17 @@ impl Decoder for MultiplaneDecoder {
 
     fn poll(&mut self) -> Option<PointCloud<PointXyzRgba>> {
         // assume all decoders have the same number of frames
+        let now = std::time::Instant::now();
         let front = self.front.recv_frame();
-        if front.is_none() {
-            return None;
-        }
+        front.as_ref()?;
         let front = front.unwrap();
         let back = self.back.recv_frame().unwrap();
         let left = self.left.recv_frame().unwrap();
         let right = self.right.recv_frame().unwrap();
         let top = self.top.recv_frame().unwrap();
         let bottom = self.bottom.recv_frame().unwrap();
+        let elapsed = now.elapsed();
+        debug!("Decoder for 6 frames took {} ms", elapsed.as_millis());
 
         // combining all viewpoints into one
         let front = PointCloud::from(front);

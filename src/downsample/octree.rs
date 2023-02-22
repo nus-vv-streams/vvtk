@@ -8,7 +8,7 @@ pub fn downsample(
     points: PointCloud<PointXyzRgba>,
     points_per_voxel: usize,
 ) -> PointCloud<PointXyzRgba> {
-    if points.points.len() == 0 {
+    if points.points.is_empty() {
         points
     } else {
         let first_point = points.points[0];
@@ -138,7 +138,7 @@ fn octree_downsample(
     bounds: Bounds,
     points_per_voxel: usize,
 ) -> Vec<PointXyzRgba> {
-    if points.len() == 0 {
+    if points.is_empty() {
         return vec![];
     }
 

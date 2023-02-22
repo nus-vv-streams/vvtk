@@ -1,5 +1,5 @@
 //! Heavily simplified implementation of the MPD parser.
-//! Taken from https://github.com/emarsden/dash-mpd-rs/src/lib.rs
+//! Adapted from https://github.com/emarsden/dash-mpd-rs/src/lib.rs
 
 #![allow(non_snake_case)]
 
@@ -14,13 +14,14 @@ use std::time::Duration;
 const FPS: u64 = 30;
 
 #[derive(Clone)]
-pub(crate) struct PCCDashParser {
+pub(crate) struct MPDParser {
     mpd: MPD,
-    framestamps: Vec<u64>,
+    /// contains the first frame number for all `Period` in the MPD and the total number of frames.
+    period_markers: Vec<u64>,
 }
 
-impl PCCDashParser {
-    pub fn new(xml: &str) -> PCCDashParser {
+impl MPDParser {
+    pub fn new(xml: &str) -> MPDParser {
         let mpd = MPD::from_xml(xml).unwrap();
 
         let mut framestamps: Vec<u64> = vec![];
@@ -33,13 +34,13 @@ impl PCCDashParser {
             }
         }
 
-        PCCDashParser {
-            mpd: mpd,
-            framestamps: framestamps,
+        MPDParser {
+            mpd,
+            period_markers: framestamps,
         }
     }
 
-    // only gets the top-most BaseURL
+    /// gets MPD's top-level BaseURL
     pub fn get_base_url(&self) -> String {
         let url = self
             .mpd
@@ -50,15 +51,28 @@ impl PCCDashParser {
             .expect("no base url found")
             .base
             .clone();
-        if url.ends_with("/") {
+        if url.ends_with('/') {
             url
         } else {
             url + "/"
         }
     }
 
-    pub fn get_total_frames(&self) -> usize {
-        *self.framestamps.last().unwrap() as usize
+    pub fn total_frames(&self) -> usize {
+        *self.period_markers.last().unwrap() as usize
+    }
+
+    /// Get the segment template's duration. To get the time in seconds, need to divide by segment template's timescale.
+    pub fn segment_size(&self) -> u64 {
+        self.mpd.periods[0].adaptations.as_ref().unwrap()[0]
+            .representations
+            .as_ref()
+            .unwrap()[0]
+            .segment_template
+            .as_ref()
+            .unwrap()
+            .duration
+            .unwrap()
     }
 
     // From https://dashif.org/docs/DASH-IF-IOP-v4.3.pdf:
@@ -73,19 +87,19 @@ impl PCCDashParser {
         let mut result = template.to_string();
         for k in ["RepresentationID", "Number", "Time", "Bandwidth"] {
             // first check for simple case eg $Number$
-            let ident = format!("${}$", k);
+            let ident = format!("${k}$");
             if result.contains(&ident) {
                 if let Some(value) = params.get(k as &str) {
                     result = result.replace(&ident, value);
                 }
             }
             // now check for complex case eg $Number%06d$
-            let re = format!("\\${}%0([\\d])d\\$", k);
+            let re = format!("\\${k}%0([\\d])d\\$");
             let ident_re = Regex::new(&re).unwrap();
             if let Some(cap) = ident_re.captures(&result) {
                 if let Some(value) = params.get(k as &str) {
                     let width: usize = cap[1].parse::<usize>().unwrap();
-                    let count = format!("{:0>width$}", value, width = width);
+                    let count = format!("{value:0>width$}");
                     let m = ident_re.find(&result).unwrap();
                     result = result[..m.start()].to_owned() + &count + &result[m.end()..];
                 }
@@ -95,14 +109,16 @@ impl PCCDashParser {
     }
 
     // frame offset is calculated from the beginning of the video / MPD
-    pub fn get_url(
+    /// Returns the URL and the bandwidth of the segment.
+    pub fn get_info(
         &self,
-        adaptation_set_id: u8,
+        object_id: u8,
         representation_id: u8,
+        view_id: u8,
         frame_offset: u64,
-    ) -> String {
+    ) -> (String, Option<u64>) {
         let period_idx =
-            match self.framestamps[..].binary_search_by(|probe| probe.cmp(&frame_offset)) {
+            match self.period_markers[..].binary_search_by(|probe| probe.cmp(&frame_offset)) {
                 Ok(idx) => idx,
                 Err(idx) => idx - 1,
             };
@@ -113,34 +129,43 @@ impl PCCDashParser {
             .adaptations
             .as_ref()
             .unwrap()
-            .get(adaptation_set_id as usize)
+            .iter()
+            .find(|as_| {
+                as_.viewId.unwrap_or_default() == view_id as u64
+                    && as_.srcObjectId.unwrap_or_default() == object_id as u64
+            })
             .unwrap();
         let representation = adaptation_set
             .representations
             .as_ref()
             .unwrap()
-            .get(representation_id as usize)
+            .iter()
+            .find(|r| r.id.as_ref().unwrap().parse::<u8>().unwrap() == representation_id)
             .unwrap();
         let st = representation.segment_template.as_ref().unwrap();
         let media = st.media.as_ref().unwrap();
-        base_url
-            + self
-                .resolve_url_template(
-                    &media,
-                    &HashMap::from_iter(vec![
-                        (
-                            "RepresentationID",
-                            representation.id.as_ref().unwrap().clone(),
-                        ),
-                        (
-                            "Number",
-                            (frame_offset - self.framestamps.get(period_idx).unwrap()
-                                + st.startNumber.expect("start number not provided"))
-                            .to_string(),
-                        ),
-                    ]),
-                )
-                .as_str()
+        (
+            base_url
+                + self
+                    .resolve_url_template(
+                        media,
+                        &HashMap::from_iter(vec![
+                            (
+                                "RepresentationID",
+                                representation.id.as_ref().unwrap().clone(),
+                            ),
+                            (
+                                "Number",
+                                ((frame_offset - self.period_markers.get(period_idx).unwrap())
+                                    * (st.duration.unwrap() / st.timescale.unwrap())
+                                    + st.startNumber.expect("start number not provided"))
+                                .to_string(),
+                            ),
+                        ]),
+                    )
+                    .as_str(),
+            representation.bandwidth,
+        )
     }
 }
 
@@ -192,7 +217,7 @@ fn parse_xs_duration(s: &str) -> Result<Duration> {
                 if s.len() > 9 {
                     s = &s[..9];
                 }
-                let padded = format!("{:0<9}", s);
+                let padded = format!("{s:0<9}");
                 nsecs = padded.parse::<u32>().unwrap();
             }
             if let Some(s) = m.name("seconds") {
@@ -205,23 +230,23 @@ fn parse_xs_duration(s: &str) -> Result<Duration> {
             }
             if let Some(s) = m.name("hours") {
                 let hours = s.as_str().parse::<u64>().unwrap();
-                secs += hours as u64 * 60 * 60;
+                secs += hours * 60 * 60;
             }
             if let Some(s) = m.name("days") {
                 let days = s.as_str().parse::<u64>().unwrap();
-                secs += days as u64 * 60 * 60 * 24;
+                secs += days * 60 * 60 * 24;
             }
             if let Some(s) = m.name("weeks") {
                 let weeks = s.as_str().parse::<u64>().unwrap();
-                secs += weeks as u64 * 60 * 60 * 24 * 7;
+                secs += weeks * 60 * 60 * 24 * 7;
             }
             if let Some(s) = m.name("months") {
                 let months = s.as_str().parse::<u64>().unwrap();
-                secs += months as u64 * 60 * 60 * 24 * 30;
+                secs += months * 60 * 60 * 24 * 30;
             }
             if let Some(s) = m.name("years") {
                 let years = s.as_str().parse::<u64>().unwrap();
-                secs += years as u64 * 60 * 60 * 24 * 365;
+                secs += years * 60 * 60 * 24 * 365;
             }
             if let Some(s) = m.name("sign") {
                 if s.as_str() == "-" {
@@ -261,7 +286,7 @@ where
     if let Some(xs) = oxs {
         let secs = xs.as_secs();
         let ms = xs.subsec_millis();
-        serializer.serialize_str(&format!("PT{}.{:03}S", secs, ms))
+        serializer.serialize_str(&format!("PT{secs}.{ms:03}S"))
     } else {
         // in fact this won't be called because of the #[skip_serializing_none] annotation
         serializer.serialize_none()
@@ -287,7 +312,7 @@ pub(super) struct SegmentTemplate {
     // note: the spec says this is an unsigned int, not an xs:duration. In practice, some manifests
     // use a floating point value (eg.
     // https://dash.akamaized.net/akamai/bbb_30fps/bbb_with_multiple_tiled_thumbnails.mpd)
-    pub duration: Option<f64>,
+    pub duration: Option<u64>,
     pub timescale: Option<u64>,
 }
 
@@ -327,6 +352,8 @@ pub(super) struct AdaptationSet {
     pub mimeType: Option<String>,
     #[serde(rename = "Representation")]
     pub representations: Option<Vec<Representation>>,
+    pub viewId: Option<u64>,
+    pub srcObjectId: Option<u64>,
 }
 
 /// Describes a chunk of the content with a start time and a duration. Content can be split up into
@@ -437,12 +464,12 @@ mod tests {
 
     #[test]
     pub fn test_run2() {
-        let p = PCCDashParser::new(
+        let p = MPDParser::new(
             r#"<?xml version="1.0" encoding="UTF-8"?>
             <MPD format="pointcloud/pcd" type="static">
                 <BaseURL>http://localhost:3000/</BaseURL>
                 <Period id="1" duration="PT10S">
-                    <AdaptationSet id="0">
+                    <AdaptationSet viewId="0">
                         <Representation id="0" bandwidth="13631488">
                             <SegmentTemplate media="longdress/$RepresentationID$/longdress_vox10_$Number$.ply" duration="1" timescale="30" startNumber="1051"></SegmentTemplate>
                         </Representation>
@@ -467,8 +494,11 @@ mod tests {
         let reprs = first_ad.representations.as_ref().unwrap();
         assert_eq!(reprs.len(), 3);
         assert_eq!(
-            p.get_url(0, 2, 4),
-            p.get_base_url() + "longdress/2/longdress_vox10_1055.ply"
+            p.get_info(0, 2, 0, 4),
+            (
+                p.get_base_url() + "longdress/2/longdress_vox10_1055.ply",
+                Some(204800)
+            )
         );
     }
 }
