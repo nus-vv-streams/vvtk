@@ -10,7 +10,7 @@ use vivotk::codec::Decoder;
 use vivotk::dash::fetcher::{FetchResult, Fetcher};
 use vivotk::formats::pointxyzrgba::PointXyzRgba;
 use vivotk::formats::PointCloud;
-// use vivotk::quetra::get_quetra_formula_pkrb;
+use vivotk::quetra::quetracalc;
 use vivotk::render::wgpu::{
     builder::RenderBuilder,
     camera::Camera,
