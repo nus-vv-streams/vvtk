@@ -10,6 +10,7 @@ pub mod metrics;
 pub mod pcd;
 pub mod pipeline;
 pub mod ply;
+pub mod quetra;
 pub mod render;
 pub mod upsample;
 pub mod utils;
