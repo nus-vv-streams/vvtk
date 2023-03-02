@@ -1,4 +1,5 @@
 use clap::Parser;
+use image::buffer;
 use log::{debug, warn};
 use lru::LruCache;
 use std::collections::VecDeque;
@@ -108,6 +109,11 @@ impl BufferManager {
 
                     // First, attempt to fulfill the request from the buffer.
                     // TODO: find which quality to download based on the current camera position + network bandwidth.
+
+                    // let buffer_slack = buffer.slack();
+                    // first make the r_vec, and all other params (by right should be provided and not made here)
+                    // create a new QC object, then run the select_bitrate function to get the single r_value from r_vec
+                    // let qc = new QuetraCalc();
 
                     // Check in cache whether it exists
                     if let Some(pc) = self.cache.pop(&renderer_req) {
