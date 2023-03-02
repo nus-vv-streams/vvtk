@@ -2,6 +2,7 @@ use clap::Parser;
 use image::buffer;
 use log::{debug, warn};
 use lru::LruCache;
+use std::cmp::Reverse;
 use std::collections::VecDeque;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
@@ -11,7 +12,7 @@ use vivotk::codec::Decoder;
 use vivotk::dash::fetcher::{FetchResult, Fetcher};
 use vivotk::formats::pointxyzrgba::PointXyzRgba;
 use vivotk::formats::PointCloud;
-use vivotk::quetra::quetracalc;
+use vivotk::quetra::quetracalc::QuetraCalc;
 use vivotk::render::wgpu::{
     builder::RenderBuilder,
     camera::Camera,
@@ -101,7 +102,7 @@ impl BufferManager {
         }
     }
 
-    async fn run(&mut self) {
+    async fn run(&mut self) -> ! {
         loop {
             match self.to_buf_rx.recv().await.unwrap() {
                 BufMsg::FrameRequest(renderer_req) => {
@@ -110,10 +111,22 @@ impl BufferManager {
                     // First, attempt to fulfill the request from the buffer.
                     // TODO: find which quality to download based on the current camera position + network bandwidth.
 
-                    // let buffer_slack = buffer.slack();
-                    // first make the r_vec, and all other params (by right should be provided and not made here)
-                    // create a new QC object, then run the select_bitrate function to get the single r_value from r_vec
-                    // let qc = new QuetraCalc();
+                    // TODO: replace currently hardcoded values with values exposed from buffer (i.e. k, r_vec, b, buffer_occupancy)
+                    // pass parameters into quetra
+                    let r_vec_from_buffer: Vec<f64> = vec![100.0f64, 200.0f64, 300.0f64];
+
+                    let qc = QuetraCalc {
+                        name: "quetra".to_owned(),
+                        k: 3,
+                        r_vec: r_vec_from_buffer,
+                        b: 150.0f64,
+                        buffer_occupancy: 2,
+                        segment_frequency: 1,
+                        segment_size: 1,
+                    };
+
+                    // call fn to select the best bitrate according to quetra
+                    let selected_bitrate = qc.select_bitrate();
 
                     // Check in cache whether it exists
                     if let Some(pc) = self.cache.pop(&renderer_req) {

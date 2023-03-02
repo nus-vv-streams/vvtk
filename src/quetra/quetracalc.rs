@@ -4,12 +4,12 @@ use std::f64::consts::E;
 
 pub struct QuetraCalc {
     pub name: String,
-    pub k: i64,                 // buffer capacity
-    pub r_vec: Vec<f64>, // a vector of different bitrates of segment being downloaded (i.e. low, mid, high)
-    pub b: f64,          // network throughput
-    pub buffer_occupancy: f64, // buffer occupancy (Bt)
-    pub segment_frequency: i32, // segment frequency for bitrate adaptation
-    pub segment_size: i32, // segment size param for granularity of each buffer
+    pub k: i64, // buffer capacity measured in seconds of playback (i.e. how many more seconds of video can the buffer still take in)
+    pub r_vec: Vec<f64>, // a vector of different bitrates of segment being downloaded in Kbps (i.e. low 100.0, mid 200.0, high 300.0)
+    pub b: f64,          // network throughput in Kbps
+    pub buffer_occupancy: i64, // buffer occupancy level measured in seconds of playback (Bt)
+    pub segment_frequency: i32, // segment frequency for bitrate adaptation (selected as 1 for now)
+    pub segment_size: i32, // segment size param for granularity of each buffer (selected as 1 for now)
 }
 
 impl QuetraCalc {
@@ -18,7 +18,7 @@ impl QuetraCalc {
         k: i64,
         r_vec: Vec<f64>,
         b: f64,
-        buffer_occupancy: f64,
+        buffer_occupancy: i64,
         segment_frequency: i32,
         segment_size: i32,
     ) -> Self {
@@ -73,7 +73,7 @@ impl QuetraCalc {
         return pkrb_numerator / (1.0f64 + ((b / r) * Self::get_quetra_formula_x_i(k - 1, r, b)));
     }
 
-    fn select_bitrate(&self) -> f64 {
+    pub fn select_bitrate(&self) -> f64 {
         let mut result: f64 = 0.0f64;
         let mut min_diff_with_buffer_occupancy: f64 = f64::MAX;
 
@@ -81,9 +81,9 @@ impl QuetraCalc {
         // then replace result with r_i if its pkrb value has a smaller difference with buffer occupancy Bt (pkrb_r_i - Bt)
         for r in &self.r_vec {
             let pkrb_r_i: f64 = Self::get_quetra_formula_pkrb(self.k, *r, self.b);
-            if (pkrb_r_i - self.buffer_occupancy) < min_diff_with_buffer_occupancy {
+            if (pkrb_r_i - self.buffer_occupancy as f64) < min_diff_with_buffer_occupancy {
                 result = *r;
-                min_diff_with_buffer_occupancy = pkrb_r_i - self.buffer_occupancy;
+                min_diff_with_buffer_occupancy = pkrb_r_i - self.buffer_occupancy as f64;
             }
         }
 
@@ -93,7 +93,7 @@ impl QuetraCalc {
 
 trait RateAdaptation {
     fn description(&self) -> String;
-    fn get_buffer_occupancy(&self) -> f64;
+    fn get_buffer_occupancy(&self) -> i64;
     fn get_bitrate(&self) -> f64;
 }
 
@@ -102,7 +102,7 @@ impl RateAdaptation for QuetraCalc {
         return format!("This algorithm uses {}, with buffer_occupancy {} resulting in a selected_bitrate of {}.", self.name, self.buffer_occupancy, self.select_bitrate());
     }
 
-    fn get_buffer_occupancy(&self) -> f64 {
+    fn get_buffer_occupancy(&self) -> i64 {
         return self.buffer_occupancy;
     }
 
