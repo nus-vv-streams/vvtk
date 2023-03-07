@@ -64,7 +64,7 @@ impl MPDParser {
     }
 
     /// Get the segment template's duration. To get the time in seconds, need to divide by segment template's timescale.
-    pub fn segment_size(&self) -> u64 {
+    pub fn segment_duration(&self) -> u64 {
         self.mpd.periods[0].adaptations.as_ref().unwrap()[0]
             .representations
             .as_ref()
@@ -116,7 +116,7 @@ impl MPDParser {
     /// * `object_id` - Object ID of the requested segment
     /// * `representation_id` - quality of the requested segment
     /// * `frame offset` - Frame offset as calculated from the beginning of the video / MPD
-    /// * `view_id` - View ID of the requested segment. If `None`, the parser assumes the pointclouds are not segmented into different planes
+    /// * `view_id` - View ID of the requested segment. If `None`, the parser assumes the pointclouds are not segmented into different planes, and will return the info for the first matching segment.
     pub fn get_info(
         &self,
         object_id: u8,
@@ -175,6 +175,38 @@ impl MPDParser {
                     .as_str(),
             representation.bandwidth,
         )
+    }
+
+    pub fn available_bitrates(
+        &self,
+        object_id: u8,
+        frame_offset: u64,
+        view_id: Option<u8>,
+    ) -> Vec<u64> {
+        let period_idx =
+            match self.period_markers[..].binary_search_by(|probe| probe.cmp(&frame_offset)) {
+                Ok(idx) => idx,
+                Err(idx) => idx - 1,
+            };
+
+        let period = self.mpd.periods.get(period_idx).unwrap();
+        let adaptation_set = period
+            .adaptations
+            .as_ref()
+            .unwrap()
+            .iter()
+            .find(|as_| {
+                (view_id.is_none() || view_id.unwrap() as u64 == as_.viewId.unwrap_or_default())
+                    && as_.srcObjectId.unwrap_or_default() == object_id as u64
+            })
+            .unwrap();
+        adaptation_set
+            .representations
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|r| r.bandwidth.unwrap())
+            .collect()
     }
 }
 
@@ -533,6 +565,14 @@ mod tests {
                 p.get_base_url() + "longdress/2/S26C2AIR02_F30_1081_5.bin",
                 Some(138240)
             )
+        );
+        assert_eq!(
+            p.available_bitrates(0, 30, None),
+            vec![13631488, 1536000, 204800]
+        );
+        assert_eq!(
+            p.available_bitrates(0, 30, Some(5)),
+            vec![100352, 138240, 196608]
         );
     }
 }
