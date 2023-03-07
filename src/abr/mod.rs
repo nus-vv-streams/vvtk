@@ -14,6 +14,6 @@ pub trait RateAdapter {
         &self,
         buffer_occupancy: u64,
         network_throughput: f64,
-        available_bitrates: &[f64],
+        available_bitrates: &[u64],
     ) -> usize;
 }

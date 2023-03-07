@@ -4,7 +4,6 @@ use std::f64::consts::E;
 use super::RateAdapter;
 
 pub struct Quetra {
-    pub name: String,
     /// max buffer capacity measured in seconds of playback
     pub k: u64,
     /// how often is the bitrate adaptation done (selected as 1s for now)
@@ -14,37 +13,33 @@ pub struct Quetra {
 }
 
 impl Quetra {
-    pub fn new(name: String, buffer_capacity: u64) -> Self {
+    pub fn new(buffer_capacity: u64) -> Self {
         Quetra {
-            name,
             k: buffer_capacity,
             segment_frequency: 1,
             segment_size: 1,
         }
     }
 
-    fn factorial(i: u64) -> u64 {
-        match i {
-            0 => 1,
-            1 => 1,
-            2 => 2,
-            3 => 6,
-            4 => 24,
-            5 => 120,
-            _ => i * (i - 1) * (i - 2) * (i - 3) * (i - 4) * Self::factorial(i - 5),
-        }
-    }
-
-    fn get_quetra_formula_x_i(i: u64, r: f64, b: f64) -> f64 {
+    /// Get the x_i value for the given i, r and b
+    fn x_i(i: u64, r: f64, b: f64) -> f64 {
         let mut x_i: f64 = 0.0f64;
 
+        // (i - j).pow(j) / j!
+        let first_term = |i: u64, j: u64| -> f64 {
+            let mut result: f64 = 1.0f64;
+
+            for k in 1..=j {
+                result *= ((i - j) as f64) / k as f64;
+            }
+
+            result
+        };
+
         for j in 0..=i {
-            let x = (i - j).pow(j as u32) as f64 / Self::factorial(j) as f64
+            let x = first_term(i, j)
                 * (b / r).powi(j.try_into().unwrap())
                 * E.pow((i - j) as f64 * (b / r));
-            // * pow(i - j, j) // (i - j).pow(j)
-            // * pow(b / r, j) // (b / r).pow(j)
-            // * pow(E, (i - j) as f32 * (b / r)); // E.pow((i - j) * (b / r))
             if j % 2 == 0 {
                 x_i += x;
             } else {
@@ -55,16 +50,22 @@ impl Quetra {
         x_i
     }
 
-    // TODO: handle cases where k is too large inside this fn?
-    fn get_quetra_formula_pkrb(k: u64, r: f64, b: f64) -> f64 {
-        let mut pkrb_numerator: f64 = 0.0f64;
+    /// Get the buffer slack `P_{K,r,b}` value for the given k, r and b
+    ///
+    /// # Arguments
+    ///
+    /// * `k` - max buffer capacity measured in seconds of playback
+    /// * `r` - downloaded segment bitrate
+    /// * `b` - network throughput
+    fn buffer_slack(k: u64, r: f64, b: f64) -> f64 {
+        let mut pkrb: f64 = 0.0f64;
+        let denominator = 1.0f64 + ((b / r) * Self::x_i(k - 1, r, b));
 
         for i in 0..k {
-            pkrb_numerator += Self::get_quetra_formula_x_i(i, r, b);
-            // println!("pkrb_numerator: {}", pkrb_numerator);
+            pkrb += Self::x_i(i, r, b) / denominator;
         }
 
-        pkrb_numerator / (1.0f64 + ((b / r) * Self::get_quetra_formula_x_i(k - 1, r, b)))
+        pkrb
     }
 }
 
@@ -73,7 +74,7 @@ impl RateAdapter for Quetra {
         &self,
         buffer_occupancy: u64,
         network_throughput: f64,
-        available_bitrates: &[f64],
+        available_bitrates: &[u64],
     ) -> usize {
         let mut result: usize = 0;
         let mut min_diff_with_buffer_occupancy = f64::MAX;
@@ -81,13 +82,41 @@ impl RateAdapter for Quetra {
         // for each r_i inside r_vec, calculate its pkrb value (pkrb_r_i)
         // then replace result with r_i if its pkrb value has a smaller difference with buffer occupancy Bt (pkrb_r_i - Bt)
         for (i, r) in available_bitrates.iter().enumerate() {
-            let pkrb_r_i = Self::get_quetra_formula_pkrb(buffer_occupancy, *r, network_throughput);
-            if (pkrb_r_i - buffer_occupancy as f64) < min_diff_with_buffer_occupancy {
+            let pkrb_r_i = Self::buffer_slack(self.k, *r as f64, network_throughput);
+            let diff = (pkrb_r_i - buffer_occupancy as f64).abs();
+            if diff < min_diff_with_buffer_occupancy {
                 result = i;
-                min_diff_with_buffer_occupancy = pkrb_r_i - buffer_occupancy as f64;
+                min_diff_with_buffer_occupancy = diff;
             }
         }
 
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_quetra_formula_pkrb() {
+        const EPSILON: f64 = 1.0e-8;
+        assert!((Quetra::buffer_slack(2, 100.0, 500.0) - 0.20107662).abs() < EPSILON);
+        assert!((Quetra::buffer_slack(3, 100.0, 300.0) - 0.353471).abs() < EPSILON);
+        assert!((Quetra::buffer_slack(4, 100.0, 300.0) - 0.35434551).abs() < EPSILON);
+        assert!((Quetra::buffer_slack(3, 125.0, 400.0) - 0.32755053).abs() < EPSILON);
+        assert!((Quetra::buffer_slack(4, 125.0, 90.0) - 2.74465).abs() < EPSILON);
+        assert!((Quetra::buffer_slack(4, 150.0, 70.0) - 3.34906349).abs() < EPSILON);
+    }
+
+    #[test]
+    fn test_select_quality() {
+        let quetra = Quetra::new(10);
+        let available_bitrates = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
+        assert_eq!(quetra.select_quality(0, 535.0, &available_bitrates), 0);
+        assert_eq!(quetra.select_quality(1, 535.0, &available_bitrates), 2);
+        assert_eq!(quetra.select_quality(3, 535.0, &available_bitrates), 4);
+        assert_eq!(quetra.select_quality(6, 535.0, &available_bitrates), 5);
+        assert_eq!(quetra.select_quality(9, 535.0, &available_bitrates), 8);
     }
 }
