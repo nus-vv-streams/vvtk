@@ -16,7 +16,7 @@ const FPS: u64 = 30;
 #[derive(Clone)]
 pub(crate) struct MPDParser {
     mpd: MPD,
-    /// contains the first frame number for all `Period` in the MPD and the total number of frames.
+    /// contains the first frame offsets for all `Period` in the MPD and the total number of frames.
     period_markers: Vec<u64>,
 }
 
@@ -58,6 +58,7 @@ impl MPDParser {
         }
     }
 
+    /// Get the number of frames in the whole MPD.
     pub fn total_frames(&self) -> usize {
         *self.period_markers.last().unwrap() as usize
     }
@@ -108,14 +109,20 @@ impl MPDParser {
         result
     }
 
-    // frame offset is calculated from the beginning of the video / MPD
-    /// Returns the URL and the bandwidth of the segment.
+    /// gets the URL and the bandwidth information for the requested segment.
+    ///
+    /// # Arguments
+    ///
+    /// * `object_id` - Object ID of the requested segment
+    /// * `representation_id` - quality of the requested segment
+    /// * `frame offset` - Frame offset as calculated from the beginning of the video / MPD
+    /// * `view_id` - View ID of the requested segment. If `None`, the parser assumes the pointclouds are not segmented into different planes
     pub fn get_info(
         &self,
         object_id: u8,
         representation_id: u8,
-        view_id: u8,
         frame_offset: u64,
+        view_id: Option<u8>,
     ) -> (String, Option<u64>) {
         let period_idx =
             match self.period_markers[..].binary_search_by(|probe| probe.cmp(&frame_offset)) {
@@ -131,7 +138,7 @@ impl MPDParser {
             .unwrap()
             .iter()
             .find(|as_| {
-                as_.viewId.unwrap_or_default() == view_id as u64
+                (view_id.is_none() || view_id.unwrap() as u64 == as_.viewId.unwrap_or_default())
                     && as_.srcObjectId.unwrap_or_default() == object_id as u64
             })
             .unwrap();
@@ -156,8 +163,10 @@ impl MPDParser {
                             ),
                             (
                                 "Number",
-                                ((frame_offset - self.period_markers.get(period_idx).unwrap())
-                                    * (st.duration.unwrap() / st.timescale.unwrap())
+                                (((frame_offset - self.period_markers.get(period_idx).unwrap())
+                                    * st.timescale.unwrap()
+                                    / (st.duration.unwrap() * FPS))
+                                    * st.duration.unwrap()
                                     + st.startNumber.expect("start number not provided"))
                                 .to_string(),
                             ),
@@ -480,6 +489,17 @@ mod tests {
                             <SegmentTemplate media="longdress/$RepresentationID$/longdress_vox10_$Number$.ply" duration="1" timescale="30" startNumber="1051"></SegmentTemplate>
                         </Representation>
                     </AdaptationSet>
+                    <AdaptationSet id="5" viewId="5" srcObjectId="0">
+                        <Representation id="1" bandwidth="100352">
+                            <SegmentTemplate media="longdress/1/S26C2AIR0$RepresentationID$_F30_$Number$_5.bin" duration="30" timescale="30" startNumber="1051"></SegmentTemplate>
+                        </Representation>
+                        <Representation id="2" bandwidth="138240">
+                            <SegmentTemplate media="longdress/2/S26C2AIR0$RepresentationID$_F30_$Number$_5.bin" duration="30" timescale="30" startNumber="1051"></SegmentTemplate>
+                        </Representation>
+                        <Representation id="3" bandwidth="196608">
+                            <SegmentTemplate media="longdress/3/S26C2AIR0$RepresentationID$_F30_$Number$_5.bin" duration="30" timescale="30" startNumber="1051"></SegmentTemplate>
+                        </Representation>
+                    </AdaptationSet>
                 </Period>
             </MPD>"#,
         );
@@ -488,16 +508,30 @@ mod tests {
         let first_period = periods.get(0).unwrap();
         assert_eq!(first_period.duration, Some(Duration::new(10, 0)));
         let ads = first_period.adaptations.as_ref().unwrap();
-        assert_eq!(ads.len(), 1);
+        assert_eq!(ads.len(), 2);
 
         let first_ad = ads.get(0).unwrap();
         let reprs = first_ad.representations.as_ref().unwrap();
         assert_eq!(reprs.len(), 3);
         assert_eq!(
-            p.get_info(0, 2, 0, 4),
+            p.get_info(0, 2, 29, None),
             (
-                p.get_base_url() + "longdress/2/longdress_vox10_1055.ply",
+                p.get_base_url() + "longdress/2/longdress_vox10_1080.ply",
                 Some(204800)
+            )
+        );
+        assert_eq!(
+            p.get_info(0, 2, 29, Some(5)),
+            (
+                p.get_base_url() + "longdress/2/S26C2AIR02_F30_1051_5.bin",
+                Some(138240)
+            )
+        );
+        assert_eq!(
+            p.get_info(0, 2, 30, Some(5)),
+            (
+                p.get_base_url() + "longdress/2/S26C2AIR02_F30_1081_5.bin",
+                Some(138240)
             )
         );
     }
