@@ -1,18 +1,18 @@
+use cgmath::Point3;
 use clap::Parser;
-use image::buffer;
 use log::{debug, warn};
 use lru::LruCache;
-use std::cmp::Reverse;
 use std::collections::VecDeque;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
+use vivotk::abr::quetra::Quetra;
+use vivotk::abr::RateAdapter;
 use vivotk::codec::decoder::{DracoDecoder, MultiplaneDecodeReq, MultiplaneDecoder, NoopDecoder};
 use vivotk::codec::Decoder;
 use vivotk::dash::fetcher::{FetchResult, Fetcher};
 use vivotk::formats::pointxyzrgba::PointXyzRgba;
 use vivotk::formats::PointCloud;
-use vivotk::quetra::quetracalc::QuetraCalc;
 use vivotk::render::wgpu::{
     builder::RenderBuilder,
     camera::Camera,
@@ -52,7 +52,7 @@ struct Args {
     #[clap(long = "controls", default_value_t = true)]
     show_controls: bool,
     #[clap(short, long)]
-    buffer_size: Option<usize>,
+    buffer_capacity: Option<usize>,
     #[clap(short, long)]
     metrics: Option<OsString>,
     #[clap(long, value_enum, default_value_t = DecoderType::Noop)]
@@ -68,16 +68,48 @@ enum DecoderType {
     Multiplane,
 }
 
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+struct BufferCacheKey {
+    pub object_id: u8,
+    pub frame_offset: u64,
+}
+
+impl From<FrameRequest> for BufferCacheKey {
+    fn from(req: FrameRequest) -> Self {
+        Self {
+            object_id: req.object_id,
+            frame_offset: req.frame_offset,
+        }
+    }
+}
+
+impl From<PCMetadata> for BufferCacheKey {
+    fn from(metadata: PCMetadata) -> Self {
+        Self {
+            object_id: metadata.object_id,
+            frame_offset: metadata.frame_offset,
+        }
+    }
+}
+
 /// Buffer Manager handles 2 interactions:
 /// 1. Fetcher & Decoder: buffer manager sends request to source data (either from the network or from the local filesystem).
-/// It expects to get a PointCloud back, which it will buffers until the renderer is ready to consume it.
-/// 2. Renderer: buffer manager receives request for point cloud from the renderer and returns the point cloud to the renderer.
+/// It expects to get a PointCloud back, which it will put into its buffer until the renderer is ready to consume it.
+/// 2. Renderer: buffer manager receives request for point cloud from the renderer and returns the (assembled) point cloud to the renderer.
+///
+/// The interaction flow:
+/// - Buffer manager receives a request from the renderer.
+/// - Buffer manager checks if the requested point cloud is in its buffer.
+///     - If it is, buffer manager returns the point cloud to the renderer.
+///     - If it is not, buffer manager sends a request to the source data (either from the network or from the local filesystem).
+/// - Buffer manager receives the point cloud from the decoder and puts it into its buffer.
+/// - Buffer manager returns the point cloud to the renderer.
 struct BufferManager {
     to_buf_rx: tokio::sync::mpsc::UnboundedReceiver<BufMsg>,
-    buf_in_sx: tokio::sync::mpsc::UnboundedSender<FrameRequest>,
+    buf_in_sx: tokio::sync::mpsc::UnboundedSender<FetchRequest>,
     buf_out_sx: std::sync::mpsc::Sender<(FrameRequest, PointCloud<PointXyzRgba>)>,
     pending_frame_req: VecDeque<FrameRequest>,
-    cache: LruCache<FrameRequest, PointCloud<PointXyzRgba>>,
+    cache: LruCache<BufferCacheKey, PointCloud<PointXyzRgba>>,
     total_frames: usize,
     segment_size: u64,
 }
@@ -85,7 +117,7 @@ struct BufferManager {
 impl BufferManager {
     fn new(
         to_buf_rx: tokio::sync::mpsc::UnboundedReceiver<BufMsg>,
-        buf_in_sx: tokio::sync::mpsc::UnboundedSender<FrameRequest>,
+        buf_in_sx: tokio::sync::mpsc::UnboundedSender<FetchRequest>,
         buf_out_sx: std::sync::mpsc::Sender<(FrameRequest, PointCloud<PointXyzRgba>)>,
         buffer_size: usize,
         total_frames: usize,
@@ -102,39 +134,22 @@ impl BufferManager {
         }
     }
 
-    async fn run(&mut self) -> ! {
+    async fn run(&mut self) {
         loop {
             match self.to_buf_rx.recv().await.unwrap() {
                 BufMsg::FrameRequest(renderer_req) => {
                     debug!("renderer sent a frame request {:?}", &renderer_req);
 
                     // First, attempt to fulfill the request from the buffer.
-                    // TODO: find which quality to download based on the current camera position + network bandwidth.
-
-                    // TODO: replace currently hardcoded values with values exposed from buffer (i.e. k, r_vec, b, buffer_occupancy)
-                    // pass parameters into quetra
-                    let r_vec_from_buffer: Vec<f64> = vec![100.0f64, 200.0f64, 300.0f64];
-
-                    let qc = QuetraCalc {
-                        name: "quetra".to_owned(),
-                        k: 3,
-                        r_vec: r_vec_from_buffer,
-                        b: 150.0f64,
-                        buffer_occupancy: 2,
-                        segment_frequency: 1,
-                        segment_size: 1,
-                    };
-
-                    // call fn to select the best bitrate according to quetra
-                    let selected_bitrate = qc.select_bitrate();
-
                     // Check in cache whether it exists
-                    if let Some(pc) = self.cache.pop(&renderer_req) {
+                    if let Some(pc) = self.cache.pop(&BufferCacheKey::from(renderer_req)) {
                         // send to the renderer
-                        self.buf_out_sx.send((renderer_req, pc)).unwrap();
+                        self.buf_out_sx.send((renderer_req.into(), pc)).unwrap();
                     } else {
                         // It doesn't exist in cache, so we send a request to the fetcher to fetch the data
-                        self.buf_in_sx.send(renderer_req).unwrap();
+                        self.buf_in_sx
+                            .send(FetchRequest::new(renderer_req, self.cache.len()))
+                            .unwrap();
                         self.pending_frame_req.push_back(renderer_req);
                     }
 
@@ -145,7 +160,9 @@ impl BufferManager {
                         next_frame_req.frame_offset = (next_frame_req.frame_offset
                             + self.segment_size)
                             % self.total_frames as u64;
-                        self.buf_in_sx.send(next_frame_req).unwrap();
+                        self.buf_in_sx
+                            .send(FetchRequest::new(next_frame_req, self.cache.len()))
+                            .unwrap();
                         // we don't store this in the pending frame request because it is a preemptive request, not a request by the renderer.
                     }
                 }
@@ -162,7 +179,44 @@ impl BufferManager {
                         self.cache.push(req.into(), pc);
                     }
                 }
+                BufMsg::Fov(_) => {}
             }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct FetchRequest {
+    pub object_id: u8,
+    // pub quality: u8,
+    /// Frame offset from the start of the video.
+    ///
+    /// To get the frame number, add the offset to the frame number of the first frame in the video.
+    pub frame_offset: u64,
+    /// The camera position when the frame was requested.
+    ///
+    /// The data that we get from the camera state is of type `Point3<f32>` but we can tolerate a small error in the camera position.
+    pub camera_pos: Option<Point3<u32>>,
+    buffer_occupancy: usize,
+}
+
+impl FetchRequest {
+    fn new(req: FrameRequest, buffer_occupancy: usize) -> Self {
+        FetchRequest {
+            object_id: req.object_id,
+            frame_offset: req.frame_offset,
+            camera_pos: req.camera_pos,
+            buffer_occupancy,
+        }
+    }
+}
+
+impl Into<PCMetadata> for FetchRequest {
+    fn into(self) -> PCMetadata {
+        PCMetadata {
+            object_id: self.object_id,
+            frame_offset: self.frame_offset,
+            last5_avg_bitrate: 0,
         }
     }
 }
@@ -187,7 +241,10 @@ fn main() {
     // the content is produced by the decode or the local file reader and consumed by the renderer
     let (buf_out_sx, buf_out_rx) = std::sync::mpsc::channel();
     // the total frame number we are expecting. This is for display purposes in the renderer only.
+    // TODO: fix this. This is a hack to pass information from the fetcher to this main thread.
     let (total_frames_tx, total_frames_rx) = tokio::sync::oneshot::channel();
+
+    let buffer_capacity = args.buffer_capacity.unwrap_or(60);
 
     // copy variables to be moved into the async block
     let src = args.src.clone();
@@ -206,12 +263,14 @@ fn main() {
 
                 let mut fetcher = Fetcher::new(&src, path).await;
                 total_frames_tx
-                    .send((fetcher.total_frames(), fetcher.segment_size()))
+                    .send((fetcher.total_frames(), fetcher.segment_duration()))
                     .expect("sent total frames");
 
                 let mut frame_range = (0, 0);
+                let abr = Quetra::new(buffer_capacity as u64);
+
                 loop {
-                    let req: FrameRequest = buf_in_rx.recv().await.unwrap();
+                    let req: FetchRequest = buf_in_rx.recv().await.unwrap();
                     debug!("got frame requests {:?}", &req);
 
                     // The request has just been recently fetched (or in the buffer), so we can skip it to avoid some redundant requests to the server.
@@ -222,13 +281,24 @@ fn main() {
                     }
                     // we should probably do *bounded* retry here
                     loop {
-                        let p = fetcher.download(req.object_id, req.frame_offset).await;
+                        // TODO: find which quality to download based on the current camera position + network bandwidth.
+                        let _camera_pos = req.camera_pos;
+
+                        let quality = abr.select_quality(
+                            req.buffer_occupancy as u64,
+                            fetcher.stats.avg_bitrate.get() as f64,
+                            &fetcher.available_bitrates(req.object_id, req.frame_offset, None),
+                        );
+
+                        let p = fetcher
+                            .download(req.object_id, req.frame_offset, Some(quality as u8))
+                            .await;
 
                         match p {
                             Ok(res) => {
                                 in_dec_sx.send((req, res)).unwrap();
                                 frame_range.0 = req.frame_offset;
-                                frame_range.1 = req.frame_offset + fetcher.segment_size();
+                                frame_range.1 = req.frame_offset + fetcher.segment_duration();
                                 break;
                             }
                             Err(e) => {
@@ -259,7 +329,7 @@ fn main() {
                 ply_files.sort();
 
                 loop {
-                    let req: FrameRequest = buf_in_rx.recv().await.unwrap();
+                    let req: FetchRequest = buf_in_rx.recv().await.unwrap();
                     debug!("got frame requests {:?}", req);
                     let pcd =
                         read_file_to_point_cloud(ply_files.get(req.frame_offset as usize).unwrap())
@@ -338,7 +408,8 @@ fn main() {
         to_buf_rx,
         buf_in_sx,
         buf_out_sx,
-        args.buffer_size.unwrap_or(60), // 2s buffer
+        // 2s buffer
+        buffer_capacity,
         total_frames,
         segment_size,
     );

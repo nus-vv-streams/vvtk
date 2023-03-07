@@ -148,7 +148,7 @@ impl MPDParser {
             .unwrap()
             .iter()
             .find(|r| r.id.as_ref().unwrap().parse::<u8>().unwrap() == representation_id)
-            .unwrap();
+            .expect("representation not found");
         let st = representation.segment_template.as_ref().unwrap();
         let media = st.media.as_ref().unwrap();
         (

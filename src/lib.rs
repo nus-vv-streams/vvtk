@@ -1,6 +1,7 @@
 //! # Vivo Toolkit
 //#[warn(missing_docs)]
 
+pub mod abr;
 pub mod codec;
 #[cfg(feature = "dash")]
 pub mod dash;
@@ -10,7 +11,6 @@ pub mod metrics;
 pub mod pcd;
 pub mod pipeline;
 pub mod ply;
-pub mod quetra;
 pub mod render;
 pub mod upsample;
 pub mod utils;
@@ -32,7 +32,7 @@ pub enum BufMsg {
 pub struct PCMetadata {
     pub object_id: u8,
     pub frame_offset: u64,
-    pub last5_avg_bitrate: usize,
+    pub last5_avg_bitrate: i64,
 }
 
 impl From<PCMetadata> for FrameRequest {
@@ -40,6 +40,8 @@ impl From<PCMetadata> for FrameRequest {
         FrameRequest {
             object_id: val.object_id,
             frame_offset: val.frame_offset,
+            // TODO: fix this once PCMetadata is updated
+            camera_pos: None,
         }
     }
 }

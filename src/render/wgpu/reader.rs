@@ -223,7 +223,6 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
                 camera_pos: camera_pos.map(|p| Point3::new(p.x as u32, p.y as u32, p.z as u32)),
             }))
             .unwrap();
-        dbg!("sent request. waiting for result ...");
         self.rx.recv().ok().map(|op| op.1)
 
         // remove if we have in the buffer.

@@ -4,6 +4,8 @@
 /.idea
 .DS_Store
 /.vscode
+Cargo.lock
 plys
 pcds
 pngs
+.tmp*

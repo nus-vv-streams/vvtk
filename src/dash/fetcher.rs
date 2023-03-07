@@ -25,7 +25,7 @@ pub struct FetchStats {
 #[derive(Debug)]
 pub struct FetchResult {
     pub paths: [Option<PathBuf>; 6],
-    pub last5_avg_bitrate: usize,
+    pub last5_avg_bitrate: i64,
 }
 
 async fn fetch_mpd(mpd_url: &str, http_client: &HttpClient) -> Result<String> {
@@ -59,7 +59,18 @@ impl Fetcher {
     }
 
     // object_id is adaptation set id
-    pub async fn download(&mut self, object_id: u8, frame: u64) -> Result<FetchResult> {
+    pub async fn download(
+        &mut self,
+        object_id: u8,
+        frame: u64,
+        quality: Option<u8>,
+    ) -> Result<FetchResult> {
+        debug!(
+            "Downloading frame {} for object {} with quality {}",
+            frame,
+            object_id,
+            quality.unwrap_or_default()
+        );
         let mut paths = core::array::from_fn(|_| None);
 
         // quality is representation id (0 is lowest quality)
@@ -67,8 +78,12 @@ impl Fetcher {
         let mut bandwidths = [None; 6];
 
         for view_id in 0..6 {
-            // TODO: fix hard code representation id
-            let (url, bandwidth) = self.mpd_parser.get_info(object_id, 1, view_id as u8, frame);
+            let (url, bandwidth) = self.mpd_parser.get_info(
+                object_id,
+                quality.unwrap_or_default(),
+                frame,
+                Some(view_id as u8),
+            );
             urls[view_id] = url;
             bandwidths[view_id] = bandwidth;
             let output_path = self
@@ -109,7 +124,7 @@ impl Fetcher {
             .sum::<usize>()
             * 8;
         let avg_bitrate = total_bits / std::cmp::max(1, elapsed.as_millis()) as usize;
-        self.stats.avg_bitrate.add(avg_bitrate);
+        self.stats.avg_bitrate.add(avg_bitrate as i64);
         debug!(
             "download time: {:?}, bits: {:}, avg_bitrate(latest): {:?}kbps",
             elapsed,
@@ -136,8 +151,18 @@ impl Fetcher {
         self.mpd_parser.total_frames()
     }
 
-    pub fn segment_size(&self) -> u64 {
-        self.mpd_parser.segment_size()
+    pub fn segment_duration(&self) -> u64 {
+        self.mpd_parser.segment_duration()
+    }
+
+    pub fn available_bitrates(
+        &self,
+        object_id: u8,
+        frame_offset: u64,
+        view_id: Option<u8>,
+    ) -> Vec<u64> {
+        self.mpd_parser
+            .available_bitrates(object_id, frame_offset, view_id)
     }
 }
 
