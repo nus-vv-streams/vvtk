@@ -139,6 +139,7 @@ impl Renderable for PointCloud<PointXyzRgba> {
         })
     }
 
+    /// Create an antialias such that the points fit inside a 1 unit cube, centered at the origin
     fn antialias(&self) -> AntiAlias {
         let first_point = self.points.get(0).unwrap();
         let mut max_x = first_point.x;

@@ -3,6 +3,7 @@ use crate::formats::PointCloud;
 use crate::pcd::read_pcd_file;
 use crate::BufMsg;
 
+use cgmath::Point3;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
@@ -13,8 +14,8 @@ use super::renderable::Renderable;
 pub trait RenderReader<T: Renderable> {
     /// Initialize the input reader for our renderer. Returns the first frame, if any.
     fn start(&mut self) -> Option<T>;
-    /// Returns the `index`-th frame
-    fn get_at(&mut self, index: usize) -> Option<T>;
+    /// Returns the `index`-th frame given the current camera position
+    fn get_at(&mut self, index: usize, camera_pos: Option<Point3<f32>>) -> Option<T>;
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
     fn set_len(&mut self, len: usize);
@@ -52,10 +53,14 @@ impl PcdFileReader {
 
 impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
     fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
-        self.get_at(0)
+        self.get_at(0, None)
     }
 
-    fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
+    fn get_at(
+        &mut self,
+        index: usize,
+        _camera_pos: Option<Point3<f32>>,
+    ) -> Option<PointCloud<PointXyzRgba>> {
         self.files
             .get(index)
             .and_then(|f| read_pcd_file(f).ok())
@@ -84,12 +89,16 @@ impl PcdMemoryReader {
 }
 
 impl RenderReader<PointCloud<PointXyzRgba>> for PcdMemoryReader {
-    fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
+    fn get_at(
+        &mut self,
+        index: usize,
+        _camera_pos: Option<Point3<f32>>,
+    ) -> Option<PointCloud<PointXyzRgba>> {
         self.points.get(index).cloned()
     }
 
     fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
-        self.get_at(0)
+        self.get_at(0, None)
     }
 
     fn len(&self) -> usize {
@@ -117,10 +126,18 @@ pub struct PcdAsyncReader {
 
 #[cfg(feature = "dash")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// A request to the player backend for a frame to be displayed by the renderer.
 pub struct FrameRequest {
     pub object_id: u8,
     // pub quality: u8,
+    /// Frame offset from the start of the video.
+    ///
+    /// To get the frame number, add the offset to the frame number of the first frame in the video.
     pub frame_offset: u64,
+    /// The camera position when the frame was requested.
+    ///
+    /// The data that we get from the camera state is of type `Point3<f32>` but we can tolerate a small error in the camera position.
+    pub camera_pos: Option<Point3<u32>>,
 }
 
 #[cfg(feature = "dash")]
@@ -185,10 +202,14 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         //     }
         //     std::thread::sleep(std::time::Duration::from_secs(1));
         // }
-        self.get_at(0)
+        self.get_at(0, None)
     }
 
-    fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
+    fn get_at(
+        &mut self,
+        index: usize,
+        camera_pos: Option<Point3<f32>>,
+    ) -> Option<PointCloud<PointXyzRgba>> {
         // debug!(
         //     "reader::get_at called with {}. buffer occupancy is {}",
         //     index,
@@ -199,6 +220,7 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
             .send(BufMsg::FrameRequest(FrameRequest {
                 object_id: 0,
                 frame_offset: index % self.total_frames,
+                camera_pos: camera_pos.map(|p| Point3::new(p.x as u32, p.y as u32, p.z as u32)),
             }))
             .unwrap();
         dbg!("sent request. waiting for result ...");
