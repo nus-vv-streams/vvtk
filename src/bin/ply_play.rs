@@ -109,7 +109,15 @@ struct BufferManager {
     buf_in_sx: tokio::sync::mpsc::UnboundedSender<FetchRequest>,
     buf_out_sx: std::sync::mpsc::Sender<(FrameRequest, PointCloud<PointXyzRgba>)>,
     pending_frame_req: VecDeque<FrameRequest>,
-    cache: LruCache<BufferCacheKey, PointCloud<PointXyzRgba>>,
+    /// How does the cache work?
+    ///
+    /// The cache is essentially a hashmap. The key contains the object_id and frame_offset. The value is a channel that the decoder will send the point cloud to.
+    /// Everytime a point cloud is received from the channel, the cache will increment the key's frame_offset and store it back into the cache.
+    /// When the channel returns None, it means that the decoder has finished decoding the point cloud and we will remove the entry from the cache.
+    ///
+    /// Note that the cache prioritizes updates made by BufMsg::PointCloud compared to updates done by incrementing the key's frame_offset.
+    /// This is because BufMsg::PointCloud contains the new channel that the decoder promised to send the point cloud to, whereas our update is a bet that the channel is not empty yet.
+    cache: LruCache<BufferCacheKey, tokio::sync::mpsc::UnboundedReceiver<PointCloud<PointXyzRgba>>>,
     total_frames: usize,
     segment_size: u64,
 }
@@ -138,13 +146,25 @@ impl BufferManager {
         loop {
             match self.to_buf_rx.recv().await.unwrap() {
                 BufMsg::FrameRequest(renderer_req) => {
-                    debug!("renderer sent a frame request {:?}", &renderer_req);
-
                     // First, attempt to fulfill the request from the buffer.
                     // Check in cache whether it exists
-                    if let Some(pc) = self.cache.pop(&BufferCacheKey::from(renderer_req)) {
+                    if let Some(mut rx) = self.cache.pop(&BufferCacheKey::from(renderer_req)) {
                         // send to the renderer
-                        self.buf_out_sx.send((renderer_req.into(), pc)).unwrap();
+                        match rx.recv().await {
+                            Some(pc) => {
+                                self.buf_out_sx.send((renderer_req, pc)).unwrap();
+                                let mut next_key = BufferCacheKey::from(renderer_req);
+                                next_key.frame_offset += 1;
+                                if !self.cache.contains(&next_key) {
+                                    self.cache.put(next_key, rx);
+                                }
+                            }
+                            None => {
+                                // channel is empty, so we discard this channel and enqueue the request into the pending queue
+                                // so that the next iteration knows to send the response to renderer.
+                                self.pending_frame_req.push_back(renderer_req);
+                            }
+                        }
                     } else {
                         // It doesn't exist in cache, so we send a request to the fetcher to fetch the data
                         self.buf_in_sx
@@ -153,6 +173,9 @@ impl BufferManager {
                         self.pending_frame_req.push_back(renderer_req);
                     }
 
+                    // NOTE(9Mar23): Although this bit of code looks spammy (we send a predictive request to the fetcher every time we receive a request from the renderer),
+                    // the overhead is only in sending the FetchRequest. The fetcher will only send a request to the network if it isn't recently requested.
+                    // However, this behaviour might change in the future.
                     if self.cache.len() < self.cache.cap().get() {
                         debug!("Cache length: {:}", self.cache.len());
                         // If the cache is not full, we send a request to the fetcher to fetch the next frame
@@ -166,18 +189,20 @@ impl BufferManager {
                         // we don't store this in the pending frame request because it is a preemptive request, not a request by the renderer.
                     }
                 }
-                BufMsg::PointCloud((req, pc)) => {
-                    debug!("received a point cloud result {:?}", &req);
+                BufMsg::PointCloud((mut metadata, mut rx)) => {
                     if !self.pending_frame_req.is_empty()
-                        && req.frame_offset == self.pending_frame_req.front().unwrap().frame_offset
+                        && metadata.frame_offset
+                            == self.pending_frame_req.front().unwrap().frame_offset
                     {
+                        let pc = rx.recv().await.unwrap();
                         // send results to the renderer
-                        self.buf_out_sx.send((req.into(), pc)).unwrap();
+                        self.buf_out_sx.send((metadata.into(), pc)).unwrap();
                         self.pending_frame_req.pop_front();
-                    } else {
-                        // cache the point cloud
-                        self.cache.push(req.into(), pc);
+                        metadata.frame_offset += 1;
                     }
+
+                    // cache the point cloud
+                    self.cache.push(metadata.into(), rx);
                 }
                 BufMsg::Fov(_) => {}
             }
@@ -194,9 +219,7 @@ struct FetchRequest {
     /// To get the frame number, add the offset to the frame number of the first frame in the video.
     pub frame_offset: u64,
     /// The camera position when the frame was requested.
-    ///
-    /// The data that we get from the camera state is of type `Point3<f32>` but we can tolerate a small error in the camera position.
-    pub camera_pos: Option<Point3<u32>>,
+    pub camera_pos: Option<Point3<f32>>,
     buffer_occupancy: usize,
 }
 
@@ -216,7 +239,6 @@ impl Into<PCMetadata> for FetchRequest {
         PCMetadata {
             object_id: self.object_id,
             frame_offset: self.frame_offset,
-            last5_avg_bitrate: 0,
         }
     }
 }
@@ -271,7 +293,7 @@ fn main() {
 
                 loop {
                     let req: FetchRequest = buf_in_rx.recv().await.unwrap();
-                    debug!("got frame requests {:?}", &req);
+                    debug!("got fetch requests {:?}", &req);
 
                     // The request has just been recently fetched (or in the buffer), so we can skip it to avoid some redundant requests to the server.
                     // However,
@@ -291,7 +313,7 @@ fn main() {
                         );
 
                         let p = fetcher
-                            .download(req.object_id, req.frame_offset, Some(quality as u8))
+                            .download(req.object_id, req.frame_offset, Some(quality as u8 + 1))
                             .await;
 
                         match p {
@@ -329,13 +351,16 @@ fn main() {
                 ply_files.sort();
 
                 loop {
+                    let (output_sx, output_rx) = tokio::sync::mpsc::unbounded_channel();
+
                     let req: FetchRequest = buf_in_rx.recv().await.unwrap();
                     debug!("got frame requests {:?}", req);
                     let pcd =
                         read_file_to_point_cloud(ply_files.get(req.frame_offset as usize).unwrap())
                             .expect("read file to point cloud failed");
+                    output_sx.send(pcd).unwrap();
                     to_buf_sx
-                        .send(BufMsg::PointCloud((req.into(), pcd)))
+                        .send(BufMsg::PointCloud((req.into(), output_rx)))
                         .unwrap();
                 }
             }
@@ -381,17 +406,18 @@ fn main() {
                     };
                     let now = std::time::Instant::now();
                     decoder.start().unwrap();
-                    let mut i = 0;
+                    let (output_sx, output_rx) = tokio::sync::mpsc::unbounded_channel();
+                    to_buf_sx
+                        .send(BufMsg::PointCloud((
+                            PCMetadata {
+                                frame_offset: req.frame_offset,
+                                object_id: req.object_id,
+                            },
+                            output_rx,
+                        )))
+                        .unwrap();
                     while let Some(pcd) = decoder.poll() {
-                        let pc_metadata = PCMetadata {
-                            last5_avg_bitrate,
-                            frame_offset: req.frame_offset + i,
-                            object_id: req.object_id,
-                        };
-                        i += 1;
-                        to_buf_sx
-                            .send(BufMsg::PointCloud((pc_metadata, pcd)))
-                            .unwrap();
+                        output_sx.send(pcd).unwrap();
                     }
                     let elapsed = now.elapsed();
                     dbg!(elapsed);
@@ -419,7 +445,6 @@ fn main() {
     let mut pcd_reader = PcdAsyncReader::new(buf_out_rx, to_buf_sx);
     // set the reader max length
     pcd_reader.set_len(total_frames);
-    dbg!(pcd_reader.len());
 
     let camera = Camera::new(
         (args.camera_x, args.camera_y, args.camera_z),

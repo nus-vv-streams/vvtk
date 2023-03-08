@@ -19,9 +19,18 @@ use formats::{pointxyzrgba::PointXyzRgba, PointCloud};
 use render::wgpu::reader::FrameRequest;
 
 /// Message types sent to the Buffer Manager of ply_play
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum BufMsg {
-    PointCloud((PCMetadata, PointCloud<PointXyzRgba>)),
+    /// Point cloud message.
+    ///
+    /// Contains the point cloud and the metadata info for the point cloud.
+    PointCloud(
+        (
+            PCMetadata,
+            tokio::sync::mpsc::UnboundedReceiver<PointCloud<PointXyzRgba>>,
+        ),
+    ),
+    /// Frame request message.
     FrameRequest(FrameRequest),
 }
 
@@ -32,7 +41,6 @@ pub enum BufMsg {
 pub struct PCMetadata {
     pub object_id: u8,
     pub frame_offset: u64,
-    pub last5_avg_bitrate: i64,
 }
 
 impl From<PCMetadata> for FrameRequest {
@@ -51,7 +59,6 @@ impl From<FrameRequest> for PCMetadata {
         PCMetadata {
             object_id: val.object_id,
             frame_offset: val.frame_offset,
-            last5_avg_bitrate: 0,
         }
     }
 }

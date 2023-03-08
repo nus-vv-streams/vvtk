@@ -125,7 +125,7 @@ pub struct PcdAsyncReader {
 }
 
 #[cfg(feature = "dash")]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy)]
 /// A request to the player backend for a frame to be displayed by the renderer.
 pub struct FrameRequest {
     pub object_id: u8,
@@ -135,9 +135,7 @@ pub struct FrameRequest {
     /// To get the frame number, add the offset to the frame number of the first frame in the video.
     pub frame_offset: u64,
     /// The camera position when the frame was requested.
-    ///
-    /// The data that we get from the camera state is of type `Point3<f32>` but we can tolerate a small error in the camera position.
-    pub camera_pos: Option<Point3<u32>>,
+    pub camera_pos: Option<Point3<f32>>,
 }
 
 #[cfg(feature = "dash")]
@@ -210,17 +208,12 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         index: usize,
         camera_pos: Option<Point3<f32>>,
     ) -> Option<PointCloud<PointXyzRgba>> {
-        // debug!(
-        //     "reader::get_at called with {}. buffer occupancy is {}",
-        //     index,
-        //     self.cache.len()
-        // );
         let index = index as u64;
         self.tx
             .send(BufMsg::FrameRequest(FrameRequest {
                 object_id: 0,
                 frame_offset: index % self.total_frames,
-                camera_pos: camera_pos.map(|p| Point3::new(p.x as u32, p.y as u32, p.z as u32)),
+                camera_pos,
             }))
             .unwrap();
         self.rx.recv().ok().map(|op| op.1)
