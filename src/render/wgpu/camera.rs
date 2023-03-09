@@ -12,9 +12,9 @@ const PROJECTION_ZNEAR: f32 = 0.1;
 const PROJECTION_ZFAR: f32 = 100.0;
 
 pub struct CameraState {
-    camera: Camera,
+    pub(super) camera: Camera,
     camera_controller: CameraController,
-    camera_uniform: CameraUniform,
+    pub(super) camera_uniform: CameraUniform,
     projection: Projection,
     mouse_pressed: bool,
 }
@@ -76,14 +76,6 @@ impl CameraState {
         });
 
         (camera_buffer, camera_bind_group_layout, camera_bind_group)
-    }
-
-    pub fn camera_uniform(&self) -> CameraUniform {
-        self.camera_uniform
-    }
-
-    pub fn camera(&self) -> Camera {
-        self.camera
     }
 
     pub fn update(&mut self, dt: std::time::Duration) {

@@ -322,7 +322,7 @@ where
     fn update(&mut self, dt: Duration) -> Result<(), SurfaceError> {
         self.camera_state.update(dt);
         self.pcd_renderer
-            .update_camera(&self.gpu.queue, self.camera_state.camera_uniform());
+            .update_camera(&self.gpu.queue, self.camera_state.camera_uniform);
 
         if self.state == PlaybackState::Play {
             self.time_since_last_update += dt;
@@ -333,7 +333,7 @@ where
         };
 
         let info = RenderInformation {
-            camera: self.camera_state.camera(),
+            camera: self.camera_state.camera,
             current_position: self.current_position,
             fps: self.fps,
         };
@@ -350,7 +350,10 @@ where
     }
 
     fn update_vertices(&mut self) -> bool {
-        if let Some(data) = self.reader.get_at(self.current_position) {
+        if let Some(data) = self.reader.get_at(
+            self.current_position,
+            Some(self.camera_state.camera.position),
+        ) {
             self.pcd_renderer
                 .update_vertices(&self.gpu.device, &self.gpu.queue, &data);
             return true;
