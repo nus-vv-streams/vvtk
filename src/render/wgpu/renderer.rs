@@ -350,10 +350,10 @@ where
     }
 
     fn update_vertices(&mut self) -> bool {
-        if let Some(data) = self.reader.get_at(
-            self.current_position,
-            Some(self.camera_state.camera.position),
-        ) {
+        if let Some(data) = self
+            .reader
+            .get_at(self.current_position, Some(*self.camera_state.camera))
+        {
             self.pcd_renderer
                 .update_vertices(&self.gpu.device, &self.gpu.queue, &data);
             return true;

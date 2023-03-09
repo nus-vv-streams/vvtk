@@ -1,4 +1,3 @@
-use cgmath::Point3;
 use clap::Parser;
 use log::{debug, warn};
 use lru::LruCache;
@@ -15,7 +14,7 @@ use vivotk::formats::pointxyzrgba::PointXyzRgba;
 use vivotk::formats::PointCloud;
 use vivotk::render::wgpu::{
     builder::RenderBuilder,
-    camera::Camera,
+    camera::{Camera, CameraPosition},
     controls::Controller,
     metrics_reader::MetricsReader,
     reader::{FrameRequest, PcdAsyncReader, RenderReader},
@@ -219,7 +218,7 @@ struct FetchRequest {
     /// To get the frame number, add the offset to the frame number of the first frame in the video.
     pub frame_offset: u64,
     /// The camera position when the frame was requested.
-    pub camera_pos: Option<Point3<f32>>,
+    pub camera_pos: Option<CameraPosition>,
     buffer_occupancy: usize,
 }
 

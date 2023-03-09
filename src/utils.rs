@@ -9,6 +9,8 @@ use crate::{
     ply::read_ply,
 };
 
+use cgmath::{Point3, Vector3};
+
 pub fn read_file_to_point_cloud(file: &PathBuf) -> Option<PointCloud<PointXyzRgba>> {
     if let Some(ext) = file.extension().and_then(|ext| ext.to_str()) {
         let point_cloud = match ext {
@@ -84,4 +86,40 @@ impl<const N: usize> SimpleRunningAverage<N> {
     pub fn get(&self) -> i64 {
         self.avg
     }
+}
+
+// https://en.wikipedia.org/wiki/Back-face_culling
+///
+/// Returns the cosine of the angle between the vector from the camera to the point and the normal of the triangle.
+///
+/// # Arguments
+///
+/// - `pos`: The position of the camera
+/// - `v_0`: The position of a vertex of the surface
+/// - `norm`: The surface normal
+fn back_face_culling(pos: Point3<f32>, v_0: Point3<f32>, norm: Vector3<f32>) -> f32 {
+    use cgmath::InnerSpace;
+    // camera-to-surface vector
+    let x = (v_0 - pos).normalize();
+    x.dot(norm.normalize())
+}
+
+/// Get the cosines from the camera to each of the six faces of a cube
+/// assuming the cube is centered at the origin with side length 1.
+#[rustfmt::skip]
+pub fn get_cosines(pos: Point3<f32>) -> Vec<f32> {
+    vec![
+        // Left,
+        back_face_culling(pos, Point3 { x: -0.5, y: -0.5, z: -0.5 }, Vector3 { x: -1.0, y: 0.0, z: 0.0 }),
+        // Bottom,
+        back_face_culling(pos, Point3 { x: -0.5, y: -0.5, z: -0.5 }, Vector3 { x: 0.0, y: -1.0, z: 0.0 }),
+        // Back,
+        back_face_culling(pos, Point3 { x: -0.5, y: -0.5, z: -0.5 }, Vector3 { x: 0.0, y: 0.0, z: -1.0 }),
+        // Right,
+        back_face_culling(pos, Point3 { x: 0.5, y: 0.5, z: 0.5 }, Vector3 { x: 1.0, y: 0.0, z: 0.0 }),
+        // Top,
+        back_face_culling(pos, Point3 { x: 0.5, y: 0.5, z: 0.5 }, Vector3 { x: 0.0, y: 1.0, z: 0.0 }),
+        // Front,
+        back_face_culling(pos, Point3 { x: 0.5, y: 0.5, z: 0.5 }, Vector3 { x: 0.0, y: 0.0, z: 1.0 }),
+    ]
 }

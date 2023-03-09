@@ -3,19 +3,19 @@ use crate::formats::PointCloud;
 use crate::pcd::read_pcd_file;
 use crate::BufMsg;
 
-use cgmath::Point3;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
 use tokio::sync::mpsc::UnboundedSender;
 
+use super::camera::CameraPosition;
 use super::renderable::Renderable;
 
 pub trait RenderReader<T: Renderable> {
     /// Initialize the input reader for our renderer. Returns the first frame, if any.
     fn start(&mut self) -> Option<T>;
     /// Returns the `index`-th frame given the current camera position
-    fn get_at(&mut self, index: usize, camera_pos: Option<Point3<f32>>) -> Option<T>;
+    fn get_at(&mut self, index: usize, camera_pos: Option<CameraPosition>) -> Option<T>;
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
     fn set_len(&mut self, len: usize);
@@ -59,7 +59,7 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
     fn get_at(
         &mut self,
         index: usize,
-        _camera_pos: Option<Point3<f32>>,
+        _camera_pos: Option<CameraPosition>,
     ) -> Option<PointCloud<PointXyzRgba>> {
         self.files
             .get(index)
@@ -92,7 +92,7 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdMemoryReader {
     fn get_at(
         &mut self,
         index: usize,
-        _camera_pos: Option<Point3<f32>>,
+        _camera_pos: Option<CameraPosition>,
     ) -> Option<PointCloud<PointXyzRgba>> {
         self.points.get(index).cloned()
     }
@@ -135,7 +135,7 @@ pub struct FrameRequest {
     /// To get the frame number, add the offset to the frame number of the first frame in the video.
     pub frame_offset: u64,
     /// The camera position when the frame was requested.
-    pub camera_pos: Option<Point3<f32>>,
+    pub camera_pos: Option<CameraPosition>,
 }
 
 #[cfg(feature = "dash")]
@@ -206,7 +206,7 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
     fn get_at(
         &mut self,
         index: usize,
-        camera_pos: Option<Point3<f32>>,
+        camera_pos: Option<CameraPosition>,
     ) -> Option<PointCloud<PointXyzRgba>> {
         let index = index as u64;
         self.tx

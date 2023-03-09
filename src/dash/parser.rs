@@ -64,6 +64,7 @@ impl MPDParser {
     }
 
     /// Get the segment template's duration. To get the time in seconds, need to divide by segment template's timescale.
+    /// It is assumed that all representations (in all periods) have the same segment template duration.
     pub fn segment_duration(&self) -> u64 {
         self.mpd.periods[0].adaptations.as_ref().unwrap()[0]
             .representations

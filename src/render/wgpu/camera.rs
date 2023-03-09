@@ -1,5 +1,6 @@
 use cgmath::*;
-use std::f32::consts::FRAC_PI_2;
+use std::f32::consts::PI;
+use std::ops::{Deref, DerefMut};
 use std::time::Duration;
 use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalPosition;
@@ -156,19 +157,33 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.5, 1.0,
 );
 
-const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
-
 #[derive(Debug, Copy, Clone)]
 pub struct Camera {
+    current: CameraPosition,
+    /// original position of the camera
+    orig: CameraPosition,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct CameraPosition {
     pub position: Point3<f32>,
     /// Yaw is the rotation around the y axis
     pub yaw: Rad<f32>,
     /// Pitch is the rotation around the x axis
     pub pitch: Rad<f32>,
+}
 
-    orig_position: Point3<f32>,
-    orig_yaw: Rad<f32>,
-    orig_pitch: Rad<f32>,
+impl Deref for Camera {
+    type Target = CameraPosition;
+    fn deref(&self) -> &Self::Target {
+        &self.current
+    }
+}
+
+impl DerefMut for Camera {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.current
+    }
 }
 
 impl Camera {
@@ -181,13 +196,15 @@ impl Camera {
         yaw: Y,
         pitch: P,
     ) -> Self {
+        let position = CameraPosition {
+            position: position.into(),
+            yaw: yaw.into(),
+            pitch: pitch.into(),
+        };
+
         Self {
-            position: position.clone().into(),
-            yaw: yaw.clone().into(),
-            pitch: pitch.clone().into(),
-            orig_position: position.into(),
-            orig_yaw: yaw.into(),
-            orig_pitch: pitch.into(),
+            current: position,
+            orig: position,
         }
     }
 
@@ -204,9 +221,7 @@ impl Camera {
 
     /// Resets camera to its first state
     fn reset(&mut self) {
-        self.position = self.orig_position;
-        self.yaw = self.orig_yaw;
-        self.pitch = self.orig_pitch;
+        self.current = self.orig;
     }
 }
 
@@ -353,20 +368,30 @@ impl CameraController {
         camera.position.y += (self.amount_up - self.amount_down) * self.speed * dt * 0.5;
 
         // Rotate
-        camera.yaw += Rad(self.rotate_horizontal) * self.sensitivity * dt;
-        camera.pitch += Rad(-self.rotate_vertical) * self.sensitivity * dt;
+        camera.yaw = delta_with_clamp(
+            camera.yaw,
+            Rad(self.rotate_horizontal) * self.sensitivity * dt,
+        );
+        camera.pitch = delta_with_clamp(
+            camera.pitch,
+            Rad(-self.rotate_vertical) * self.sensitivity * dt,
+        );
 
         // If process_mouse isn't called every frame, these values
         // will not get set to zero, and the camera will rotate
         // when moving in a non cardinal direction.
         self.rotate_horizontal = 0.0;
         self.rotate_vertical = 0.0;
+    }
+}
 
-        // Keep the camera's angle from going too high/low.
-        if camera.pitch < -Rad(SAFE_FRAC_PI_2) {
-            camera.pitch = -Rad(SAFE_FRAC_PI_2);
-        } else if camera.pitch > Rad(SAFE_FRAC_PI_2) {
-            camera.pitch = Rad(SAFE_FRAC_PI_2);
-        }
+fn delta_with_clamp(orig: Rad<f32>, delta: Rad<f32>) -> Rad<f32> {
+    let result = orig + delta;
+    if result < -Rad(PI) {
+        Rad(2.0 * PI) + result
+    } else if result > Rad(PI) {
+        -Rad(2.0 * PI) + result
+    } else {
+        result
     }
 }
