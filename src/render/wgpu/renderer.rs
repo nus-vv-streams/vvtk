@@ -155,7 +155,7 @@ where
                 let now = Instant::now();
                 let dt = now - last_render_time;
                 self.last_render_time = Some(now);
-                match self.update(dt) {
+                match self.redraw(dt) {
                     Ok(_) => {}
                     // Reconfigure the surface if lost
                     Err(wgpu::SurfaceError::Lost) => self.resize(self.gpu.size),
@@ -198,6 +198,7 @@ where
     ) -> Self {
         let initial_render = reader
             .start()
+            .1
             .expect("There should be at least one point cloud to render!");
         let pcd_renderer = PointCloudRenderer::new(
             &gpu.device,
@@ -319,7 +320,7 @@ where
         }
     }
 
-    fn update(&mut self, dt: Duration) -> Result<(), SurfaceError> {
+    fn redraw(&mut self, dt: Duration) -> Result<(), SurfaceError> {
         self.camera_state.update(dt);
         self.pcd_renderer
             .update_camera(&self.gpu.queue, self.camera_state.camera_uniform);
@@ -349,13 +350,17 @@ where
         self.render()
     }
 
+    /// Update the vertices and optionally updates camera position
     fn update_vertices(&mut self) -> bool {
-        if let Some(data) = self
+        if let (camera_pos, Some(data)) = self
             .reader
             .get_at(self.current_position, Some(*self.camera_state.camera))
         {
             self.pcd_renderer
                 .update_vertices(&self.gpu.device, &self.gpu.queue, &data);
+            if camera_pos.is_some() {
+                *self.camera_state.camera = camera_pos.unwrap();
+            }
             return true;
         }
         false
@@ -454,7 +459,7 @@ where
         }
     }
 
-    pub fn update_camera(&self, queue: &Queue, camera_uniform: CameraUniform) {
+    fn update_camera(&self, queue: &Queue, camera_uniform: CameraUniform) {
         queue.write_buffer(
             &self.camera_buffer,
             0,

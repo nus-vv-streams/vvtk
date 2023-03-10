@@ -13,9 +13,13 @@ use super::renderable::Renderable;
 
 pub trait RenderReader<T: Renderable> {
     /// Initialize the input reader for our renderer. Returns the first frame, if any.
-    fn start(&mut self) -> Option<T>;
-    /// Returns the `index`-th frame given the current camera position
-    fn get_at(&mut self, index: usize, camera_pos: Option<CameraPosition>) -> Option<T>;
+    fn start(&mut self) -> (Option<CameraPosition>, Option<T>);
+    /// Returns the optional new camera position requested by the player backend and the `index`-th frame given the current camera position
+    fn get_at(
+        &mut self,
+        index: usize,
+        camera_pos: Option<CameraPosition>,
+    ) -> (Option<CameraPosition>, Option<T>);
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
     fn set_len(&mut self, len: usize);
@@ -52,7 +56,7 @@ impl PcdFileReader {
 }
 
 impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
-    fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
+    fn start(&mut self) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
         self.get_at(0, None)
     }
 
@@ -60,11 +64,14 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
         &mut self,
         index: usize,
         _camera_pos: Option<CameraPosition>,
-    ) -> Option<PointCloud<PointXyzRgba>> {
-        self.files
-            .get(index)
-            .and_then(|f| read_pcd_file(f).ok())
-            .map(PointCloud::from)
+    ) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
+        (
+            None,
+            self.files
+                .get(index)
+                .and_then(|f| read_pcd_file(f).ok())
+                .map(|data| PointCloud::from(data)),
+        )
     }
 
     fn len(&self) -> usize {
@@ -78,44 +85,8 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
     fn set_len(&mut self, _len: usize) {}
 }
 
-pub struct PcdMemoryReader {
-    points: Vec<PointCloud<PointXyzRgba>>,
-}
-
-impl PcdMemoryReader {
-    pub fn from_vec(points: Vec<PointCloud<PointXyzRgba>>) -> Self {
-        Self { points }
-    }
-}
-
-impl RenderReader<PointCloud<PointXyzRgba>> for PcdMemoryReader {
-    fn get_at(
-        &mut self,
-        index: usize,
-        _camera_pos: Option<CameraPosition>,
-    ) -> Option<PointCloud<PointXyzRgba>> {
-        self.points.get(index).cloned()
-    }
-
-    fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
-        self.get_at(0, None)
-    }
-
-    fn len(&self) -> usize {
-        self.points.len()
-    }
-
-    fn is_empty(&self) -> bool {
-        self.points.is_empty()
-    }
-
-    fn set_len(&mut self, _len: usize) {}
-}
-
 #[cfg(feature = "dash")]
 pub struct PcdAsyncReader {
-    current_frame: u64,
-    next_to_get: u64,
     total_frames: u64,
     /// PcdAsyncReader tries to maintain this level of buffer occupancy at any time
     // buffer_size: u8,
@@ -147,8 +118,6 @@ impl PcdAsyncReader {
     ) -> Self {
         // let buffer_size = buffer_size.unwrap_or(1);
         Self {
-            current_frame: 0,
-            next_to_get: 0,
             rx,
             tx,
             // buffer_size,
@@ -184,7 +153,7 @@ impl PcdAsyncReader {
 
 #[cfg(feature = "dash")]
 impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
-    fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
+    fn start(&mut self) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
         // for i in 0..self.buffer_size {
         //     self.tx
         //         .send(FrameRequest {
@@ -207,7 +176,7 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         &mut self,
         index: usize,
         camera_pos: Option<CameraPosition>,
-    ) -> Option<PointCloud<PointXyzRgba>> {
+    ) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
         let index = index as u64;
         self.tx
             .send(BufMsg::FrameRequest(FrameRequest {
@@ -216,7 +185,11 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
                 camera_pos,
             }))
             .unwrap();
-        self.rx.recv().ok().map(|op| op.1)
+        if let Some((frame_req, pc)) = self.rx.recv().ok() {
+            (frame_req.camera_pos, Some(pc))
+        } else {
+            (None, None)
+        }
 
         // remove if we have in the buffer.
         // FIXME: change the object_id and quality.

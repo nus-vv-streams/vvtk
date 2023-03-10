@@ -99,22 +99,10 @@ pub mod wgpu {
                 Self
             }
         }
-        pub struct PcdMemoryReader;
-
-        impl PcdMemoryReader {
-            pub fn from_vec(points: Vec<PointCloudData>) -> Self {
-                Self
-            }
-
-            pub fn len(&self) -> usize {
-                1
-            }
-        }
 
         pub struct RenderReader;
 
         impl Reader for BufRenderReader {}
-        impl Reader for PcdMemoryReader {}
         impl Reader for RenderReader {}
     }
 
