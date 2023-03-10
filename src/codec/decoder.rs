@@ -108,6 +108,27 @@ impl Decoder for DracoDecoder {
     // }
 }
 
+/// This is a wrapper around the tmc2rs decoder.
+pub struct Tmc2Decoder(tmc2rs::Decoder);
+
+impl Tmc2Decoder {
+    pub fn new(compressed_stream: PathBuf) -> Self {
+        Tmc2Decoder(tmc2rs::Decoder::new(tmc2rs::Params::new(compressed_stream)))
+    }
+}
+
+impl Decoder for Tmc2Decoder {
+    /// Spawns a thread to decode the stream.
+    fn start(&mut self) -> Result<()> {
+        self.0.start();
+        Ok(())
+    }
+
+    fn poll(&mut self) -> Option<PointCloud<PointXyzRgba>> {
+        self.0.recv_frame().map(PointCloud::from)
+    }
+}
+
 pub struct MultiplaneDecoder {
     top: tmc2rs::Decoder,
     bottom: tmc2rs::Decoder,
@@ -130,12 +151,12 @@ pub struct MultiplaneDecodeReq {
 impl MultiplaneDecoder {
     pub fn new(req: MultiplaneDecodeReq) -> Self {
         MultiplaneDecoder {
-            top: tmc2rs::Decoder::new(tmc2rs::Params::new(req.top, None)),
-            bottom: tmc2rs::Decoder::new(tmc2rs::Params::new(req.bottom, None)),
-            left: tmc2rs::Decoder::new(tmc2rs::Params::new(req.left, None)),
-            right: tmc2rs::Decoder::new(tmc2rs::Params::new(req.right, None)),
-            front: tmc2rs::Decoder::new(tmc2rs::Params::new(req.front, None)),
-            back: tmc2rs::Decoder::new(tmc2rs::Params::new(req.back, None)),
+            top: tmc2rs::Decoder::new(tmc2rs::Params::new(req.top)),
+            bottom: tmc2rs::Decoder::new(tmc2rs::Params::new(req.bottom)),
+            left: tmc2rs::Decoder::new(tmc2rs::Params::new(req.left)),
+            right: tmc2rs::Decoder::new(tmc2rs::Params::new(req.right)),
+            front: tmc2rs::Decoder::new(tmc2rs::Params::new(req.front)),
+            back: tmc2rs::Decoder::new(tmc2rs::Params::new(req.back)),
         }
     }
 }

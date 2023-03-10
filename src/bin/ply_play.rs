@@ -233,11 +233,11 @@ impl FetchRequest {
     }
 }
 
-impl Into<PCMetadata> for FetchRequest {
-    fn into(self) -> PCMetadata {
+impl From<FetchRequest> for PCMetadata {
+    fn from(val: FetchRequest) -> Self {
         PCMetadata {
-            object_id: self.object_id,
-            frame_offset: self.frame_offset,
+            object_id: val.object_id,
+            frame_offset: val.frame_offset,
         }
     }
 }
@@ -376,7 +376,7 @@ fn main() {
                     req,
                     FetchResult {
                         paths: mut p,
-                        last5_avg_bitrate,
+                        last5_avg_bitrate: _,
                     },
                 ) = in_dec_rx.recv().await.unwrap();
                 debug!("got fetch result {:?}", req);

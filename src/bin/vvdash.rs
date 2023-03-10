@@ -37,9 +37,9 @@ fn main() {
 
     // assume default input folder is always the "hi" folder
     let mut input_folder_hi = input_path.clone();
-    input_folder_hi.push(format!("{}", "hi"));
-    let mut input_folder_lo = input_path.clone();
-    input_folder_lo.push(format!("{}", "lo"));
+    input_folder_hi.push("hi");
+    let mut input_folder_lo = input_path;
+    input_folder_lo.push("lo");
     let mut input_folder: ReadDir;
     let mut input_folder_pathbuf: &PathBuf;
 
@@ -57,15 +57,13 @@ fn main() {
         let input_frame_name: PathBuf = input_folder.nth(count).unwrap().ok().unwrap().path();
 
         let mut input_frame = input_folder_pathbuf.clone();
-        input_frame.push(&input_frame_name.file_name().unwrap());
+        input_frame.push(input_frame_name.file_name().unwrap());
         let mut output_frame = output_path.clone();
-        output_frame.push(&input_frame_name.file_name().unwrap());
+        output_frame.push(input_frame_name.file_name().unwrap());
         let _o = File::create(&output_frame);
-        copy(&input_frame, &output_frame).expect(&format!(
-            "failed to copy from {} to {}",
+        copy(&input_frame, &output_frame).unwrap_or_else(|_| panic!("failed to copy from {} to {}",
             &input_frame.display(),
-            &output_frame.display()
-        ));
+            &output_frame.display()));
 
         count += 1;
     }
