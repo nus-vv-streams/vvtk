@@ -203,7 +203,6 @@ impl BufferManager {
                     // cache the point cloud
                     self.cache.push(metadata.into(), rx);
                 }
-                BufMsg::Fov(_) => {}
             }
         }
     }
@@ -265,7 +264,7 @@ fn main() {
     // TODO: fix this. This is a hack to pass information from the fetcher to this main thread.
     let (total_frames_tx, total_frames_rx) = tokio::sync::oneshot::channel();
 
-    let buffer_capacity = args.buffer_capacity.unwrap_or(60);
+    let buffer_capacity = args.buffer_capacity.unwrap_or(4);
 
     // copy variables to be moved into the async block
     let src = args.src.clone();
@@ -284,7 +283,10 @@ fn main() {
 
                 let mut fetcher = Fetcher::new(&src, path).await;
                 total_frames_tx
-                    .send((fetcher.total_frames(), fetcher.segment_duration()))
+                    .send((
+                        fetcher.mpd_parser.total_frames(),
+                        fetcher.mpd_parser.segment_duration(),
+                    ))
                     .expect("sent total frames");
 
                 let mut frame_range = (0, 0);
@@ -304,11 +306,15 @@ fn main() {
                     loop {
                         // TODO: find which quality to download based on the current camera position + network bandwidth.
                         let _camera_pos = req.camera_pos;
+                        let _qp = fetcher.mpd_parser.get_qp();
+
+                        let available_bitrates =
+                            fetcher.available_bitrates(req.object_id, req.frame_offset, None);
 
                         let quality = abr.select_quality(
                             req.buffer_occupancy as u64,
-                            fetcher.stats.avg_bitrate.get() as f64,
-                            &fetcher.available_bitrates(req.object_id, req.frame_offset, None),
+                            (fetcher.stats.avg_bitrate.get() * 1024) as f64,
+                            &available_bitrates.iter().map(|x| x * 6).collect::<Vec<_>>(),
                         );
 
                         let p = fetcher
@@ -319,7 +325,8 @@ fn main() {
                             Ok(res) => {
                                 in_dec_sx.send((req, res)).unwrap();
                                 frame_range.0 = req.frame_offset;
-                                frame_range.1 = req.frame_offset + fetcher.segment_duration();
+                                frame_range.1 =
+                                    req.frame_offset + fetcher.mpd_parser.segment_duration();
                                 break;
                             }
                             Err(e) => {

@@ -14,7 +14,7 @@ use std::time::Duration;
 const FPS: u64 = 30;
 
 #[derive(Clone)]
-pub(crate) struct MPDParser {
+pub struct MPDParser {
     mpd: MPD,
     /// contains the first frame offsets for all `Period` in the MPD and the total number of frames.
     period_markers: Vec<u64>,
@@ -209,6 +209,20 @@ impl MPDParser {
             .map(|r| r.bandwidth.unwrap())
             .collect()
     }
+
+    /// Get a vector of (geometry_qp, attribute_qp) tuples for all representations in the MPD.
+    /// It is assumed that the data is the same for all representations and periods.
+    pub fn get_qp(&self) -> Vec<(Option<u64>, Option<u64>)> {
+        let period = self.mpd.periods.get(0).unwrap();
+        let adaptation_set = &period.adaptations.as_ref().unwrap()[0];
+        adaptation_set
+            .representations
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|r| (r.geometry_qp, r.attribute_qp))
+            .collect()
+    }
 }
 
 // Modified from https://github.com/emarsden/dash-mpd-rs
@@ -380,6 +394,10 @@ pub(super) struct Representation {
     // pub BaseURL: Option<String>,
     #[serde(rename = "SegmentTemplate")]
     pub segment_template: Option<SegmentTemplate>,
+    #[serde(rename = "GeometryQP")]
+    pub geometry_qp: Option<u64>,
+    #[serde(rename = "AttributeQP")]
+    pub attribute_qp: Option<u64>,
 }
 
 /// Contains a set of Representations. For example, if multiple language streams are available for

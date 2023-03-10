@@ -12,7 +12,7 @@ pub type HttpClient = reqwest::Client;
 #[derive(Clone)]
 pub struct Fetcher {
     http_client: HttpClient,
-    mpd_parser: MPDParser,
+    pub mpd_parser: MPDParser,
     download_dir: PathBuf,
     pub stats: FetchStats,
 }
@@ -147,14 +147,9 @@ impl Fetcher {
         })
     }
 
-    pub fn total_frames(&self) -> usize {
-        self.mpd_parser.total_frames()
-    }
-
-    pub fn segment_duration(&self) -> u64 {
-        self.mpd_parser.segment_duration()
-    }
-
+    /// Get available representation bitrates for a view.
+    ///
+    /// If view is None, it will get the bitrate for the left view (view_id = 0)
     pub fn available_bitrates(
         &self,
         object_id: u8,
@@ -163,6 +158,18 @@ impl Fetcher {
     ) -> Vec<u64> {
         self.mpd_parser
             .available_bitrates(object_id, frame_offset, view_id)
+    }
+
+    /// Get available representation bitrates for all views
+    pub fn all_available_bitrates(&self, object_id: u8, frame_offset: u64) -> Vec<Vec<u64>> {
+        vec![
+            self.available_bitrates(object_id, frame_offset, Some(0)),
+            self.available_bitrates(object_id, frame_offset, Some(1)),
+            self.available_bitrates(object_id, frame_offset, Some(2)),
+            self.available_bitrates(object_id, frame_offset, Some(3)),
+            self.available_bitrates(object_id, frame_offset, Some(4)),
+            self.available_bitrates(object_id, frame_offset, Some(5)),
+        ]
     }
 }
 

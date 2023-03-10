@@ -3,6 +3,9 @@ use std::f64::consts::E;
 
 use super::RateAdapter;
 
+/// Implementation of the Quetra algorithm.
+///
+/// See [Quetra: A Queueing Theory Approach to DASH Rate Adaptation](https://www.comp.nus.edu.sg/~ooiwt/papers/mm17-quetra.pdf)
 pub struct Quetra {
     /// max buffer capacity measured in seconds of playback
     pub k: u64,
@@ -79,8 +82,8 @@ impl RateAdapter for Quetra {
         let mut result: usize = 0;
         let mut min_diff_with_buffer_occupancy = f64::MAX;
 
-        // for each r_i inside r_vec, calculate its pkrb value (pkrb_r_i)
-        // then replace result with r_i if its pkrb value has a smaller difference with buffer occupancy Bt (pkrb_r_i - Bt)
+        // Find a rate r_i where the buffer slack value (P_krb) has the smallest difference with Bt
+        // In other words, we are looking for a rate that keeps the buffer occupancy at half-full.
         for (i, r) in available_bitrates.iter().enumerate() {
             let pkrb_r_i = Self::buffer_slack(self.k, *r as f64, network_throughput);
             let diff = (pkrb_r_i - buffer_occupancy as f64).abs();
