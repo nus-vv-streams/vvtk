@@ -1,8 +1,11 @@
 use clap::Parser;
 use log::{debug, warn};
 use lru::LruCache;
+use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::ffi::OsString;
+use std::fs::File;
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 use vivotk::abr::quetra::Quetra;
@@ -30,8 +33,6 @@ struct Args {
     /// 1. Directory with all the pcd files in lexicographical order
     /// 2. location of the mpd file
     src: String,
-    #[clap(short = 'q', long, default_value_t = 0)]
-    quality: u8,
     #[clap(short, long, default_value_t = 30.0)]
     fps: f32,
     #[clap(short = 'x', long, default_value_t = 0.0)]
@@ -56,8 +57,12 @@ struct Args {
     metrics: Option<OsString>,
     #[clap(long, value_enum, default_value_t = DecoderType::Noop)]
     decoder_type: DecoderType,
+    /// Path to the decoder binary (only for Draco)
     #[clap(long)]
     decoder_path: Option<OsString>,
+    /// Path to network trace for repeatable simulation
+    #[clap(long)]
+    network_trace: Option<OsString>,
 }
 
 #[derive(clap::ValueEnum, Clone, Copy)]
@@ -241,6 +246,40 @@ impl From<FetchRequest> for PCMetadata {
     }
 }
 
+struct NetworkTrace {
+    data: Vec<f64>,
+    index: RefCell<usize>,
+}
+
+impl NetworkTrace {
+    /// The network trace file to contain the network bandwidth in Kbps, each line representing 1 bandwidth sample.
+    /// # Arguments
+    ///
+    /// * `path` - The path to the network trace file.
+    fn new(path: OsString) -> Self {
+        use std::io::BufRead;
+
+        let file = File::open(path).unwrap();
+        let reader = BufReader::new(file);
+        let data = reader
+            .lines()
+            .map(|line| line.unwrap().trim().parse::<f64>().unwrap())
+            .collect();
+        NetworkTrace {
+            data,
+            index: RefCell::new(0),
+        }
+    }
+
+    // Get the next bandwidth sample
+    fn next(&self) -> f64 {
+        let idx = *self.index.borrow();
+        let next_idx = (idx + 1) % self.data.len();
+        *self.index.borrow_mut() = next_idx;
+        self.data[idx]
+    }
+}
+
 fn main() {
     // initialize logger
     env_logger::init();
@@ -265,6 +304,7 @@ fn main() {
     let (total_frames_tx, total_frames_rx) = tokio::sync::oneshot::channel();
 
     let buffer_capacity = args.buffer_capacity.unwrap_or(4);
+    let simulated_network_trace = args.network_trace.map(|path| NetworkTrace::new(path));
 
     // copy variables to be moved into the async block
     let src = args.src.clone();
@@ -311,9 +351,15 @@ fn main() {
                         let available_bitrates =
                             fetcher.available_bitrates(req.object_id, req.frame_offset, None);
 
+                        let network_throughput = if simulated_network_trace.is_none() {
+                            (fetcher.stats.avg_bitrate.get() * 1024) as f64
+                        } else {
+                            simulated_network_trace.as_ref().unwrap().next() * 1024.0
+                        };
+
                         let quality = abr.select_quality(
                             req.buffer_occupancy as u64,
-                            (fetcher.stats.avg_bitrate.get() * 1024) as f64,
+                            network_throughput,
                             &available_bitrates.iter().map(|x| x * 6).collect::<Vec<_>>(),
                         );
 
