@@ -36,6 +36,9 @@ async fn fetch_mpd(mpd_url: &str, http_client: &HttpClient) -> Result<String> {
 }
 
 impl Fetcher {
+    // number of views
+    const VIEWS: usize = 6;
+
     pub async fn new<P: Into<PathBuf>>(mpd_url: &str, download_dir: P) -> Fetcher {
         let client = reqwest::Client::builder()
             .timeout(Duration::new(30, 0))
@@ -63,7 +66,7 @@ impl Fetcher {
         &mut self,
         object_id: u8,
         frame: u64,
-        quality: Option<u8>,
+        quality: &[usize],
     ) -> Result<FetchResult> {
         debug!(
             "Downloading frame {} for object {} with quality {}",
@@ -77,10 +80,11 @@ impl Fetcher {
         let mut urls: [String; 6] = core::array::from_fn(|_| String::new());
         let mut bandwidths = [None; 6];
 
-        for view_id in 0..6 {
+        assert!(quality.len() >= Fetcher::VIEWS);
+        for view_id in 0..Fetcher::VIEWS {
             let (url, bandwidth) = self.mpd_parser.get_info(
                 object_id,
-                quality.unwrap_or_default(),
+                quality[view_id] as u8,
                 frame,
                 Some(view_id as u8),
             );

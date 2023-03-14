@@ -1,3 +1,4 @@
+use cgmath::Point3;
 use clap::Parser;
 use log::{debug, warn};
 use lru::LruCache;
@@ -9,7 +10,7 @@ use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 use vivotk::abr::quetra::Quetra;
-use vivotk::abr::RateAdapter;
+use vivotk::abr::{RateAdapter, MCKP};
 use vivotk::codec::decoder::{DracoDecoder, MultiplaneDecodeReq, MultiplaneDecoder, NoopDecoder};
 use vivotk::codec::Decoder;
 use vivotk::dash::fetcher::{FetchResult, Fetcher};
@@ -23,7 +24,7 @@ use vivotk::render::wgpu::{
     reader::{FrameRequest, PcdAsyncReader, RenderReader},
     renderer::Renderer,
 };
-use vivotk::utils::read_file_to_point_cloud;
+use vivotk::utils::{get_cosines, predict_quality, read_file_to_point_cloud};
 use vivotk::{BufMsg, PCMetadata};
 
 /// Plays a folder of pcd files in lexicographical order
@@ -55,6 +56,8 @@ struct Args {
     buffer_capacity: Option<usize>,
     #[clap(short, long)]
     metrics: Option<OsString>,
+    #[clap(long, value_enum, default_value_t = AbrType::Quetra)]
+    abr_type: AbrType,
     #[clap(long, value_enum, default_value_t = DecoderType::Noop)]
     decoder_type: DecoderType,
     /// Path to the decoder binary (only for Draco)
@@ -70,6 +73,12 @@ enum DecoderType {
     Noop,
     Draco,
     Multiplane,
+}
+
+#[derive(clap::ValueEnum, Clone, Copy)]
+enum AbrType {
+    Quetra,
+    Mckp,
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -329,8 +338,24 @@ fn main() {
                     ))
                     .expect("sent total frames");
 
+                let qualities = fetcher
+                    .mpd_parser
+                    .get_qp()
+                    .into_iter()
+                    .map(|x| -> f32 {
+                        if let (Some(geo_qp), Some(attr_qp)) = x {
+                            predict_quality(geo_qp as f32, attr_qp as f32)
+                        } else {
+                            0.0
+                        }
+                    })
+                    .collect();
+
                 let mut frame_range = (0, 0);
-                let abr = Quetra::new(buffer_capacity as u64);
+                let abr: Box<dyn RateAdapter> = match args.abr_type {
+                    AbrType::Quetra => Box::new(Quetra::new(buffer_capacity as u64)),
+                    AbrType::Mckp => Box::new(MCKP::new(6, qualities)),
+                };
 
                 loop {
                     let req: FetchRequest = buf_in_rx.recv().await.unwrap();
@@ -342,14 +367,13 @@ fn main() {
                         tokio::task::yield_now().await;
                         continue;
                     }
-                    // we should probably do *bounded* retry here
+                    // This is a retry loop, we should probably do *bounded* retry here instead of looping indefinitely.
                     loop {
-                        // TODO: find which quality to download based on the current camera position + network bandwidth.
-                        let _camera_pos = req.camera_pos;
-                        let _qp = fetcher.mpd_parser.get_qp();
-
-                        let available_bitrates =
-                            fetcher.available_bitrates(req.object_id, req.frame_offset, None);
+                        let camera_pos = req.camera_pos.unwrap_or(CameraPosition {
+                            position: Point3::new(args.camera_x, args.camera_y, args.camera_z),
+                            yaw: cgmath::Deg(args.camera_yaw).into(),
+                            pitch: cgmath::Deg(args.camera_pitch).into(),
+                        });
 
                         let network_throughput = if simulated_network_trace.is_none() {
                             (fetcher.stats.avg_bitrate.get() * 1024) as f64
@@ -357,14 +381,26 @@ fn main() {
                             simulated_network_trace.as_ref().unwrap().next() * 1024.0
                         };
 
+                        let mut available_bitrates = vec![];
+                        for i in 0..6 {
+                            available_bitrates.push(fetcher.available_bitrates(
+                                req.object_id,
+                                req.frame_offset,
+                                Some(i),
+                            ));
+                        }
+
+                        let cosines = get_cosines(camera_pos);
+
                         let quality = abr.select_quality(
                             req.buffer_occupancy as u64,
                             network_throughput,
-                            &available_bitrates.iter().map(|x| x * 6).collect::<Vec<_>>(),
+                            &available_bitrates,
+                            &cosines,
                         );
 
                         let p = fetcher
-                            .download(req.object_id, req.frame_offset, Some(quality as u8 + 1))
+                            .download(req.object_id, req.frame_offset, &quality)
                             .await;
 
                         match p {

@@ -176,3 +176,10 @@ pub fn get_cosines(pos: CameraPosition) -> Vec<f32> {
 
     vec![left, bottom, back, right, top, front]
 }
+
+/// Predict the quality of the point cloud based on the geometry and attribute quality
+pub fn predict_quality(geo_qp: f32, attr_qp: f32) -> f32 {
+    2.292971443660981 - 0.0020313 * geo_qp + 0.20795236 * attr_qp - 0.00464757 * geo_qp * geo_qp
+        + 0.00631909 * geo_qp * attr_qp
+        - 0.00678052 * attr_qp * attr_qp
+}
