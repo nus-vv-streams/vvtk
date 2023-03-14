@@ -7,9 +7,10 @@ use crate::{
     formats::{pointxyzrgba::PointXyzRgba, PointCloud},
     pcd::read_pcd_file,
     ply::read_ply,
+    render::wgpu::camera::CameraPosition,
 };
 
-use cgmath::{Point3, Vector3};
+use cgmath::{InnerSpace, Point3, Vector3};
 
 pub fn read_file_to_point_cloud(file: &PathBuf) -> Option<PointCloud<PointXyzRgba>> {
     if let Some(ext) = file.extension().and_then(|ext| ext.to_str()) {
@@ -98,28 +99,80 @@ impl<const N: usize> SimpleRunningAverage<N> {
 /// - `v_0`: The position of a vertex of the surface
 /// - `norm`: The surface normal
 fn back_face_culling(pos: Point3<f32>, v_0: Point3<f32>, norm: Vector3<f32>) -> f32 {
-    use cgmath::InnerSpace;
     // camera-to-surface vector
     let x = (v_0 - pos).normalize();
     x.dot(norm.normalize())
 }
 
-/// Get the cosines from the camera to each of the six faces of a cube
-/// assuming the cube is centered at the origin with side length 1.
+/// Get the point of intersection on the plane from a point with vector and distance from line_pt to plane along line_vec
+///
+/// # Arguments
+///
+/// - `plane_pt`: The point on the plane
+/// - `plane_norm`: The normal of the plane
+/// - `line_pt`: The point on the line
+/// - `line_vec`: The vector of the line
+fn get_point_of_intersection_with_dist(
+    plane_pt: Point3<f32>,
+    plane_norm: Vector3<f32>,
+    line_pt: Point3<f32>,
+    line_vec: Vector3<f32>,
+) -> Option<(Point3<f32>, f32)> {
+    let dotprod = plane_norm.dot(line_vec);
+    if dotprod == 0.0 {
+        return None;
+    }
+    let d = (plane_pt - line_pt).dot(plane_norm) / dotprod;
+    dbg!(line_pt + line_vec * d, d);
+    Some((line_pt + line_vec * d, d))
+}
+
 #[rustfmt::skip]
-pub fn get_cosines(pos: Point3<f32>) -> Vec<f32> {
-    vec![
-        // Left,
-        back_face_culling(pos, Point3 { x: -0.5, y: -0.5, z: -0.5 }, Vector3 { x: -1.0, y: 0.0, z: 0.0 }),
-        // Bottom,
-        back_face_culling(pos, Point3 { x: -0.5, y: -0.5, z: -0.5 }, Vector3 { x: 0.0, y: -1.0, z: 0.0 }),
-        // Back,
-        back_face_culling(pos, Point3 { x: -0.5, y: -0.5, z: -0.5 }, Vector3 { x: 0.0, y: 0.0, z: -1.0 }),
-        // Right,
-        back_face_culling(pos, Point3 { x: 0.5, y: 0.5, z: 0.5 }, Vector3 { x: 1.0, y: 0.0, z: 0.0 }),
-        // Top,
-        back_face_culling(pos, Point3 { x: 0.5, y: 0.5, z: 0.5 }, Vector3 { x: 0.0, y: 1.0, z: 0.0 }),
-        // Front,
-        back_face_culling(pos, Point3 { x: 0.5, y: 0.5, z: 0.5 }, Vector3 { x: 0.0, y: 0.0, z: 1.0 }),
-    ]
+/// Get the cosines from the camera to each of the six faces of a cube. Faces that are met first (from the perspective of pos) will have negative cosine value.
+/// 
+/// Assumption(14Mar23): the object has a cube-shaped bounding box, centered at the origin with side length 1.
+pub fn get_cosines(pos: CameraPosition) -> Vec<f32> {
+    let look_vector = Vector3 {
+        x: pos.yaw.0.cos(),
+        y: pos.pitch.0.sin(),
+        z: pos.yaw.0.sin() + pos.pitch.0.cos(),
+    }
+    .normalize();
+
+    let get_cosine_pair = |(v_0, norm_0): (Point3<f32>, Vector3<f32>),
+                           (v_1, norm_1): (Point3<f32>, Vector3<f32>)|
+     -> (f32, f32) {
+        assert!(norm_0 + norm_1 == Vector3::new(0.0, 0.0, 0.0));
+        let camera_pos = pos.position;
+        let res_0 = get_point_of_intersection_with_dist(v_0, norm_0, camera_pos, look_vector);
+        let res_1 = get_point_of_intersection_with_dist(v_1, norm_1, camera_pos, look_vector);
+        if res_0.is_none() {
+            // planes are parallel to look_vector
+            (1.0, 1.0)
+        } else {
+            // Angles returned by `back_face_culling` abs() value is similar. 
+            // The negative sign is assigned to the face that is in front of the other.
+            // Why do we need to do this? Because if the point intersection is behind the camera, both faces will have the same cosine value.
+            let (p_0, d_0) = res_0.unwrap();
+            let (_, d_1) = res_1.unwrap();
+            let c_0 = back_face_culling(camera_pos, p_0, norm_0);
+            if c_0 < 0.0 && d_0 < d_1 || c_0 > 0.0 && d_0 > d_1 {
+                (c_0, -c_0)
+            } else {
+                (-c_0, c_0)
+            }
+        }
+    };
+
+    let (left, right) = get_cosine_pair(
+        (Point3 { x: -0.5, y: -0.5, z: -0.5 }, Vector3 { x: -1.0, y: 0.0, z: 0.0 }), 
+        (Point3 { x: 0.5, y: 0.5, z: 0.5 }, Vector3 { x: 1.0, y: 0.0, z: 0.0 }));
+    let (bottom, top) = get_cosine_pair(
+        (Point3 { x: -0.5, y: -0.5, z: -0.5 }, Vector3 { x: 0.0, y: -1.0, z: 0.0 }), 
+        (Point3 { x: 0.5, y: 0.5, z: 0.5 }, Vector3 { x: 0.0, y: 1.0, z: 0.0 }));
+    let (back, front) = get_cosine_pair(
+        (Point3 { x: -0.5, y: -0.5, z: -0.5 }, Vector3 { x: 0.0, y: 0.0, z: -1.0 }), 
+        (Point3 { x: 0.5, y: 0.5, z: 0.5 }, Vector3 { x: 0.0, y: 0.0, z: 1.0 }));
+
+    vec![left, bottom, back, right, top, front]
 }

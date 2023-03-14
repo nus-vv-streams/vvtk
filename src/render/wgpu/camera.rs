@@ -165,11 +165,16 @@ pub struct Camera {
 }
 
 #[derive(Debug, Copy, Clone)]
+/// The position of the camera
 pub struct CameraPosition {
     pub position: Point3<f32>,
     /// Yaw is the rotation around the y axis
+    /// - -90deg is looking down the negative z axis
+    /// - 0deg is looking down the positive x axis
     pub yaw: Rad<f32>,
     /// Pitch is the rotation around the x axis
+    /// - 0deg is looking down the z axis
+    /// - 90deg is looking down the positive y axis
     pub pitch: Rad<f32>,
 }
 
