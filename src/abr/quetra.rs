@@ -77,14 +77,15 @@ impl RateAdapter for Quetra {
         &self,
         buffer_occupancy: u64,
         network_throughput: f64,
-        available_bitrates: &[u64],
-    ) -> usize {
+        available_bitrates: &[Vec<u64>],
+        _cosines: &[f32],
+    ) -> Vec<usize> {
         let mut result: usize = 0;
         let mut min_diff_with_buffer_occupancy = f64::MAX;
 
         // Find a rate r_i where the buffer slack value (P_krb) has the smallest difference with Bt
         // In other words, we are looking for a rate that keeps the buffer occupancy at half-full.
-        for (i, r) in available_bitrates.iter().enumerate() {
+        for (i, r) in available_bitrates[0].iter().enumerate() {
             let pkrb_r_i = Self::buffer_slack(self.k, *r as f64, network_throughput);
             let diff = (pkrb_r_i - buffer_occupancy as f64).abs();
             if diff < min_diff_with_buffer_occupancy {
@@ -93,7 +94,7 @@ impl RateAdapter for Quetra {
             }
         }
 
-        result
+        vec![result]
     }
 }
 
@@ -102,7 +103,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_get_quetra_formula_pkrb() {
+    fn test_quetra_buffer_slack() {
         const EPSILON: f64 = 1.0e-8;
         assert!((Quetra::buffer_slack(2, 100.0, 500.0) - 0.20107662).abs() < EPSILON);
         assert!((Quetra::buffer_slack(3, 100.0, 300.0) - 0.353471).abs() < EPSILON);
@@ -113,13 +114,28 @@ mod tests {
     }
 
     #[test]
-    fn test_select_quality() {
+    fn test_quetra_select_quality() {
         let quetra = Quetra::new(10);
-        let available_bitrates = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
-        assert_eq!(quetra.select_quality(0, 535.0, &available_bitrates), 0);
-        assert_eq!(quetra.select_quality(1, 535.0, &available_bitrates), 2);
-        assert_eq!(quetra.select_quality(3, 535.0, &available_bitrates), 4);
-        assert_eq!(quetra.select_quality(6, 535.0, &available_bitrates), 5);
-        assert_eq!(quetra.select_quality(9, 535.0, &available_bitrates), 8);
+        let available_bitrates = [vec![100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]];
+        assert_eq!(
+            quetra.select_quality(0, 535.0, &available_bitrates, &[])[0],
+            0
+        );
+        assert_eq!(
+            quetra.select_quality(1, 535.0, &available_bitrates, &[])[0],
+            2
+        );
+        assert_eq!(
+            quetra.select_quality(3, 535.0, &available_bitrates, &[])[0],
+            4
+        );
+        assert_eq!(
+            quetra.select_quality(6, 535.0, &available_bitrates, &[])[0],
+            5
+        );
+        assert_eq!(
+            quetra.select_quality(9, 535.0, &available_bitrates, &[])[0],
+            8
+        );
     }
 }
