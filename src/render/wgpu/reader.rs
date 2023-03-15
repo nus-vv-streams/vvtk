@@ -70,7 +70,7 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
             self.files
                 .get(index)
                 .and_then(|f| read_pcd_file(f).ok())
-                .map(|data| PointCloud::from(data)),
+                .map(PointCloud::from),
         )
     }
 
@@ -185,7 +185,7 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
                 camera_pos,
             }))
             .unwrap();
-        if let Some((frame_req, pc)) = self.rx.recv().ok() {
+        if let Ok((frame_req, pc)) = self.rx.recv() {
             (frame_req.camera_pos, Some(pc))
         } else {
             (None, None)

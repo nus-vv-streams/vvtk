@@ -123,7 +123,6 @@ fn get_point_of_intersection_with_dist(
         return None;
     }
     let d = (plane_pt - line_pt).dot(plane_norm) / dotprod;
-    dbg!(line_pt + line_vec * d, d);
     Some((line_pt + line_vec * d, d))
 }
 

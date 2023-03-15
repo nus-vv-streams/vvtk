@@ -68,23 +68,16 @@ impl Fetcher {
         frame: u64,
         quality: &[usize],
     ) -> Result<FetchResult> {
-        debug!(
-            "Downloading frame {} for object {} with quality {}",
-            frame,
-            object_id,
-            quality.unwrap_or_default()
-        );
         let mut paths = core::array::from_fn(|_| None);
 
         // quality is representation id (0 is lowest quality)
         let mut urls: [String; 6] = core::array::from_fn(|_| String::new());
         let mut bandwidths = [None; 6];
 
-        assert!(quality.len() >= Fetcher::VIEWS);
         for view_id in 0..Fetcher::VIEWS {
             let (url, bandwidth) = self.mpd_parser.get_info(
                 object_id,
-                quality[view_id] as u8,
+                quality[std::cmp::min(view_id, quality.len() - 1)] as u8,
                 frame,
                 Some(view_id as u8),
             );
@@ -127,8 +120,8 @@ impl Fetcher {
             .map(|c| c.as_ref().unwrap().len())
             .sum::<usize>()
             * 8;
-        let avg_bitrate = total_bits / std::cmp::max(1, elapsed.as_millis()) as usize;
-        self.stats.avg_bitrate.add(avg_bitrate as i64);
+        let avg_bitrate_in_bps = total_bits * 1000 / std::cmp::max(1, elapsed.as_millis()) as usize;
+        self.stats.avg_bitrate.add(avg_bitrate_in_bps as i64);
         debug!(
             "download time: {:?}, bits: {:}, avg_bitrate(latest): {:?}kbps",
             elapsed,

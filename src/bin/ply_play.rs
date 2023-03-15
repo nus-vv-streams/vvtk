@@ -1,6 +1,6 @@
 use cgmath::Point3;
 use clap::Parser;
-use log::{debug, warn};
+use log::{debug, trace, warn};
 use lru::LruCache;
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -62,10 +62,10 @@ struct Args {
     decoder_type: DecoderType,
     /// Path to the decoder binary (only for Draco)
     #[clap(long)]
-    decoder_path: Option<OsString>,
-    /// Path to network trace for repeatable simulation
+    decoder_path: Option<PathBuf>,
+    /// Path to network trace for repeatable simulation. Network trace is expected to be given in Kbps
     #[clap(long)]
-    network_trace: Option<OsString>,
+    network_trace: Option<PathBuf>,
 }
 
 #[derive(clap::ValueEnum, Clone, Copy)]
@@ -265,7 +265,7 @@ impl NetworkTrace {
     /// # Arguments
     ///
     /// * `path` - The path to the network trace file.
-    fn new(path: OsString) -> Self {
+    fn new(path: &Path) -> Self {
         use std::io::BufRead;
 
         let file = File::open(path).unwrap();
@@ -313,7 +313,7 @@ fn main() {
     let (total_frames_tx, total_frames_rx) = tokio::sync::oneshot::channel();
 
     let buffer_capacity = args.buffer_capacity.unwrap_or(4);
-    let simulated_network_trace = args.network_trace.map(|path| NetworkTrace::new(path));
+    let simulated_network_trace = args.network_trace.map(|path| NetworkTrace::new(&path));
 
     // copy variables to be moved into the async block
     let src = args.src.clone();
@@ -376,7 +376,7 @@ fn main() {
                         });
 
                         let network_throughput = if simulated_network_trace.is_none() {
-                            (fetcher.stats.avg_bitrate.get() * 1024) as f64
+                            (fetcher.stats.avg_bitrate.get()) as f64
                         } else {
                             simulated_network_trace.as_ref().unwrap().next() * 1024.0
                         };
