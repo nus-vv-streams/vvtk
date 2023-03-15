@@ -6,6 +6,7 @@ pub mod codec;
 #[cfg(feature = "dash")]
 pub mod dash;
 pub mod downsample;
+pub mod estimatethroughput;
 pub mod formats;
 pub mod metrics;
 pub mod pcd;
