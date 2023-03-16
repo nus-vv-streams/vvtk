@@ -102,11 +102,13 @@ impl RateAdapter for QuetraMulti {
 
         // after MCKP selects a combination of qualities, it has not yet taken into account the conditions of the buffer slack yet
         // we will then need to check for the buffer slack under this specific combination of qualities
+        // this part could also be done in select_quality() of MCKP?
         let mut total_bitrate: u64 = 0;
         // for each i in selected_qualities, i is the element in available_bitrates
-        for (plane, i) in selected_qualities.iter().enumerate() {
-            total_bitrate += available_bitrates[plane][*i];
+        for plane in 0..selected_qualities.len() {
+            total_bitrate += available_bitrates[plane][selected_qualities[plane]];
         }
+
         let pkrb_r_i = Self::buffer_slack(self.k, total_bitrate as f64, network_throughput);
         let diff = (pkrb_r_i - buffer_occupancy as f64).abs();
         if diff < min_diff_with_buffer_occupancy {
@@ -115,18 +117,26 @@ impl RateAdapter for QuetraMulti {
         }
 
         // after buffer_slack is checked for original combination of qualities, check for improvements by swapping qualities to see if buffer slack is improved
+        // aim to preserve higher quality for planes with the most negative cosines
+        let mut cosines_sorted = cosines.to_vec();
+        cosines_sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let cosine_cutoff = cosines_sorted[3];
+
         for (plane, i) in selected_qualities.iter().enumerate() {
-            for j in 0..available_bitrates[plane].len() {
-                if j != *i {
+            if cosines[plane] < cosine_cutoff {
+                continue;
+            }
+            for j in (0..available_bitrates[plane].len()).rev() {
+                if j < *i {
                     let mut new_selected_qualities = selected_qualities.clone();
                     new_selected_qualities[plane] = j;
                     let mut new_total_bitrate: u64 = 0;
                     for (plane, i) in new_selected_qualities.iter().enumerate() {
                         new_total_bitrate += available_bitrates[plane][*i];
                     }
-                    let pkrb_r_i =
+                    let new_pkrb_r_i =
                         Self::buffer_slack(self.k, new_total_bitrate as f64, network_throughput);
-                    let diff = (pkrb_r_i - buffer_occupancy as f64).abs();
+                    let diff = (new_pkrb_r_i - buffer_occupancy as f64).abs();
                     if diff < min_diff_with_buffer_occupancy {
                         results = new_selected_qualities;
                         min_diff_with_buffer_occupancy = diff;
@@ -153,16 +163,57 @@ mod tests {
         assert!((QuetraMulti::buffer_slack(4, 150.0, 70.0) - 3.34906349).abs() < EPSILON);
     }
 
+    #[test]
     fn test_quetra_multi_select_quality() {
         let quetra_multi = QuetraMulti::new(5);
-        let available_bitrates = [
-            vec![100, 200, 300, 400, 500, 600, 700, 800, 900, 1000],
-            vec![100, 200, 300, 400, 500, 600, 700, 800, 900, 1000],
-            vec![100, 200, 300, 400, 500, 600, 700, 800, 900, 1000],
-            vec![100, 200, 300, 400, 500, 600, 700, 800, 900, 1000],
-            vec![100, 200, 300, 400, 500, 600, 700, 800, 900, 1000],
-            vec![100, 200, 300, 400, 500, 600, 700, 800, 900, 1000],
+        let available_bitrates = vec![
+            vec![133, 182, 323, 607, 990],
+            vec![45, 45, 65, 96, 89],
+            vec![122, 179, 317, 582, 896],
+            vec![128, 179, 311, 572, 961],
+            vec![37, 39, 54, 86, 83],
+            vec![125, 192, 347, 653, 931],
         ];
         let cosines = [0.88, 0.17, 0.44, -0.94, 0.25, -0.17];
+
+        assert_eq!(
+            quetra_multi.select_quality(0, 500.0, &available_bitrates, &cosines),
+            vec![0, 2, 0, 0, 0, 0]
+        );
+
+        assert_eq!(
+            quetra_multi.select_quality(3, 500.0, &available_bitrates, &cosines),
+            vec![0, 2, 0, 0, 0, 0]
+        );
+
+        assert_eq!(
+            quetra_multi.select_quality(0, 750.0, &available_bitrates, &cosines),
+            vec![0, 2, 0, 2, 0, 1]
+        );
+
+        assert_eq!(
+            quetra_multi.select_quality(3, 750.0, &available_bitrates, &cosines),
+            vec![0, 2, 0, 2, 1, 1]
+        );
+
+        assert_eq!(
+            quetra_multi.select_quality(0, 1000.0, &available_bitrates, &cosines),
+            vec![0, 2, 0, 3, 0, 1]
+        );
+
+        assert_eq!(
+            quetra_multi.select_quality(3, 1000.0, &available_bitrates, &cosines),
+            vec![0, 2, 0, 3, 1, 1]
+        );
+
+        assert_eq!(
+            quetra_multi.select_quality(0, 1500.0, &available_bitrates, &cosines),
+            vec![0, 4, 0, 3, 0, 3]
+        );
+
+        assert_eq!(
+            quetra_multi.select_quality(3, 1500.0, &available_bitrates, &cosines),
+            vec![0, 4, 0, 3, 2, 3]
+        );
     }
 }
