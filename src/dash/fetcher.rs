@@ -68,12 +68,12 @@ impl Fetcher {
         frame: u64,
         quality: &[usize],
     ) -> Result<FetchResult> {
-        debug!(
-            "Downloading frame {} for object {} with quality {}",
-            frame,
-            object_id,
-            quality.unwrap_or_default()
-        );
+        // debug!(
+        //     "Downloading frame {} for object {} with quality {}",
+        //     frame,
+        //     object_id,
+        //     quality.unwrap_or_default()
+        // );
         let mut paths = core::array::from_fn(|_| None);
 
         // quality is representation id (0 is lowest quality)
