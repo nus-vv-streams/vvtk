@@ -62,7 +62,7 @@ impl Quetra {
     /// * `b` - network throughput
     fn buffer_slack(k: u64, r: f64, b: f64) -> f64 {
         let mut pkrb: f64 = 0.0f64;
-        // for large k (say k >= 10), P_{K,r,b} can be approximated with K/2
+        // for large k (say k > 10), P_{K,r,b} can be approximated with K/2
         if k > 10 {
             pkrb = k as f64 / 2.0f64;
         } else {
