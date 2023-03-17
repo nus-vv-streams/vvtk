@@ -10,6 +10,7 @@ use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 use vivotk::abr::quetra::Quetra;
+use vivotk::abr::quetramulti::QuetraMulti;
 use vivotk::abr::{RateAdapter, MCKP};
 use vivotk::codec::decoder::{DracoDecoder, MultiplaneDecodeReq, MultiplaneDecoder, NoopDecoder};
 use vivotk::codec::Decoder;
@@ -78,6 +79,7 @@ enum DecoderType {
 #[derive(clap::ValueEnum, Clone, Copy)]
 enum AbrType {
     Quetra,
+    QuetraMulti,
     Mckp,
 }
 
@@ -354,6 +356,7 @@ fn main() {
                 let mut frame_range = (0, 0);
                 let abr: Box<dyn RateAdapter> = match args.abr_type {
                     AbrType::Quetra => Box::new(Quetra::new(buffer_capacity as u64)),
+                    AbrType::QuetraMulti => Box::new(QuetraMulti::new(buffer_capacity as u64)),
                     AbrType::Mckp => Box::new(MCKP::new(6, qualities)),
                 };
 
