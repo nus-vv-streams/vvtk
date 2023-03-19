@@ -62,10 +62,15 @@ impl Quetra {
     /// * `b` - network throughput
     fn buffer_slack(k: u64, r: f64, b: f64) -> f64 {
         let mut pkrb: f64 = 0.0f64;
-        let denominator = 1.0f64 + ((b / r) * Self::x_i(k - 1, r, b));
+        // for large k (say k >= 10), P_{K,r,b} can be approximated with K/2
+        if k > 10 {
+            pkrb = k as f64 / 2.0f64;
+        } else {
+            let denominator = 1.0f64 + ((b / r) * Self::x_i(k - 1, r, b));
 
-        for i in 0..k {
-            pkrb += Self::x_i(i, r, b) / denominator;
+            for i in 0..k {
+                pkrb += Self::x_i(i, r, b) / denominator;
+            }
         }
 
         pkrb
