@@ -103,6 +103,57 @@ impl RateAdapter for Quetra {
     }
 }
 
+/// An adaptation of Quetra to support multiview video.
+pub struct QuetraMultiview {
+    mckp: super::MCKP,
+    quetra: Quetra,
+    /// number of views
+    v: usize,
+}
+
+impl QuetraMultiview {
+    pub fn new(v: usize, buffer_capacity: u64, qualities: Vec<f32>) -> Self {
+        QuetraMultiview {
+            mckp: super::MCKP::new(v, qualities),
+            quetra: Quetra::new(buffer_capacity),
+            v,
+        }
+    }
+}
+
+impl RateAdapter for QuetraMultiview {
+    fn select_quality(
+        &self,
+        buffer_occupancy: u64,
+        network_throughput: f64,
+        available_bitrates: &[Vec<u64>],
+        cosines: &[f32],
+    ) -> Vec<usize> {
+        let mut combined_bitrates = available_bitrates[0].clone();
+        for i in 1..self.v {
+            for j in 0..combined_bitrates.len() {
+                combined_bitrates[j] += available_bitrates[i][j];
+            }
+        }
+        // Based on the network throughput and buffer occupancy, Quetra gives us the quality to download
+        let quality = self.quetra.select_quality(
+            buffer_occupancy,
+            network_throughput,
+            &[combined_bitrates],
+            cosines,
+        )[0];
+        // this is the total bits that Quetra suggested us to download based on the network throughput and buffer occupancy
+        let target_bitrate: u64 = available_bitrates.iter().map(|v| v[quality]).sum();
+        // now we use MCKP to decide how to distribute the bits among the views
+        self.mckp.select_quality(
+            buffer_occupancy,
+            target_bitrate as f64,
+            available_bitrates,
+            cosines,
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
