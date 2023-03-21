@@ -14,6 +14,7 @@ use vivotk::abr::{RateAdapter, MCKP};
 use vivotk::codec::decoder::{DracoDecoder, MultiplaneDecodeReq, MultiplaneDecoder, NoopDecoder};
 use vivotk::codec::Decoder;
 use vivotk::dash::fetcher::{FetchResult, Fetcher};
+use vivotk::dash::ThroughputPrediction;
 use vivotk::formats::pointxyzrgba::PointXyzRgba;
 use vivotk::formats::PointCloud;
 use vivotk::render::wgpu::{
@@ -24,7 +25,10 @@ use vivotk::render::wgpu::{
     reader::{FrameRequest, PcdAsyncReader, RenderReader},
     renderer::Renderer,
 };
-use vivotk::utils::{get_cosines, predict_quality, read_file_to_point_cloud};
+use vivotk::utils::{
+    get_cosines, predict_quality, read_file_to_point_cloud, ExponentialMovingAverage, LastAverage,
+    SimpleRunningAverage, GAEMA, LPEMA,
+};
 use vivotk::{BufMsg, PCMetadata};
 
 /// Plays a folder of pcd files in lexicographical order
@@ -63,6 +67,11 @@ struct Args {
     /// Path to the decoder binary (only for Draco)
     #[clap(long)]
     decoder_path: Option<PathBuf>,
+    #[clap(long = "tp", value_enum, default_value_t = ThroughputPredictionType::Last)]
+    throughput_prediction_type: ThroughputPredictionType,
+    /// Alpha for throughput prediction. Only used for EMA, GAEMA, and LPEMA
+    #[clap(long, default_value_t = 0.1)]
+    throughput_alpha: f64,
     /// Path to network trace for repeatable simulation. Network trace is expected to be given in Kbps
     #[clap(long)]
     network_trace: Option<PathBuf>,
@@ -83,6 +92,20 @@ enum DecoderType {
 enum AbrType {
     Quetra,
     Mckp,
+}
+
+#[derive(clap::ValueEnum, Clone, Copy)]
+enum ThroughputPredictionType {
+    /// Last throughput
+    Last,
+    /// Average of last 3 throughput
+    Avg,
+    /// ExponentialMovingAverage,
+    Ema,
+    /// Gradient Adaptive Exponential Moving Average
+    Gaema,
+    /// Low Pass Exponential Moving Average
+    Lpema,
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -137,7 +160,6 @@ struct BufferManager {
     cache: LruCache<BufferCacheKey, tokio::sync::mpsc::UnboundedReceiver<PointCloud<PointXyzRgba>>>,
     total_frames: usize,
     segment_size: u64,
-    camera_trace: Option<CameraTrace>,
 }
 
 impl BufferManager {
@@ -148,7 +170,6 @@ impl BufferManager {
         buffer_size: usize,
         total_frames: usize,
         segment_size: u64,
-        camera_trace: Option<CameraTrace>,
     ) -> Self {
         BufferManager {
             to_buf_rx,
@@ -158,29 +179,29 @@ impl BufferManager {
             pending_frame_req: VecDeque::new(),
             total_frames,
             segment_size,
-            camera_trace,
         }
     }
 
-    /// Send the point cloud to the renderer, setting the camera position if camera_trace is set, otherwise don't change the camera position sent by the renderer
-    fn send_output(&mut self, mut req: FrameRequest, pc: PointCloud<PointXyzRgba>) {
-        if self.camera_trace.is_some() {
-            req.camera_pos = self.camera_trace.as_ref().map(|ct| ct.next());
-        }
-        self.buf_out_sx.send((req, pc)).unwrap();
-    }
-
-    async fn run(&mut self) {
+    async fn run(&mut self, camera_trace: Option<CameraTrace>) {
         loop {
             match self.to_buf_rx.recv().await.unwrap() {
-                BufMsg::FrameRequest(renderer_req) => {
+                BufMsg::FrameRequest(mut renderer_req) => {
+                    trace!(
+                        "[buffer mgr] renderer sent a frame request {:?}",
+                        &renderer_req
+                    );
+
+                    // If the camera trace is not None, we will use the camera trace to override the camera position for the next frame
+                    if camera_trace.is_some() {
+                        renderer_req.camera_pos = camera_trace.as_ref().map(|ct| ct.next());
+                    }
                     // First, attempt to fulfill the request from the buffer.
                     // Check in cache whether it exists
                     if let Some(mut rx) = self.cache.pop(&BufferCacheKey::from(renderer_req)) {
                         // send to the renderer
                         match rx.recv().await {
                             Some(pc) => {
-                                self.send_output(renderer_req, pc);
+                                self.buf_out_sx.send((renderer_req, pc)).unwrap();
                                 let mut next_key = BufferCacheKey::from(renderer_req);
                                 next_key.frame_offset += 1;
                                 if !self.cache.contains(&next_key) {
@@ -218,13 +239,15 @@ impl BufferManager {
                     }
                 }
                 BufMsg::PointCloud((mut metadata, mut rx)) => {
+                    trace!("[buffer mgr] received a point cloud result {:?}", &metadata);
+
                     if !self.pending_frame_req.is_empty()
                         && metadata.frame_offset
                             == self.pending_frame_req.front().unwrap().frame_offset
                     {
                         let pc = rx.recv().await.unwrap();
                         // send results to the renderer
-                        self.send_output(metadata.into(), pc);
+                        self.buf_out_sx.send((metadata.into(), pc)).unwrap();
                         self.pending_frame_req.pop_front();
                         metadata.frame_offset += 1;
                     }
@@ -387,11 +410,24 @@ fn main() {
     // Fetcher will fetch data and send it over to the buffer.
     {
         let to_buf_sx = to_buf_sx.clone();
+        let mut throughput_predictor: Box<dyn ThroughputPrediction> =
+            match args.throughput_prediction_type {
+                ThroughputPredictionType::Last => Box::new(LastAverage::new()),
+                ThroughputPredictionType::Avg => Box::new(SimpleRunningAverage::<f64, 3>::new()),
+                ThroughputPredictionType::Ema => {
+                    Box::new(ExponentialMovingAverage::new(args.throughput_alpha))
+                }
+                ThroughputPredictionType::Gaema => Box::new(GAEMA::new(args.throughput_alpha)),
+                ThroughputPredictionType::Lpema => Box::new(LPEMA::new(args.throughput_alpha)),
+            };
+        // this is a hack to not start with an empty prediction. We start with a prediction of 1Mbps.
+        throughput_predictor.add(1_0000_000.0);
+
         rt.spawn(async move {
             if src.starts_with("http") {
                 let tmpdir = tempdir().expect("created temp dir to store files");
                 let path = tmpdir.path();
-                debug!("Downloading files to {}", path.to_str().unwrap());
+                trace!("[fetcher] Downloading files to {}", path.to_str().unwrap());
 
                 let mut fetcher = Fetcher::new(&src, path).await;
                 total_frames_tx
@@ -414,53 +450,54 @@ fn main() {
                     })
                     .collect();
 
-                let mut frame_range = (0, 0);
                 let abr: Box<dyn RateAdapter> = match args.abr_type {
                     AbrType::Quetra => Box::new(Quetra::new(buffer_capacity as u64)),
                     AbrType::Mckp => Box::new(MCKP::new(6, qualities)),
                 };
 
+                let mut frame_range = (0, 0);
                 loop {
                     let req: FetchRequest = buf_in_rx.recv().await.unwrap();
-                    debug!("got fetch requests {:?}", &req);
-
                     // The request has just been recently fetched (or in the buffer), so we can skip it to avoid some redundant requests to the server.
                     // However,
                     if frame_range.0 < req.frame_offset && req.frame_offset < frame_range.1 {
                         tokio::task::yield_now().await;
                         continue;
                     }
+
+                    let camera_pos = req.camera_pos.unwrap_or(CameraPosition {
+                        position: Point3::new(args.camera_x, args.camera_y, args.camera_z),
+                        yaw: cgmath::Deg(args.camera_yaw).into(),
+                        pitch: cgmath::Deg(args.camera_pitch).into(),
+                    });
+
+                    let network_throughput = if simulated_network_trace.is_none() {
+                        throughput_predictor.predict()
+                    } else {
+                        simulated_network_trace.as_ref().unwrap().next() * 1024.0
+                    };
+
+                    let mut available_bitrates = vec![];
+                    for i in 0..6 {
+                        available_bitrates.push(fetcher.available_bitrates(
+                            req.object_id,
+                            req.frame_offset,
+                            Some(i),
+                        ));
+                    }
+
+                    let cosines = get_cosines(camera_pos);
+
+                    let quality = abr.select_quality(
+                        req.buffer_occupancy as u64,
+                        network_throughput,
+                        &available_bitrates,
+                        &cosines,
+                    );
+
                     // This is a retry loop, we should probably do *bounded* retry here instead of looping indefinitely.
                     loop {
-                        let camera_pos = req.camera_pos.unwrap_or(CameraPosition {
-                            position: Point3::new(args.camera_x, args.camera_y, args.camera_z),
-                            yaw: cgmath::Deg(args.camera_yaw).into(),
-                            pitch: cgmath::Deg(args.camera_pitch).into(),
-                        });
-
-                        let network_throughput = if simulated_network_trace.is_none() {
-                            (fetcher.stats.avg_bitrate.get()) as f64
-                        } else {
-                            simulated_network_trace.as_ref().unwrap().next() * 1024.0
-                        };
-
-                        let mut available_bitrates = vec![];
-                        for i in 0..6 {
-                            available_bitrates.push(fetcher.available_bitrates(
-                                req.object_id,
-                                req.frame_offset,
-                                Some(i),
-                            ));
-                        }
-
-                        let cosines = get_cosines(camera_pos);
-
-                        let quality = abr.select_quality(
-                            req.buffer_occupancy as u64,
-                            network_throughput,
-                            &available_bitrates,
-                            &cosines,
-                        );
+                        trace!("[fetcher] trying request {:?}", &req);
 
                         let p = fetcher
                             .download(req.object_id, req.frame_offset, &quality)
@@ -468,6 +505,8 @@ fn main() {
 
                         match p {
                             Ok(res) => {
+                                // update throughput prediction
+                                throughput_predictor.add(res.throughput);
                                 in_dec_sx.send((req, res)).unwrap();
                                 frame_range.0 = req.frame_offset;
                                 frame_range.1 =
@@ -505,7 +544,7 @@ fn main() {
                     let (output_sx, output_rx) = tokio::sync::mpsc::unbounded_channel();
 
                     let req: FetchRequest = buf_in_rx.recv().await.unwrap();
-                    debug!("got frame requests {:?}", req);
+                    trace!("[fetcher] got fetch request {:?}", req);
                     let pcd =
                         read_file_to_point_cloud(ply_files.get(req.frame_offset as usize).unwrap())
                             .expect("read file to point cloud failed");
@@ -528,7 +567,7 @@ fn main() {
                     req,
                     FetchResult {
                         paths: mut p,
-                        last5_avg_bitrate: _,
+                        throughput: _,
                     },
                 ) = in_dec_rx.recv().await.unwrap();
                 debug!("got fetch result {:?}", req);
@@ -589,14 +628,14 @@ fn main() {
         buffer_capacity,
         total_frames,
         segment_size,
-        simulated_camera_trace,
     );
-    rt.spawn(async move { buffer.run().await });
+    rt.spawn(async move { buffer.run(simulated_camera_trace).await });
 
     // let mut pcd_reader = PcdAsyncReader::new(buf_out_rx, out_buf_sx, args.buffer_size);
     let mut pcd_reader = PcdAsyncReader::new(buf_out_rx, to_buf_sx);
     // set the reader max length
     pcd_reader.set_len(total_frames);
+    dbg!(pcd_reader.len());
 
     let camera = Camera::new(
         (args.camera_x, args.camera_y, args.camera_z),

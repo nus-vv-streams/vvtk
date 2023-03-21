@@ -178,6 +178,16 @@ pub struct CameraPosition {
     pub pitch: Rad<f32>,
 }
 
+impl Default for CameraPosition {
+    fn default() -> Self {
+        Self {
+            position: Point3::new(0.0, 0.0, 0.0),
+            yaw: Rad(0.0),
+            pitch: Rad(0.0),
+        }
+    }
+}
+
 impl Deref for Camera {
     type Target = CameraPosition;
     fn deref(&self) -> &Self::Target {

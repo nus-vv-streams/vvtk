@@ -1,8 +1,6 @@
 use super::parser::MPDParser;
-use crate::utils::SimpleRunningAverage;
 use anyhow::{Context, Result};
 use futures::future;
-use log::debug;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::fs::File;
@@ -14,18 +12,12 @@ pub struct Fetcher {
     http_client: HttpClient,
     pub mpd_parser: MPDParser,
     download_dir: PathBuf,
-    pub stats: FetchStats,
-}
-
-#[derive(Clone, Debug)]
-pub struct FetchStats {
-    pub avg_bitrate: SimpleRunningAverage<5>,
 }
 
 #[derive(Debug)]
 pub struct FetchResult {
     pub paths: [Option<PathBuf>; 6],
-    pub last5_avg_bitrate: i64,
+    pub throughput: f64,
 }
 
 async fn fetch_mpd(mpd_url: &str, http_client: &HttpClient) -> Result<String> {
@@ -55,9 +47,6 @@ impl Fetcher {
             http_client: client,
             mpd_parser: MPDParser::new(&mpd),
             download_dir: download_dir.into(),
-            stats: FetchStats {
-                avg_bitrate: SimpleRunningAverage::new(),
-            },
         }
     }
 
@@ -120,14 +109,7 @@ impl Fetcher {
             .map(|c| c.as_ref().unwrap().len())
             .sum::<usize>()
             * 8;
-        let avg_bitrate_in_bps = total_bits * 1000 / std::cmp::max(1, elapsed.as_millis()) as usize;
-        self.stats.avg_bitrate.add(avg_bitrate_in_bps as i64);
-        debug!(
-            "download time: {:?}, bits: {:}, avg_bitrate(latest): {:?}kbps",
-            elapsed,
-            total_bits,
-            self.stats.avg_bitrate.get()
-        );
+        let avg_bitrate_in_bps = total_bits as f64 / (elapsed.as_secs_f64() + 1.0e-20);
 
         for (i, content) in contents.into_iter().enumerate() {
             if let Ok(Some(content)) = content {
@@ -140,7 +122,7 @@ impl Fetcher {
         }
         Ok(FetchResult {
             paths,
-            last5_avg_bitrate: self.stats.avg_bitrate.get(),
+            throughput: avg_bitrate_in_bps,
         })
     }
 
