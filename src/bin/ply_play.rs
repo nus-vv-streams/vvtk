@@ -14,7 +14,7 @@ use vivotk::abr::{RateAdapter, MCKP};
 use vivotk::codec::decoder::{DracoDecoder, MultiplaneDecodeReq, MultiplaneDecoder, NoopDecoder};
 use vivotk::codec::Decoder;
 use vivotk::dash::fetcher::{FetchResult, Fetcher};
-use vivotk::dash::ThroughputPrediction;
+use vivotk::dash::{ThroughputPrediction, ViewportPrediction};
 use vivotk::formats::pointxyzrgba::PointXyzRgba;
 use vivotk::formats::PointCloud;
 use vivotk::render::wgpu::{
@@ -26,7 +26,7 @@ use vivotk::render::wgpu::{
     renderer::Renderer,
 };
 use vivotk::utils::{
-    get_cosines, predict_quality, read_file_to_point_cloud, ExponentialMovingAverage, LastAverage,
+    get_cosines, predict_quality, read_file_to_point_cloud, ExponentialMovingAverage, LastValue,
     SimpleRunningAverage, GAEMA, LPEMA,
 };
 use vivotk::{BufMsg, PCMetadata};
@@ -72,6 +72,8 @@ struct Args {
     /// Alpha for throughput prediction. Only used for EMA, GAEMA, and LPEMA
     #[clap(long, default_value_t = 0.1)]
     throughput_alpha: f64,
+    #[clap(long = "tp", value_enum, default_value_t = ViewportPredictionType::Last)]
+    viewport_prediction_type: ViewportPredictionType,
     /// Path to network trace for repeatable simulation. Network trace is expected to be given in Kbps
     #[clap(long)]
     network_trace: Option<PathBuf>,
@@ -106,6 +108,12 @@ enum ThroughputPredictionType {
     Gaema,
     /// Low Pass Exponential Moving Average
     Lpema,
+}
+
+#[derive(clap::ValueEnum, Clone, Copy)]
+enum ViewportPredictionType {
+    /// Last viewport
+    Last,
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -182,7 +190,11 @@ impl BufferManager {
         }
     }
 
-    async fn run(&mut self, camera_trace: Option<CameraTrace>) {
+    async fn run(
+        &mut self,
+        mut viewport_predictor: Box<dyn ViewportPrediction>,
+        camera_trace: Option<CameraTrace>,
+    ) {
         loop {
             match self.to_buf_rx.recv().await.unwrap() {
                 BufMsg::FrameRequest(mut renderer_req) => {
@@ -194,6 +206,9 @@ impl BufferManager {
                     // If the camera trace is not None, we will use the camera trace to override the camera position for the next frame
                     if camera_trace.is_some() {
                         renderer_req.camera_pos = camera_trace.as_ref().map(|ct| ct.next());
+                    } else {
+                        viewport_predictor.add(renderer_req.camera_pos);
+                        renderer_req.camera_pos = viewport_predictor.predict();
                     }
                     // First, attempt to fulfill the request from the buffer.
                     // Check in cache whether it exists
@@ -412,7 +427,7 @@ fn main() {
         let to_buf_sx = to_buf_sx.clone();
         let mut throughput_predictor: Box<dyn ThroughputPrediction> =
             match args.throughput_prediction_type {
-                ThroughputPredictionType::Last => Box::new(LastAverage::new()),
+                ThroughputPredictionType::Last => Box::new(LastValue::new()),
                 ThroughputPredictionType::Avg => Box::new(SimpleRunningAverage::<f64, 3>::new()),
                 ThroughputPredictionType::Ema => {
                     Box::new(ExponentialMovingAverage::new(args.throughput_alpha))
@@ -420,8 +435,6 @@ fn main() {
                 ThroughputPredictionType::Gaema => Box::new(GAEMA::new(args.throughput_alpha)),
                 ThroughputPredictionType::Lpema => Box::new(LPEMA::new(args.throughput_alpha)),
             };
-        // this is a hack to not start with an empty prediction. We start with a prediction of 1Mbps.
-        throughput_predictor.add(1_0000_000.0);
 
         rt.spawn(async move {
             if src.starts_with("http") {
@@ -471,8 +484,9 @@ fn main() {
                         pitch: cgmath::Deg(args.camera_pitch).into(),
                     });
 
+                    // We start with a guess of 1Mbps network throughput.
                     let network_throughput = if simulated_network_trace.is_none() {
-                        throughput_predictor.predict()
+                        throughput_predictor.predict().unwrap_or(1_0000_000.0)
                     } else {
                         simulated_network_trace.as_ref().unwrap().next() * 1024.0
                     };
@@ -629,7 +643,10 @@ fn main() {
         total_frames,
         segment_size,
     );
-    rt.spawn(async move { buffer.run(simulated_camera_trace).await });
+    let viewport_predictor: Box<dyn ViewportPrediction> = match args.viewport_prediction_type {
+        ViewportPredictionType::Last => Box::new(LastValue::new()),
+    };
+    rt.spawn(async move { buffer.run(viewport_predictor, simulated_camera_trace).await });
 
     // let mut pcd_reader = PcdAsyncReader::new(buf_out_rx, out_buf_sx, args.buffer_size);
     let mut pcd_reader = PcdAsyncReader::new(buf_out_rx, to_buf_sx);

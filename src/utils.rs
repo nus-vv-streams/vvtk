@@ -77,8 +77,8 @@ impl ThroughputPrediction for LastValue<f64> {
 }
 
 impl ViewportPrediction for LastValue<CameraPosition> {
-    fn add(&mut self, value: CameraPosition) {
-        self.last_value = Some(value);
+    fn add(&mut self, value: Option<CameraPosition>) {
+        self.last_value = value;
     }
 
     fn predict(&self) -> Option<CameraPosition> {
