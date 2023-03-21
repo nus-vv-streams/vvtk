@@ -30,11 +30,10 @@ pub trait RateAdapter: Send {
 }
 
 /// Multiple-Choice Knapsack Problem
-/// v: number of views
-/// r: number of representations / qualities
 pub struct MCKP {
+    /// v: number of views
     v: usize,
-    // acts as value in knapsack problem
+    // acts as value/profit in knapsack problem
     qualities: Vec<f32>,
 }
 

@@ -7,8 +7,10 @@ use crate::{
     formats::{pointxyzrgba::PointXyzRgba, PointCloud},
     pcd::read_pcd_file,
     ply::read_ply,
-    render::wgpu::camera::CameraPosition,
 };
+
+#[cfg(feature = "render")]
+use crate::render::wgpu::camera::CameraPosition;
 
 use cgmath::{InnerSpace, Point3, Vector3};
 
@@ -127,6 +129,7 @@ fn get_point_of_intersection_with_dist(
 }
 
 #[rustfmt::skip]
+#[cfg(feature = "render")]
 /// Get the cosines from the camera to each of the six faces of a cube. Faces that are met first (from the perspective of pos) will have negative cosine value.
 /// 
 /// Assumption(14Mar23): the object has a cube-shaped bounding box, centered at the origin with side length 1.

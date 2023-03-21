@@ -17,6 +17,8 @@ pub mod upsample;
 pub mod utils;
 
 use formats::{pointxyzrgba::PointXyzRgba, PointCloud};
+
+#[cfg(feature = "render")]
 use render::wgpu::reader::FrameRequest;
 
 /// Message types sent to the Buffer Manager of ply_play
@@ -31,6 +33,7 @@ pub enum BufMsg {
             tokio::sync::mpsc::UnboundedReceiver<PointCloud<PointXyzRgba>>,
         ),
     ),
+    #[cfg(feature = "render")]
     /// Frame request message.
     FrameRequest(FrameRequest),
 }
@@ -44,6 +47,7 @@ pub struct PCMetadata {
     pub frame_offset: u64,
 }
 
+#[cfg(feature = "render")]
 impl From<PCMetadata> for FrameRequest {
     fn from(val: PCMetadata) -> Self {
         FrameRequest {
@@ -51,15 +55,6 @@ impl From<PCMetadata> for FrameRequest {
             frame_offset: val.frame_offset,
             // TODO: fix this once PCMetadata is updated
             camera_pos: None,
-        }
-    }
-}
-
-impl From<FrameRequest> for PCMetadata {
-    fn from(val: FrameRequest) -> Self {
-        PCMetadata {
-            object_id: val.object_id,
-            frame_offset: val.frame_offset,
         }
     }
 }
