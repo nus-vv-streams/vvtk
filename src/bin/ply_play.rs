@@ -42,10 +42,10 @@ struct Args {
     camera_y: f32,
     #[clap(short = 'z', long, default_value_t = 1.3)]
     camera_z: f32,
-    #[clap(long = "yaw", default_value_t = -90.0)]
-    camera_yaw: f32,
     #[clap(long = "pitch", default_value_t = 0.0)]
     camera_pitch: f32,
+    #[clap(long = "yaw", default_value_t = -90.0)]
+    camera_yaw: f32,
     #[clap(short, long, default_value_t = 1600)]
     width: u32,
     #[clap(short, long, default_value_t = 900)]
@@ -56,9 +56,9 @@ struct Args {
     buffer_capacity: Option<usize>,
     #[clap(short, long)]
     metrics: Option<OsString>,
-    #[clap(long, value_enum, default_value_t = AbrType::Quetra)]
+    #[clap(long = "abr", value_enum, default_value_t = AbrType::Quetra)]
     abr_type: AbrType,
-    #[clap(long, value_enum, default_value_t = DecoderType::Noop)]
+    #[clap(long = "decoder", value_enum, default_value_t = DecoderType::Noop)]
     decoder_type: DecoderType,
     /// Path to the decoder binary (only for Draco)
     #[clap(long)]
@@ -66,6 +66,10 @@ struct Args {
     /// Path to network trace for repeatable simulation. Network trace is expected to be given in Kbps
     #[clap(long)]
     network_trace: Option<PathBuf>,
+    /// Path to camera trace for repeatable simulation. Camera trace is expected to be given in (pos_x, pos_y, pos_z, rot_pitch, rot_yaw, rot_roll).
+    /// Rotation is in degrees
+    #[clap(long)]
+    camera_trace: Option<PathBuf>,
 }
 
 #[derive(clap::ValueEnum, Clone, Copy)]
@@ -133,6 +137,7 @@ struct BufferManager {
     cache: LruCache<BufferCacheKey, tokio::sync::mpsc::UnboundedReceiver<PointCloud<PointXyzRgba>>>,
     total_frames: usize,
     segment_size: u64,
+    camera_trace: Option<CameraTrace>,
 }
 
 impl BufferManager {
@@ -143,6 +148,7 @@ impl BufferManager {
         buffer_size: usize,
         total_frames: usize,
         segment_size: u64,
+        camera_trace: Option<CameraTrace>,
     ) -> Self {
         BufferManager {
             to_buf_rx,
@@ -152,7 +158,16 @@ impl BufferManager {
             pending_frame_req: VecDeque::new(),
             total_frames,
             segment_size,
+            camera_trace,
         }
+    }
+
+    /// Send the point cloud to the renderer, setting the camera position if camera_trace is set, otherwise don't change the camera position sent by the renderer
+    fn send_output(&mut self, mut req: FrameRequest, pc: PointCloud<PointXyzRgba>) {
+        if self.camera_trace.is_some() {
+            req.camera_pos = self.camera_trace.as_ref().map(|ct| ct.next());
+        }
+        self.buf_out_sx.send((req, pc)).unwrap();
     }
 
     async fn run(&mut self) {
@@ -165,7 +180,7 @@ impl BufferManager {
                         // send to the renderer
                         match rx.recv().await {
                             Some(pc) => {
-                                self.buf_out_sx.send((renderer_req, pc)).unwrap();
+                                self.send_output(renderer_req, pc);
                                 let mut next_key = BufferCacheKey::from(renderer_req);
                                 next_key.frame_offset += 1;
                                 if !self.cache.contains(&next_key) {
@@ -209,7 +224,7 @@ impl BufferManager {
                     {
                         let pc = rx.recv().await.unwrap();
                         // send results to the renderer
-                        self.buf_out_sx.send((metadata.into(), pc)).unwrap();
+                        self.send_output(metadata.into(), pc);
                         self.pending_frame_req.pop_front();
                         metadata.frame_offset += 1;
                     }
@@ -289,6 +304,52 @@ impl NetworkTrace {
     }
 }
 
+struct CameraTrace {
+    data: Vec<CameraPosition>,
+    index: RefCell<usize>,
+}
+
+impl CameraTrace {
+    /// The network trace file to contain the network bandwidth in Kbps, each line representing 1 bandwidth sample.
+    /// # Arguments
+    ///
+    /// * `path` - The path to the network trace file.
+    fn new(path: &Path) -> Self {
+        use std::io::BufRead;
+
+        let file = File::open(path).unwrap();
+        let reader = BufReader::new(file);
+        let data = reader
+            .lines()
+            .map(|line| {
+                let line = line.unwrap();
+                let mut it = line.trim().split(',').map(|s| s.parse::<f32>().unwrap());
+                let position =
+                    Point3::new(it.next().unwrap(), it.next().unwrap(), it.next().unwrap());
+                let pitch = cgmath::Deg(it.next().unwrap() as f32).into();
+                let yaw = cgmath::Deg(it.next().unwrap() as f32).into();
+                CameraPosition {
+                    position,
+                    pitch,
+                    yaw,
+                }
+            })
+            .collect();
+        CameraTrace {
+            data,
+            index: RefCell::new(0),
+        }
+    }
+
+    // Get the next bandwidth sample
+    fn next(&self) -> CameraPosition {
+        let idx = *self.index.borrow();
+        let next_idx = (idx + 1) % self.data.len();
+        *self.index.borrow_mut() = next_idx;
+        self.data[idx]
+    }
+}
+
 fn main() {
     // initialize logger
     env_logger::init();
@@ -312,8 +373,10 @@ fn main() {
     // TODO: fix this. This is a hack to pass information from the fetcher to this main thread.
     let (total_frames_tx, total_frames_rx) = tokio::sync::oneshot::channel();
 
+    // initialize variables based on args
     let buffer_capacity = args.buffer_capacity.unwrap_or(4);
     let simulated_network_trace = args.network_trace.map(|path| NetworkTrace::new(&path));
+    let simulated_camera_trace = args.camera_trace.map(|path| CameraTrace::new(&path));
 
     // copy variables to be moved into the async block
     let src = args.src.clone();
@@ -526,6 +589,7 @@ fn main() {
         buffer_capacity,
         total_frames,
         segment_size,
+        simulated_camera_trace,
     );
     rt.spawn(async move { buffer.run().await });
 
