@@ -18,7 +18,7 @@ use vivotk::dash::{ThroughputPrediction, ViewportPrediction};
 use vivotk::formats::pointxyzrgba::PointXyzRgba;
 use vivotk::formats::PointCloud;
 use vivotk::render::wgpu::{
-    builder::RenderBuilder,
+    builder::{EventType, RenderBuilder, RenderEvent},
     camera::{Camera, CameraPosition},
     controls::Controller,
     metrics_reader::MetricsReader,
@@ -169,6 +169,7 @@ struct BufferManager {
     cache: LruCache<BufferCacheKey, tokio::sync::mpsc::UnboundedReceiver<PointCloud<PointXyzRgba>>>,
     total_frames: usize,
     segment_size: u64,
+    shutdown_recv: tokio::sync::watch::Receiver<bool>,
 }
 
 impl BufferManager {
@@ -179,6 +180,7 @@ impl BufferManager {
         buffer_size: usize,
         total_frames: usize,
         segment_size: u64,
+        shutdown_recv: tokio::sync::watch::Receiver<bool>,
     ) -> Self {
         BufferManager {
             to_buf_rx,
@@ -188,6 +190,7 @@ impl BufferManager {
             pending_frame_req: VecDeque::new(),
             total_frames,
             segment_size,
+            shutdown_recv,
         }
     }
 
@@ -197,80 +200,98 @@ impl BufferManager {
         camera_trace: Option<CameraTrace>,
     ) {
         loop {
-            match self.to_buf_rx.recv().await.unwrap() {
-                BufMsg::FrameRequest(mut renderer_req) => {
-                    trace!(
-                        "[buffer mgr] renderer sent a frame request {:?}",
-                        &renderer_req
-                    );
+            tokio::select! {
+                _ = self.shutdown_recv.changed() => {
+                    trace!("[buffer mgr] received shutdown signal");
+                    break;
+                }
+                Some(msg) = self.to_buf_rx.recv() => {
+                    match msg {
+                        BufMsg::FrameRequest(mut renderer_req) => {
+                            trace!(
+                                "[buffer mgr] renderer sent a frame request {:?}",
+                                &renderer_req
+                            );
 
-                    // If the camera trace is not None, we will use the camera trace to override the camera position for the next frame
-                    if camera_trace.is_some() {
-                        renderer_req.camera_pos = camera_trace.as_ref().map(|ct| ct.next());
-                    } else {
-                        viewport_predictor.add(renderer_req.camera_pos);
-                        renderer_req.camera_pos = viewport_predictor.predict();
-                    }
-                    // First, attempt to fulfill the request from the buffer.
-                    // Check in cache whether it exists
-                    if let Some(mut rx) = self.cache.pop(&BufferCacheKey::from(renderer_req)) {
-                        // send to the renderer
-                        match rx.recv().await {
-                            Some(pc) => {
-                                self.buf_out_sx.send((renderer_req, pc)).unwrap();
-                                let mut next_key = BufferCacheKey::from(renderer_req);
-                                next_key.frame_offset += 1;
-                                if !self.cache.contains(&next_key) {
-                                    self.cache.put(next_key, rx);
-                                }
+                            // If the camera trace is provided, we will use the camera trace to override the camera position for the next frame
+                            // else we will feed this into the viewport predictor
+                            if camera_trace.is_some() {
+                                renderer_req.camera_pos = camera_trace.as_ref().map(|ct| ct.next());
+                            } else {
+                                viewport_predictor.add(renderer_req.camera_pos);
                             }
-                            None => {
-                                // channel is empty, so we discard this channel and enqueue the request into the pending queue
-                                // so that the next iteration knows to send the response to renderer.
+                            // First, attempt to fulfill the request from the buffer.
+                            // Check in cache whether it exists
+                            if let Some(mut rx) = self.cache.pop(&BufferCacheKey::from(renderer_req)) {
+                                // send to the renderer
+                                match rx.recv().await {
+                                    Some(pc) => {
+                                        // if camera trace is not provided, we should not send camera_pos back to the renderer
+                                        // as it is just a prediction, not an instruction to move to that position
+                                        if camera_trace.is_none() {
+                                            renderer_req.camera_pos = None;
+                                        }
+                                        self.buf_out_sx.send((renderer_req, pc)).unwrap();
+                                        let mut next_key = BufferCacheKey::from(renderer_req);
+                                        next_key.frame_offset += 1;
+                                        if !self.cache.contains(&next_key) {
+                                            self.cache.put(next_key, rx);
+                                        }
+                                    }
+                                    None => {
+                                        // channel is empty, so we discard this channel and enqueue the request into the pending queue
+                                        // so that the next iteration knows to send the response to renderer.
+                                        self.pending_frame_req.push_back(renderer_req);
+                                    }
+                                }
+                            } else {
+                                // It doesn't exist in cache, so we send a request to the fetcher to fetch the data
+                                // First we change the camera_pos as predicted by the viewport predictor, if camera trace is not provided
+                                if camera_trace.is_none() {
+                                    renderer_req.camera_pos = viewport_predictor.predict();
+                                }
+                                self.buf_in_sx
+                                    .send(FetchRequest::new(renderer_req, self.cache.len()))
+                                    .unwrap();
                                 self.pending_frame_req.push_back(renderer_req);
                             }
+
+                            // NOTE(9Mar23): Although this bit of code looks spammy (we send a predictive request to the fetcher every time we receive a request from the renderer),
+                            // the overhead is only in sending the FetchRequest. The fetcher will only send a request to the network if it isn't recently requested.
+                            // However, this behaviour might change in the future.
+                            if self.cache.len() < self.cache.cap().get() {
+                                debug!("Cache length: {:}", self.cache.len());
+                                // If the cache is not full, we send a request to the fetcher to fetch the next frame
+                                let mut next_frame_req = renderer_req;
+                                next_frame_req.frame_offset = (next_frame_req.frame_offset
+                                    + self.segment_size)
+                                    % self.total_frames as u64;
+                                self.buf_in_sx
+                                    .send(FetchRequest::new(next_frame_req, self.cache.len()))
+                                    .unwrap();
+                                // we don't store this in the pending frame request because it is a preemptive request, not a request by the renderer.
+                            }
                         }
-                    } else {
-                        // It doesn't exist in cache, so we send a request to the fetcher to fetch the data
-                        self.buf_in_sx
-                            .send(FetchRequest::new(renderer_req, self.cache.len()))
-                            .unwrap();
-                        self.pending_frame_req.push_back(renderer_req);
-                    }
+                        BufMsg::PointCloud((mut metadata, mut rx)) => {
+                            trace!("[buffer mgr] received a point cloud result {:?}", &metadata);
 
-                    // NOTE(9Mar23): Although this bit of code looks spammy (we send a predictive request to the fetcher every time we receive a request from the renderer),
-                    // the overhead is only in sending the FetchRequest. The fetcher will only send a request to the network if it isn't recently requested.
-                    // However, this behaviour might change in the future.
-                    if self.cache.len() < self.cache.cap().get() {
-                        debug!("Cache length: {:}", self.cache.len());
-                        // If the cache is not full, we send a request to the fetcher to fetch the next frame
-                        let mut next_frame_req = renderer_req;
-                        next_frame_req.frame_offset = (next_frame_req.frame_offset
-                            + self.segment_size)
-                            % self.total_frames as u64;
-                        self.buf_in_sx
-                            .send(FetchRequest::new(next_frame_req, self.cache.len()))
-                            .unwrap();
-                        // we don't store this in the pending frame request because it is a preemptive request, not a request by the renderer.
+                            if !self.pending_frame_req.is_empty()
+                                && metadata.frame_offset
+                                    == self.pending_frame_req.front().unwrap().frame_offset
+                            {
+                                let pc = rx.recv().await.unwrap();
+                                // send results to the renderer
+                                self.buf_out_sx.send((metadata.into(), pc)).unwrap();
+                                self.pending_frame_req.pop_front();
+                                metadata.frame_offset += 1;
+                            }
+
+                            // cache the point cloud
+                            self.cache.push(metadata.into(), rx);
+                        }
                     }
                 }
-                BufMsg::PointCloud((mut metadata, mut rx)) => {
-                    trace!("[buffer mgr] received a point cloud result {:?}", &metadata);
-
-                    if !self.pending_frame_req.is_empty()
-                        && metadata.frame_offset
-                            == self.pending_frame_req.front().unwrap().frame_offset
-                    {
-                        let pc = rx.recv().await.unwrap();
-                        // send results to the renderer
-                        self.buf_out_sx.send((metadata.into(), pc)).unwrap();
-                        self.pending_frame_req.pop_front();
-                        metadata.frame_offset += 1;
-                    }
-
-                    // cache the point cloud
-                    self.cache.push(metadata.into(), rx);
-                }
+                else => break,
             }
         }
     }
@@ -380,7 +401,7 @@ impl CameraTrace {
         }
     }
 
-    // Get the next bandwidth sample
+    /// Get the next bandwidth sample. Used when playing back a camera trace.
     fn next(&self) -> CameraPosition {
         let idx = *self.index.borrow();
         let next_idx = (idx + 1) % self.data.len();
@@ -398,9 +419,10 @@ fn main() {
         .enable_all()
         .build()
         .unwrap();
+    let (shutdown_send, shutdown_recv) = tokio::sync::watch::channel(false);
     // important to use tokio::mpsc here instead of std because it is bridging from sync -> async
     // the content is produced by the renderer and consumed by the fetcher
-    let (buf_in_sx, mut buf_in_rx) = tokio::sync::mpsc::unbounded_channel();
+    let (buf_in_sx, mut buf_in_rx) = tokio::sync::mpsc::unbounded_channel::<FetchRequest>();
     let (in_dec_sx, mut in_dec_rx) = tokio::sync::mpsc::unbounded_channel();
     let (to_buf_sx, to_buf_rx) = tokio::sync::mpsc::unbounded_channel();
     // this buffer is used to store the fetched data. It is a bounded buffer. It will store the data in segments.
@@ -426,6 +448,7 @@ fn main() {
     // Fetcher will fetch data and send it over to the buffer.
     {
         let to_buf_sx = to_buf_sx.clone();
+        let mut shutdown_recv = shutdown_recv.clone();
         let mut throughput_predictor: Box<dyn ThroughputPrediction> =
             match args.throughput_prediction_type {
                 ThroughputPredictionType::Last => Box::new(LastValue::new()),
@@ -474,72 +497,81 @@ fn main() {
 
                 let mut frame_range = (0, 0);
                 loop {
-                    let req: FetchRequest = buf_in_rx.recv().await.unwrap();
-                    // The request has just been recently fetched (or in the buffer), so we can skip it to avoid some redundant requests to the server.
-                    // However,
-                    if frame_range.0 < req.frame_offset && req.frame_offset < frame_range.1 {
-                        tokio::task::yield_now().await;
-                        continue;
-                    }
-
-                    let camera_pos = req.camera_pos.unwrap_or(CameraPosition {
-                        position: Point3::new(args.camera_x, args.camera_y, args.camera_z),
-                        yaw: cgmath::Deg(args.camera_yaw).into(),
-                        pitch: cgmath::Deg(args.camera_pitch).into(),
-                    });
-
-                    // We start with a guess of 1Mbps network throughput.
-                    let network_throughput = if simulated_network_trace.is_none() {
-                        throughput_predictor.predict().unwrap_or(1_0000_000.0)
-                    } else {
-                        simulated_network_trace.as_ref().unwrap().next() * 1024.0
-                    };
-
-                    let mut available_bitrates = vec![];
-                    for i in 0..6 {
-                        available_bitrates.push(fetcher.available_bitrates(
-                            req.object_id,
-                            req.frame_offset,
-                            Some(i),
-                        ));
-                    }
-
-                    let cosines = get_cosines(camera_pos);
-
-                    let quality = abr.select_quality(
-                        req.buffer_occupancy as u64,
-                        network_throughput,
-                        &available_bitrates,
-                        &cosines,
-                    );
-
-                    // This is a retry loop, we should probably do *bounded* retry here instead of looping indefinitely.
-                    loop {
-                        trace!("[fetcher] trying request {:?}", &req);
-
-                        let p = fetcher
-                            .download(req.object_id, req.frame_offset, &quality)
-                            .await;
-
-                        match p {
-                            Ok(res) => {
-                                // update throughput prediction
-                                throughput_predictor.add(res.throughput);
-                                in_dec_sx.send((req, res)).unwrap();
-                                frame_range.0 = req.frame_offset;
-                                frame_range.1 =
-                                    req.frame_offset + fetcher.mpd_parser.segment_duration();
-                                break;
+                    tokio::select! {
+                        _ = shutdown_recv.changed() => {
+                            trace!("[fetcher] shutdown signal received");
+                             _ = tmpdir.close();
+                            break;
+                        },
+                        Some(req) = buf_in_rx.recv() => {
+                            // The request has just been recently fetched (or in the buffer), so we can skip it to avoid some redundant requests to the server.
+                            // However,
+                            if frame_range.0 < req.frame_offset && req.frame_offset < frame_range.1 {
+                                tokio::task::yield_now().await;
+                                continue;
                             }
-                            Err(e) => {
-                                warn!("Error downloading file: {}", e)
+
+                            let camera_pos = req.camera_pos.unwrap_or(CameraPosition {
+                                position: Point3::new(args.camera_x, args.camera_y, args.camera_z),
+                                yaw: cgmath::Deg(args.camera_yaw).into(),
+                                pitch: cgmath::Deg(args.camera_pitch).into(),
+                            });
+
+                            // We start with a guess of 1Mbps network throughput.
+                            let network_throughput = if simulated_network_trace.is_none() {
+                                throughput_predictor.predict().unwrap_or(1_0000_000.0)
+                            } else {
+                                simulated_network_trace.as_ref().unwrap().next() * 1024.0
+                            };
+
+                            let mut available_bitrates = vec![];
+                            for i in 0..6 {
+                                available_bitrates.push(fetcher.available_bitrates(
+                                    req.object_id,
+                                    req.frame_offset,
+                                    Some(i),
+                                ));
                             }
+
+                            let cosines = get_cosines(camera_pos);
+
+                            let quality = abr.select_quality(
+                                req.buffer_occupancy as u64,
+                                network_throughput,
+                                &available_bitrates,
+                                &cosines,
+                            );
+
+                            // This is a retry loop, we should probably do *bounded* retry here instead of looping indefinitely.
+                            loop {
+                                trace!("[fetcher] trying request {:?}", &req);
+
+                                let p = fetcher
+                                    .download(req.object_id, req.frame_offset, &quality)
+                                    .await;
+
+                                match p {
+                                    Ok(res) => {
+                                        // update throughput prediction
+                                        throughput_predictor.add(res.throughput);
+                                        in_dec_sx.send((req, res)).unwrap();
+                                        frame_range.0 = req.frame_offset;
+                                        frame_range.1 =
+                                            req.frame_offset + fetcher.mpd_parser.segment_duration();
+                                        break;
+                                    }
+                                    Err(e) => {
+                                        warn!("Error downloading file: {}", e)
+                                    }
+                                }
+                            }
+                        }
+                        else => {
+                            _ = tmpdir.close();
+                            break;
                         }
                     }
                 }
-
-                // use tmpdir here so it is not dropped before
-                _ = tmpdir.close();
             } else {
                 let path = Path::new(&args.src);
                 let mut ply_files: Vec<PathBuf> = vec![];
@@ -559,17 +591,23 @@ fn main() {
                 ply_files.sort();
 
                 loop {
-                    let (output_sx, output_rx) = tokio::sync::mpsc::unbounded_channel();
-
-                    let req: FetchRequest = buf_in_rx.recv().await.unwrap();
-                    trace!("[fetcher] got fetch request {:?}", req);
-                    let pcd =
-                        read_file_to_point_cloud(ply_files.get(req.frame_offset as usize).unwrap())
-                            .expect("read file to point cloud failed");
-                    output_sx.send(pcd).unwrap();
-                    to_buf_sx
-                        .send(BufMsg::PointCloud((req.into(), output_rx)))
-                        .unwrap();
+                    tokio::select! {
+                        _ = shutdown_recv.changed() => {
+                            trace!("[fetcher] shutdown signal received");
+                            break;
+                        },
+                        Some(req) = buf_in_rx.recv() => {
+                            let (output_sx, output_rx) = tokio::sync::mpsc::unbounded_channel();
+                            trace!("[fetcher] got fetch request {:?}", req);
+                            let pcd =
+                                read_file_to_point_cloud(ply_files.get(req.frame_offset as usize).unwrap())
+                                    .expect("read file to point cloud failed");
+                            output_sx.send(pcd).unwrap();
+                            // ignore if failed to send to renderer
+                            to_buf_sx.send(BufMsg::PointCloud((req.into(), output_rx))).unwrap();
+                        }
+                        else => break,
+                    }
                 }
             }
         });
@@ -579,59 +617,65 @@ fn main() {
     // Decoder will read the buffer and send it over to the renderer.
     {
         let to_buf_sx = to_buf_sx.clone();
+        let mut shutdown_recv = shutdown_recv.clone();
         rt.spawn(async move {
             loop {
-                let (
-                    req,
-                    FetchResult {
+                tokio::select! {
+                    _ = shutdown_recv.changed() => {
+                        trace!("[decoder] shutdown signal received");
+                        break;
+                    },
+                    Some((req, FetchResult {
                         paths: mut p,
                         throughput: _,
-                    },
-                ) = in_dec_rx.recv().await.unwrap();
-                debug!("got fetch result {:?}", req);
-                let decoder_path = decoder_path.clone();
-                let to_buf_sx = to_buf_sx.clone();
-                tokio::task::spawn_blocking(move || {
-                    let mut decoder: Box<dyn Decoder> = match decoder_type {
-                        DecoderType::Draco => Box::new(DracoDecoder::new(
-                            decoder_path
-                                .as_ref()
-                                .expect("must provide decoder path for Draco")
-                                .as_os_str(),
-                            p[0].take().unwrap().as_os_str(),
-                        )),
-                        DecoderType::Multiplane => {
-                            Box::new(MultiplaneDecoder::new(MultiplaneDecodeReq {
-                                top: p[0].take().unwrap(),
-                                bottom: p[1].take().unwrap(),
-                                left: p[2].take().unwrap(),
-                                right: p[3].take().unwrap(),
-                                front: p[4].take().unwrap(),
-                                back: p[5].take().unwrap(),
-                            }))
-                        }
-                        _ => Box::new(NoopDecoder::new(p[0].take().unwrap().as_os_str())),
-                    };
-                    let now = std::time::Instant::now();
-                    decoder.start().unwrap();
-                    let (output_sx, output_rx) = tokio::sync::mpsc::unbounded_channel();
-                    to_buf_sx
-                        .send(BufMsg::PointCloud((
-                            PCMetadata {
-                                frame_offset: req.frame_offset,
-                                object_id: req.object_id,
-                            },
-                            output_rx,
-                        )))
+                    })) = in_dec_rx.recv() => {
+                        debug!("got fetch result {:?}", req);
+                        let decoder_path = decoder_path.clone();
+                        let to_buf_sx = to_buf_sx.clone();
+                        tokio::task::spawn_blocking(move || {
+                            let mut decoder: Box<dyn Decoder> = match decoder_type {
+                                DecoderType::Draco => Box::new(DracoDecoder::new(
+                                    decoder_path
+                                        .as_ref()
+                                        .expect("must provide decoder path for Draco")
+                                        .as_os_str(),
+                                    p[0].take().unwrap().as_os_str(),
+                                )),
+                                DecoderType::Multiplane => {
+                                    Box::new(MultiplaneDecoder::new(MultiplaneDecodeReq {
+                                        top: p[0].take().unwrap(),
+                                        bottom: p[1].take().unwrap(),
+                                        left: p[2].take().unwrap(),
+                                        right: p[3].take().unwrap(),
+                                        front: p[4].take().unwrap(),
+                                        back: p[5].take().unwrap(),
+                                    }))
+                                }
+                                _ => Box::new(NoopDecoder::new(p[0].take().unwrap().as_os_str())),
+                            };
+                            let now = std::time::Instant::now();
+                            decoder.start().unwrap();
+                            let (output_sx, output_rx) = tokio::sync::mpsc::unbounded_channel();
+                            to_buf_sx
+                                .send(BufMsg::PointCloud((
+                                    PCMetadata {
+                                        frame_offset: req.frame_offset,
+                                        object_id: req.object_id,
+                                    },
+                                    output_rx,
+                                )))
+                                .unwrap();
+                            while let Some(pcd) = decoder.poll() {
+                                output_sx.send(pcd).unwrap();
+                            }
+                            let elapsed = now.elapsed();
+                            dbg!(elapsed);
+                        })
+                        .await
                         .unwrap();
-                    while let Some(pcd) = decoder.poll() {
-                        output_sx.send(pcd).unwrap();
                     }
-                    let elapsed = now.elapsed();
-                    dbg!(elapsed);
-                })
-                .await
-                .unwrap();
+                    else => break,
+                }
             }
         });
     }
@@ -646,6 +690,7 @@ fn main() {
         buffer_capacity,
         total_frames,
         segment_size,
+        shutdown_recv,
     );
     let viewport_predictor: Box<dyn ViewportPrediction> = match args.viewport_prediction_type {
         ViewportPredictionType::Last => Box::new(LastValue::new()),
@@ -700,5 +745,29 @@ fn main() {
             .unwrap()
             .add_output(render_window_id);
     }
+
+    {
+        // We run the shutdown signal listener as a separate tokio task.
+        let event_proxy = builder.get_proxy();
+        let window_ids = builder.get_window_ids();
+        rt.spawn(async move {
+            match tokio::signal::ctrl_c().await {
+                Ok(()) => {
+                    for window_id in window_ids {
+                        event_proxy
+                            .send_event(RenderEvent::new(window_id, EventType::Shutdown))
+                            .unwrap();
+                    }
+                    shutdown_send.send(true).unwrap();
+                }
+                Err(err) => {
+                    eprintln!("Unable to listen for shutdown signal: {}", err);
+                    // we also shut down in case of error
+                }
+            }
+        });
+    }
+
+    // In MacOS, renderer must run in main thread.
     builder.run();
 }

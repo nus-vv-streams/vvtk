@@ -3,6 +3,7 @@ use crate::formats::PointCloud;
 use crate::pcd::read_pcd_file;
 use crate::BufMsg;
 
+use log::debug;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
@@ -178,13 +179,11 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         camera_pos: Option<CameraPosition>,
     ) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
         let index = index as u64;
-        self.tx
-            .send(BufMsg::FrameRequest(FrameRequest {
-                object_id: 0,
-                frame_offset: index % self.total_frames,
-                camera_pos,
-            }))
-            .unwrap();
+        _ = self.tx.send(BufMsg::FrameRequest(FrameRequest {
+            object_id: 0,
+            frame_offset: index % self.total_frames,
+            camera_pos,
+        }));
         if let Ok((frame_req, pc)) = self.rx.recv() {
             (frame_req.camera_pos, Some(pc))
         } else {
