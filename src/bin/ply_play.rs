@@ -81,6 +81,9 @@ struct Args {
     /// Rotation is in degrees
     #[clap(long)]
     camera_trace: Option<PathBuf>,
+    /// Path to record camera trace from the player.
+    #[clap(long)]
+    record_camera_trace: Option<PathBuf>,
 }
 
 #[derive(clap::ValueEnum, Clone, Copy)]
@@ -198,6 +201,7 @@ impl BufferManager {
         &mut self,
         mut viewport_predictor: Box<dyn ViewportPrediction>,
         camera_trace: Option<CameraTrace>,
+        mut record_camera_trace: Option<CameraTrace>,
     ) {
         loop {
             tokio::select! {
@@ -212,6 +216,10 @@ impl BufferManager {
                                 "[buffer mgr] renderer sent a frame request {:?}",
                                 &renderer_req
                             );
+
+                            if record_camera_trace.is_some() && renderer_req.camera_pos.is_some() {
+                                record_camera_trace.as_mut().map(|ct| ct.add(renderer_req.camera_pos.unwrap()));
+                            }
 
                             // If the camera trace is provided, we will use the camera trace to override the camera position for the next frame
                             // else we will feed this into the viewport predictor
@@ -367,6 +375,7 @@ impl NetworkTrace {
 struct CameraTrace {
     data: Vec<CameraPosition>,
     index: RefCell<usize>,
+    path: PathBuf,
 }
 
 impl CameraTrace {
@@ -376,28 +385,36 @@ impl CameraTrace {
     /// * `path` - The path to the network trace file.
     fn new(path: &Path) -> Self {
         use std::io::BufRead;
-
-        let file = File::open(path).unwrap();
-        let reader = BufReader::new(file);
-        let data = reader
-            .lines()
-            .map(|line| {
-                let line = line.unwrap();
-                let mut it = line.trim().split(',').map(|s| s.parse::<f32>().unwrap());
-                let position =
-                    Point3::new(it.next().unwrap(), it.next().unwrap(), it.next().unwrap());
-                let pitch = cgmath::Deg(it.next().unwrap() as f32).into();
-                let yaw = cgmath::Deg(it.next().unwrap() as f32).into();
-                CameraPosition {
-                    position,
-                    pitch,
-                    yaw,
+        match File::open(path) {
+            Err(_) => Self {
+                data: Vec::new(),
+                index: RefCell::new(0),
+                path: path.to_path_buf(),
+            },
+            Ok(file) => {
+                let reader = BufReader::new(file);
+                let data = reader
+                    .lines()
+                    .map(|line| {
+                        let line = line.unwrap();
+                        let mut it = line.trim().split(',').map(|s| s.parse::<f32>().unwrap());
+                        let position =
+                            Point3::new(it.next().unwrap(), it.next().unwrap(), it.next().unwrap());
+                        let pitch = cgmath::Deg(it.next().unwrap() as f32).into();
+                        let yaw = cgmath::Deg(it.next().unwrap() as f32).into();
+                        CameraPosition {
+                            position,
+                            pitch,
+                            yaw,
+                        }
+                    })
+                    .collect();
+                Self {
+                    data,
+                    index: RefCell::new(0),
+                    path: path.to_path_buf(),
                 }
-            })
-            .collect();
-        CameraTrace {
-            data,
-            index: RefCell::new(0),
+            }
         }
     }
 
@@ -407,6 +424,29 @@ impl CameraTrace {
         let next_idx = (idx + 1) % self.data.len();
         *self.index.borrow_mut() = next_idx;
         self.data[idx]
+    }
+
+    /// Add a new position to the trace. Used when recording a camera trace.
+    fn add(&mut self, pos: CameraPosition) {
+        self.data.push(pos);
+    }
+}
+
+impl Drop for CameraTrace {
+    fn drop(&mut self) {
+        use std::io::BufWriter;
+        use std::io::Write;
+
+        let mut file = File::create(&self.path).expect("camera trace file cannot be overwritten!");
+        let mut writer = BufWriter::new(&mut file);
+        for pos in &self.data {
+            writeln!(
+                writer,
+                "{},{},{},{},{},0.0",
+                pos.position.x, pos.position.y, pos.position.z, pos.pitch.0, pos.yaw.0
+            )
+            .unwrap();
+        }
     }
 }
 
@@ -438,6 +478,7 @@ fn main() {
     let buffer_capacity = args.buffer_capacity.unwrap_or(4);
     let simulated_network_trace = args.network_trace.map(|path| NetworkTrace::new(&path));
     let simulated_camera_trace = args.camera_trace.map(|path| CameraTrace::new(&path));
+    let record_camera_trace = args.record_camera_trace.map(|path| CameraTrace::new(&path));
 
     // copy variables to be moved into the async block
     let src = args.src.clone();
@@ -695,7 +736,15 @@ fn main() {
     let viewport_predictor: Box<dyn ViewportPrediction> = match args.viewport_prediction_type {
         ViewportPredictionType::Last => Box::new(LastValue::new()),
     };
-    rt.spawn(async move { buffer.run(viewport_predictor, simulated_camera_trace).await });
+    rt.spawn(async move {
+        buffer
+            .run(
+                viewport_predictor,
+                simulated_camera_trace,
+                record_camera_trace,
+            )
+            .await
+    });
 
     // let mut pcd_reader = PcdAsyncReader::new(buf_out_rx, out_buf_sx, args.buffer_size);
     let mut pcd_reader = PcdAsyncReader::new(buf_out_rx, to_buf_sx);
