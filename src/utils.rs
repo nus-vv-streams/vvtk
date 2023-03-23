@@ -320,7 +320,7 @@ pub fn get_cosines(pos: CameraPosition) -> Vec<f32> {
     let look_vector = Vector3 {
         x: pos.yaw.0.cos(),
         y: pos.pitch.0.sin(),
-        z: pos.yaw.0.sin() + pos.pitch.0.cos(),
+        z: pos.yaw.0.sin() + pos.yaw.0.sin().signum() * pos.pitch.0.cos(),
     }
     .normalize();
 

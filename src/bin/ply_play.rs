@@ -72,7 +72,7 @@ struct Args {
     /// Alpha for throughput prediction. Only used for EMA, GAEMA, and LPEMA
     #[clap(long, default_value_t = 0.1)]
     throughput_alpha: f64,
-    #[clap(long = "tp", value_enum, default_value_t = ViewportPredictionType::Last)]
+    #[clap(long = "vp", value_enum, default_value_t = ViewportPredictionType::Last)]
     viewport_prediction_type: ViewportPredictionType,
     /// Path to network trace for repeatable simulation. Network trace is expected to be given in Kbps
     #[clap(long)]
@@ -239,7 +239,7 @@ impl BufferManager {
                                         if camera_trace.is_none() {
                                             renderer_req.camera_pos = None;
                                         }
-                                        self.buf_out_sx.send((renderer_req, pc)).unwrap();
+                                        _ = self.buf_out_sx.send((renderer_req, pc));
                                         let mut next_key = BufferCacheKey::from(renderer_req);
                                         next_key.frame_offset += 1;
                                         if !self.cache.contains(&next_key) {
@@ -258,9 +258,7 @@ impl BufferManager {
                                 if camera_trace.is_none() {
                                     renderer_req.camera_pos = viewport_predictor.predict();
                                 }
-                                self.buf_in_sx
-                                    .send(FetchRequest::new(renderer_req, self.cache.len()))
-                                    .unwrap();
+                                _ = self.buf_in_sx.send(FetchRequest::new(renderer_req, self.cache.len()));
                                 self.pending_frame_req.push_back(renderer_req);
                             }
 
@@ -274,9 +272,7 @@ impl BufferManager {
                                 next_frame_req.frame_offset = (next_frame_req.frame_offset
                                     + self.segment_size)
                                     % self.total_frames as u64;
-                                self.buf_in_sx
-                                    .send(FetchRequest::new(next_frame_req, self.cache.len()))
-                                    .unwrap();
+                                _ = self.buf_in_sx.send(FetchRequest::new(next_frame_req, self.cache.len()));
                                 // we don't store this in the pending frame request because it is a preemptive request, not a request by the renderer.
                             }
                         }
@@ -289,7 +285,7 @@ impl BufferManager {
                             {
                                 let pc = rx.recv().await.unwrap();
                                 // send results to the renderer
-                                self.buf_out_sx.send((metadata.into(), pc)).unwrap();
+                                _ = self.buf_out_sx.send((metadata.into(), pc));
                                 self.pending_frame_req.pop_front();
                                 metadata.frame_offset += 1;
                             }
@@ -607,6 +603,7 @@ fn main() {
                                 &available_bitrates,
                                 &cosines,
                             );
+                            dbg!(req.buffer_occupancy, network_throughput, &quality, &cosines);
 
                             // This is a retry loop, we should probably do *bounded* retry here instead of looping indefinitely.
                             loop {
@@ -620,7 +617,7 @@ fn main() {
                                     Ok(res) => {
                                         // update throughput prediction
                                         throughput_predictor.add(res.throughput);
-                                        in_dec_sx.send((req, res)).unwrap();
+                                        _ = in_dec_sx.send((req, res));
                                         frame_range.0 = req.frame_offset;
                                         frame_range.1 =
                                             req.frame_offset + fetcher.mpd_parser.segment_duration();
@@ -668,9 +665,9 @@ fn main() {
                             let pcd =
                                 read_file_to_point_cloud(ply_files.get(req.frame_offset as usize).unwrap())
                                     .expect("read file to point cloud failed");
-                            output_sx.send(pcd).unwrap();
+                            _ = output_sx.send(pcd);
                             // ignore if failed to send to renderer
-                            to_buf_sx.send(BufMsg::PointCloud((req.into(), output_rx))).unwrap();
+                            _ = to_buf_sx.send(BufMsg::PointCloud((req.into(), output_rx)));
                         }
                         else => break,
                     }
@@ -722,17 +719,16 @@ fn main() {
                             let now = std::time::Instant::now();
                             decoder.start().unwrap();
                             let (output_sx, output_rx) = tokio::sync::mpsc::unbounded_channel();
-                            to_buf_sx
+                            _ = to_buf_sx
                                 .send(BufMsg::PointCloud((
                                     PCMetadata {
                                         frame_offset: req.frame_offset,
                                         object_id: req.object_id,
                                     },
                                     output_rx,
-                                )))
-                                .unwrap();
+                                )));
                             while let Some(pcd) = decoder.poll() {
-                                output_sx.send(pcd).unwrap();
+                                _ = output_sx.send(pcd);
                             }
                             let elapsed = now.elapsed();
                             dbg!(elapsed);
