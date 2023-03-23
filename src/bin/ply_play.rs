@@ -383,15 +383,23 @@ impl CameraTrace {
     /// # Arguments
     ///
     /// * `path` - The path to the network trace file.
-    fn new(path: &Path) -> Self {
+    fn new(path: &Path, is_record: bool) -> Self {
         use std::io::BufRead;
         match File::open(path) {
-            Err(_) => Self {
-                data: Vec::new(),
-                index: RefCell::new(0),
-                path: path.to_path_buf(),
-            },
+            Err(err) => {
+                if !is_record {
+                    panic!("Failed to open camera trace file: {:?}", err);
+                }
+                Self {
+                    data: Vec::new(),
+                    index: RefCell::new(0),
+                    path: path.to_path_buf(),
+                }
+            }
             Ok(file) => {
+                if is_record {
+                    panic!("Camera trace file already exists: {:?}", path);
+                }
                 let reader = BufReader::new(file);
                 let data = reader
                     .lines()
@@ -437,15 +445,30 @@ impl Drop for CameraTrace {
         use std::io::BufWriter;
         use std::io::Write;
 
-        let mut file = File::create(&self.path).expect("camera trace file cannot be overwritten!");
-        let mut writer = BufWriter::new(&mut file);
-        for pos in &self.data {
-            writeln!(
-                writer,
-                "{},{},{},{},{},0.0",
-                pos.position.x, pos.position.y, pos.position.z, pos.pitch.0, pos.yaw.0
-            )
-            .unwrap();
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&self.path)
+        {
+            Ok(mut file) => {
+                let mut writer = BufWriter::new(&mut file);
+                for pos in &self.data {
+                    writeln!(
+                        writer,
+                        "{},{},{},{},{},0.0",
+                        pos.position.x,
+                        pos.position.y,
+                        pos.position.z,
+                        pos.pitch.0.to_degrees(),
+                        pos.yaw.0.to_degrees()
+                    )
+                    .unwrap();
+                }
+            }
+            Err(_) => {
+                warn!("Camera trace file already exists, not writing");
+                return;
+            }
         }
     }
 }
@@ -477,8 +500,10 @@ fn main() {
     // initialize variables based on args
     let buffer_capacity = args.buffer_capacity.unwrap_or(4);
     let simulated_network_trace = args.network_trace.map(|path| NetworkTrace::new(&path));
-    let simulated_camera_trace = args.camera_trace.map(|path| CameraTrace::new(&path));
-    let record_camera_trace = args.record_camera_trace.map(|path| CameraTrace::new(&path));
+    let simulated_camera_trace = args.camera_trace.map(|path| CameraTrace::new(&path, false));
+    let record_camera_trace = args
+        .record_camera_trace
+        .map(|path| CameraTrace::new(&path, true));
 
     // copy variables to be moved into the async block
     let src = args.src.clone();
