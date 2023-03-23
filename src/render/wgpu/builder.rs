@@ -11,12 +11,22 @@ pub struct RenderEvent {
     pub(crate) event_type: EventType,
 }
 
+impl RenderEvent {
+    pub fn new(window_id: WindowId, event_type: EventType) -> Self {
+        Self {
+            window_id,
+            event_type,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum EventType {
     MoveTo(usize),
     Toggle,
     Info(RenderInformation),
     Repaint,
+    Shutdown,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -86,6 +96,14 @@ impl RenderBuilder {
         self.window_objects.get_mut(&id).map(|obj| &mut obj.state)
     }
 
+    pub fn get_proxy(&self) -> winit::event_loop::EventLoopProxy<RenderEvent> {
+        self.event_loop.create_proxy()
+    }
+
+    pub fn get_window_ids(&self) -> Vec<WindowId> {
+        self.window_objects.keys().copied().collect()
+    }
+
     /// Hijacks the calling thread to run the UI event loop.
     pub fn run(mut self) {
         self.event_loop.run(move |new_event, _, control_flow| {
@@ -138,6 +156,12 @@ impl RenderBuilder {
                             .state
                             .handle_event(&new_event, &windowed_object.window)
                     }
+                }
+                Event::UserEvent(RenderEvent {
+                    event_type: EventType::Shutdown,
+                    ..
+                }) => {
+                    *control_flow = ControlFlow::Exit;
                 }
                 Event::UserEvent(RenderEvent { window_id, .. }) => {
                     if let Some(windowed_object) = self.window_objects.get_mut(window_id) {

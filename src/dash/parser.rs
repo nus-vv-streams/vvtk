@@ -178,6 +178,7 @@ impl MPDParser {
         )
     }
 
+    /// Get available bitrates in bits per second
     pub fn available_bitrates(
         &self,
         object_id: u8,

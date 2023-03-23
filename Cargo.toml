@@ -74,7 +74,9 @@ name = "vivotk"
 [features]
 default = ["render", "dash"]
 render = ["dep:winit", "dep:wgpu", "dep:wgpu_glyph", "dep:egui", "dep:egui_winit_platform", "dep:egui_wgpu_backend", "dep:epi"]
-dash = ["dep:reqwest", "dep:regex", "dep:tempfile", "dep:serde", "dep:serde_with", "dep:quick-xml", "dep:tokio", "dep:futures"]
+dash = ["dep:reqwest", "dep:regex", "dep:tempfile", "dep:quick-xml", "serde", "async"]
+async = ["dep:tokio", "dep:futures"]
+serde = ["dep:serde", "dep:serde_with"]
 
 [[bench]]
 name = "reader"
