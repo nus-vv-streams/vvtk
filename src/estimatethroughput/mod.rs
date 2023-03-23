@@ -40,19 +40,29 @@ pub fn estimate_throughput_lpema(past_tp: Vec<f64>, b_last_predicted: f64) -> f6
 // uses a smoothing constant in a moving window of the last 10 values
 // window_size reduced to len of past predicated values if < 10
 pub fn estimate_throughput_kama(past_tp: Vec<f64>, past_predictions: Vec<f64>) -> f64 {
+    let mut past_predictions_copy = past_predictions.clone();
     let window_size = std::cmp::min(10, past_predictions.len());
 
-    let numer = (past_predictions[past_predictions.len() - 1]
-        - past_predictions[past_predictions.len() - window_size])
-        .abs();
-    let mut denom = 0.0;
-    for x in past_predictions.len() - window_size..past_predictions.len() {
-        denom += (past_predictions[x] - past_predictions[x - 1]).abs();
+    if window_size == 0 || window_size == 1 {
+        past_predictions_copy = vec![0.0, 0.0];
     }
+
+    let mut x = window_size - 1;
+
+    let numer = (past_tp[past_tp.len() - 1] - past_tp[past_tp.len() - window_size]).abs();
+    let mut denom = 0.0;
+
+    // while loop for when x is between 0 and window_size
+    while x <= window_size && x > 0 {
+        denom += (past_tp[x] - past_tp[x - 1]).abs();
+        x -= 1;
+    }
+
     let e_i = numer / denom;
-    let sc_i: f64 = (e_i * ((2 / 3) as f64 - (2 / 31) as f64) + (2 / 31) as f64).powf(2.0);
-    let result = past_predictions[past_predictions.len() - 1]
-        + sc_i * (past_tp[past_tp.len() - 1] - past_predictions[past_predictions.len() - 1]);
+    let sc_i: f64 = (e_i * ((2.0 / 3.0) - (2.0 / 31.0)) + (2.0 / 31.0) as f64).powf(2.0);
+    let result = past_predictions_copy[past_predictions_copy.len() - 1]
+        + sc_i
+            * (past_tp[past_tp.len() - 1] - past_predictions_copy[past_predictions_copy.len() - 1]);
     return result;
 }
 
@@ -96,5 +106,21 @@ mod tests {
     }
 
     #[test]
-    fn test_estimate_throughput_kama() {}
+    fn test_estimate_throughput_kama() {
+        let past_tp = vec![15.0, 20.0, 110.0, 60.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0];
+        let past_predictions = vec![
+            15.0,
+            15.0,
+            17.22222222,
+            58.45679012,
+            58.55431659,
+            58.2104803,
+            58.30411071,
+            59.05727784,
+            60.65356491,
+            63.22673683,
+        ];
+        let result = estimate_throughput_kama(past_tp, past_predictions);
+        assert!((result - 66.85678339).abs() < EPSILON);
+    }
 }
