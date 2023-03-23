@@ -1,5 +1,4 @@
 pub mod quetra;
-pub mod quetramulti;
 
 // enum RateAdapterOption {
 //     Single(),

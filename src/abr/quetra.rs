@@ -70,6 +70,7 @@ impl Quetra {
         let mut pkrb: f64 = 0.0f64;
 
         let denominator = 1.0f64 + ((b / (r * self.p)) * self.x_i(self.k - 1, r, b));
+
         for i in 0..self.k {
             pkrb += self.x_i(i, r, b) / denominator;
         }
