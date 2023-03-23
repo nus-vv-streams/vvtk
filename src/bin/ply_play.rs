@@ -529,10 +529,10 @@ fn main() {
                     .collect();
 
                 let abr: Box<dyn RateAdapter> = match args.abr_type {
-                    AbrType::Quetra => Box::new(Quetra::new(buffer_capacity as u64)),
+                    AbrType::Quetra => Box::new(Quetra::new(buffer_capacity as u64, args.fps)),
                     AbrType::Mckp => Box::new(MCKP::new(6, qualities)),
                     AbrType::QuetraMultiview => {
-                        Box::new(QuetraMultiview::new(6, buffer_capacity as u64, qualities))
+                        Box::new(QuetraMultiview::new(buffer_capacity as u64, args.fps, 6, qualities))
                     }
                 };
 
