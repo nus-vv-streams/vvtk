@@ -81,3 +81,7 @@ serde = ["dep:serde", "dep:serde_with"]
 [[bench]]
 name = "reader"
 harness = false
+
+[[bench]]
+name = "abr"
+harness = false
