@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 use vivotk::abr::quetra::{Quetra, QuetraMultiview};
 use vivotk::abr::{RateAdapter, MCKP};
-use vivotk::codec::decoder::{DracoDecoder, MultiplaneDecodeReq, MultiplaneDecoder, NoopDecoder};
+use vivotk::codec::decoder::{DracoDecoder, NoopDecoder, Tmc2rsDecoder};
 use vivotk::codec::Decoder;
 use vivotk::dash::fetcher::{FetchResult, Fetcher};
 use vivotk::dash::{ThroughputPrediction, ViewportPrediction};
@@ -54,7 +54,7 @@ struct Args {
     width: u32,
     #[clap(short, long, default_value_t = 900)]
     height: u32,
-    #[clap(long = "controls", default_value_t = true)]
+    #[clap(long = "controls", action = clap::ArgAction::SetTrue, default_value_t = true)]
     show_controls: bool,
     #[clap(short, long)]
     buffer_capacity: Option<usize>,
@@ -62,8 +62,10 @@ struct Args {
     metrics: Option<OsString>,
     #[clap(long = "abr", value_enum, default_value_t = AbrType::Quetra)]
     abr_type: AbrType,
-    #[clap(long = "decoder", value_enum, default_value_t = DecoderType::Noop)]
+    #[clap(long = "decoder", value_enum, default_value_t = DecoderType::Tmc2rs)]
     decoder_type: DecoderType,
+    #[clap(long, action = clap::ArgAction::SetTrue)]
+    multiview: bool,
     /// Path to the decoder binary (only for Draco)
     #[clap(long)]
     decoder_path: Option<PathBuf>,
@@ -90,7 +92,7 @@ struct Args {
 enum DecoderType {
     Noop,
     Draco,
-    Multiplane,
+    Tmc2rs,
 }
 
 #[derive(clap::ValueEnum, Clone, Copy)]
@@ -218,7 +220,7 @@ impl BufferManager {
                             );
 
                             if record_camera_trace.is_some() && renderer_req.camera_pos.is_some() {
-                                record_camera_trace.as_mut().map(|ct| ct.add(renderer_req.camera_pos.unwrap()));
+                                if let Some(ct) = record_camera_trace.as_mut() { ct.add(renderer_req.camera_pos.unwrap()) }
                             }
 
                             // If the camera trace is provided, we will use the camera trace to override the camera position for the next frame
@@ -384,7 +386,7 @@ impl CameraTrace {
         match File::open(path) {
             Err(err) => {
                 if !is_record {
-                    panic!("Failed to open camera trace file: {:?}", err);
+                    panic!("Failed to open camera trace file: {err:?}");
                 }
                 Self {
                     data: Vec::new(),
@@ -394,7 +396,7 @@ impl CameraTrace {
             }
             Ok(file) => {
                 if is_record {
-                    panic!("Camera trace file already exists: {:?}", path);
+                    panic!("Camera trace file already exists: {path:?}");
                 }
                 let reader = BufReader::new(file);
                 let data = reader
@@ -404,8 +406,8 @@ impl CameraTrace {
                         let mut it = line.trim().split(',').map(|s| s.parse::<f32>().unwrap());
                         let position =
                             Point3::new(it.next().unwrap(), it.next().unwrap(), it.next().unwrap());
-                        let pitch = cgmath::Deg(it.next().unwrap() as f32).into();
-                        let yaw = cgmath::Deg(it.next().unwrap() as f32).into();
+                        let pitch = cgmath::Deg(it.next().unwrap()).into();
+                        let yaw = cgmath::Deg(it.next().unwrap()).into();
                         CameraPosition {
                             position,
                             pitch,
@@ -463,7 +465,6 @@ impl Drop for CameraTrace {
             }
             Err(_) => {
                 warn!("Camera trace file already exists, not writing");
-                return;
             }
         }
     }
@@ -473,6 +474,7 @@ fn main() {
     // initialize logger
     env_logger::init();
     let args: Args = Args::parse();
+    dbg!(args.multiview);
     let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(8)
         .enable_all()
@@ -581,17 +583,25 @@ fn main() {
 
                             // We start with a guess of 1Mbps network throughput.
                             let network_throughput = if simulated_network_trace.is_none() {
-                                throughput_predictor.predict().unwrap_or(1_0000_000.0)
+                                throughput_predictor.predict().unwrap_or(10_000_000.0)
                             } else {
                                 simulated_network_trace.as_ref().unwrap().next() * 1024.0
                             };
 
                             let mut available_bitrates = vec![];
-                            for i in 0..6 {
+                            if args.multiview {
+                                for i in 0..6 {
+                                    available_bitrates.push(fetcher.available_bitrates(
+                                        req.object_id,
+                                        req.frame_offset,
+                                        Some(i),
+                                    ));
+                                }
+                            } else {
                                 available_bitrates.push(fetcher.available_bitrates(
                                     req.object_id,
                                     req.frame_offset,
-                                    Some(i),
+                                    None,
                                 ));
                             }
 
@@ -603,14 +613,13 @@ fn main() {
                                 &available_bitrates,
                                 &cosines,
                             );
-                            dbg!(req.buffer_occupancy, network_throughput, &quality, &cosines);
 
                             // This is a retry loop, we should probably do *bounded* retry here instead of looping indefinitely.
                             loop {
                                 trace!("[fetcher] trying request {:?}", &req);
 
                                 let p = fetcher
-                                    .download(req.object_id, req.frame_offset, &quality)
+                                    .download(req.object_id, req.frame_offset, &quality, args.multiview)
                                     .await;
 
                                 match p {
@@ -689,7 +698,7 @@ fn main() {
                         break;
                     },
                     Some((req, FetchResult {
-                        paths: mut p,
+                        mut paths,
                         throughput: _,
                     })) = in_dec_rx.recv() => {
                         debug!("got fetch result {:?}", req);
@@ -702,19 +711,13 @@ fn main() {
                                         .as_ref()
                                         .expect("must provide decoder path for Draco")
                                         .as_os_str(),
-                                    p[0].take().unwrap().as_os_str(),
+                                    paths[0].take().unwrap().as_os_str(),
                                 )),
-                                DecoderType::Multiplane => {
-                                    Box::new(MultiplaneDecoder::new(MultiplaneDecodeReq {
-                                        top: p[0].take().unwrap(),
-                                        bottom: p[1].take().unwrap(),
-                                        left: p[2].take().unwrap(),
-                                        right: p[3].take().unwrap(),
-                                        front: p[4].take().unwrap(),
-                                        back: p[5].take().unwrap(),
-                                    }))
+                                DecoderType::Tmc2rs => {
+                                    let paths = paths.into_iter().flatten().collect::<Vec<_>>();
+                                    Box::new(Tmc2rsDecoder::new(&paths))
                                 }
-                                _ => Box::new(NoopDecoder::new(p[0].take().unwrap().as_os_str())),
+                                _ => Box::new(NoopDecoder::new(paths[0].take().unwrap().as_os_str())),
                             };
                             let now = std::time::Instant::now();
                             decoder.start().unwrap();
@@ -831,7 +834,7 @@ fn main() {
                     shutdown_send.send(true).unwrap();
                 }
                 Err(err) => {
-                    eprintln!("Unable to listen for shutdown signal: {}", err);
+                    eprintln!("Unable to listen for shutdown signal: {err}");
                     // we also shut down in case of error
                 }
             }

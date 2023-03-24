@@ -56,47 +56,66 @@ impl Fetcher {
         object_id: u8,
         frame: u64,
         quality: &[usize],
+        is_multiview: bool,
     ) -> Result<FetchResult> {
         let mut paths = core::array::from_fn(|_| None);
 
         // quality is representation id (0 is lowest quality)
-        let mut urls: [String; 6] = core::array::from_fn(|_| String::new());
+        let mut urls: [Option<String>; 6] = core::array::from_fn(|_| None);
         let mut bandwidths = [None; 6];
 
-        for view_id in 0..Fetcher::VIEWS {
+        if is_multiview {
+            for view_id in 0..Fetcher::VIEWS {
+                let (url, bandwidth) = self.mpd_parser.get_info(
+                    object_id,
+                    quality[std::cmp::min(view_id, quality.len() - 1)] as u8,
+                    frame,
+                    Some(view_id as u8),
+                );
+                let output_path = self
+                    .download_dir
+                    .join(generate_filename_from_url(url.as_str()));
+                urls[view_id] = Some(url);
+                bandwidths[view_id] = bandwidth;
+                paths[view_id] = Some(output_path);
+            }
+        } else {
             let (url, bandwidth) = self.mpd_parser.get_info(
                 object_id,
-                quality[std::cmp::min(view_id, quality.len() - 1)] as u8,
+                quality[std::cmp::min(0, quality.len() - 1)] as u8,
                 frame,
-                Some(view_id as u8),
+                None,
             );
-            urls[view_id] = url;
-            bandwidths[view_id] = bandwidth;
             let output_path = self
                 .download_dir
-                .join(generate_filename_from_url(urls[view_id].as_str()));
-            paths[view_id] = Some(output_path);
+                .join(generate_filename_from_url(url.as_str()));
+            urls[0] = Some(url);
+            bandwidths[0] = bandwidth;
+            paths[0] = Some(output_path);
         }
         let now = std::time::Instant::now();
 
         // If file exists, then there is no need to download again.
-        let contents = future::join_all(urls.into_iter().map(|url| {
-            let client = &self.http_client;
-            let filename = generate_filename_from_url(url.as_str());
-            let local_file_path = self.download_dir.join(filename);
-            async move {
-                let f = File::open(local_file_path).await;
-                if let Ok(_) = f {
-                    // File exists so we should skip downloading
-                    Ok(None)
-                } else {
-                    let resp = client.get(url).send().await?;
-                    match resp.error_for_status() {
-                        Ok(resp) => Ok(resp.bytes().await.ok()),
-                        Err(e) => Err(e),
+        let contents = future::join_all(urls.into_iter().filter(|url| url.is_some()).map(|url| {
+            url.map(|url| {
+                let client = &self.http_client;
+                let filename = generate_filename_from_url(url.as_str());
+                let local_file_path = self.download_dir.join(filename);
+                async move {
+                    let f = File::open(local_file_path).await;
+                    if let Ok(_) = f {
+                        // File exists so we should skip downloading
+                        Ok(None)
+                    } else {
+                        let resp = client.get(url).send().await?;
+                        match resp.error_for_status() {
+                            Ok(resp) => Ok(resp.bytes().await.ok()),
+                            Err(e) => Err(e),
+                        }
                     }
                 }
-            }
+            })
+            .unwrap()
         }))
         .await;
 
@@ -128,7 +147,7 @@ impl Fetcher {
 
     /// Get available representation bitrates for a view.
     ///
-    /// If view is None, it will get the bitrate for the left view (view_id = 0)
+    /// If view is None, it will get the bitrate for the first representation
     pub fn available_bitrates(
         &self,
         object_id: u8,

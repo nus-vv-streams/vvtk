@@ -108,104 +108,45 @@ impl Decoder for DracoDecoder {
     // }
 }
 
-/// This is a wrapper around the tmc2rs decoder.
-pub struct Tmc2Decoder(tmc2rs::Decoder);
+pub struct Tmc2rsDecoder {
+    decoders: Vec<tmc2rs::Decoder>,
+}
 
-impl Tmc2Decoder {
-    pub fn new(compressed_stream: PathBuf) -> Self {
-        Tmc2Decoder(tmc2rs::Decoder::new(tmc2rs::Params::new(compressed_stream)))
+impl Tmc2rsDecoder {
+    pub fn new(paths: &[PathBuf]) -> Self {
+        let decoders = paths
+            .iter()
+            .map(|path| tmc2rs::Decoder::new(tmc2rs::Params::new(path.to_owned())))
+            .collect::<Vec<_>>();
+        Tmc2rsDecoder { decoders }
     }
 }
 
-impl Decoder for Tmc2Decoder {
-    /// Spawns a thread to decode the stream.
-    fn start(&mut self) -> Result<()> {
-        self.0.start();
-        Ok(())
-    }
-
-    fn poll(&mut self) -> Option<PointCloud<PointXyzRgba>> {
-        self.0.recv_frame().map(PointCloud::from)
-    }
-}
-
-pub struct MultiplaneDecoder {
-    top: tmc2rs::Decoder,
-    bottom: tmc2rs::Decoder,
-    left: tmc2rs::Decoder,
-    right: tmc2rs::Decoder,
-    front: tmc2rs::Decoder,
-    back: tmc2rs::Decoder,
-}
-
-/// (5Feb) For now, it is not important to know whether the pathbuf really corresponds to a top, bottom, left, right, front or back image.
-pub struct MultiplaneDecodeReq {
-    pub top: PathBuf,
-    pub bottom: PathBuf,
-    pub left: PathBuf,
-    pub right: PathBuf,
-    pub front: PathBuf,
-    pub back: PathBuf,
-}
-
-impl MultiplaneDecoder {
-    pub fn new(req: MultiplaneDecodeReq) -> Self {
-        MultiplaneDecoder {
-            top: tmc2rs::Decoder::new(tmc2rs::Params::new(req.top)),
-            bottom: tmc2rs::Decoder::new(tmc2rs::Params::new(req.bottom)),
-            left: tmc2rs::Decoder::new(tmc2rs::Params::new(req.left)),
-            right: tmc2rs::Decoder::new(tmc2rs::Params::new(req.right)),
-            front: tmc2rs::Decoder::new(tmc2rs::Params::new(req.front)),
-            back: tmc2rs::Decoder::new(tmc2rs::Params::new(req.back)),
-        }
-    }
-}
-
-impl Decoder for MultiplaneDecoder {
+impl Decoder for Tmc2rsDecoder {
     fn start(&mut self) -> Result<()> {
         // start all decoders. This will run in parallel
-        self.front.start();
-        self.back.start();
-        self.left.start();
-        self.right.start();
-        self.top.start();
-        self.bottom.start();
+        for decoder in self.decoders.iter_mut() {
+            decoder.start();
+        }
         Ok(())
     }
 
     fn poll(&mut self) -> Option<PointCloud<PointXyzRgba>> {
         // assume all decoders have the same number of frames
         let now = std::time::Instant::now();
-        let front = self.front.recv_frame();
-        front.as_ref()?;
-        let front = front.unwrap();
-        let back = self.back.recv_frame().unwrap();
-        let left = self.left.recv_frame().unwrap();
-        let right = self.right.recv_frame().unwrap();
-        let top = self.top.recv_frame().unwrap();
-        let bottom = self.bottom.recv_frame().unwrap();
+        let frame = self
+            .decoders
+            .iter()
+            .map(|decoder| decoder.recv_frame())
+            .map(|frame| frame.map(PointCloud::from))
+            .reduce(|mut acc, frame| {
+                acc.as_ref()?;
+                acc.as_mut().unwrap().combine(&frame.unwrap());
+                acc
+            })
+            .unwrap();
         let elapsed = now.elapsed();
         debug!("Decoder for 6 frames took {} ms", elapsed.as_millis());
-
-        // combining all viewpoints into one
-        let front = PointCloud::from(front);
-        let back = PointCloud::from(back);
-        let left = PointCloud::from(left);
-        let right = PointCloud::from(right);
-        let top = PointCloud::from(top);
-        let bottom = PointCloud::from(bottom);
-
-        let mut combined = PointCloud {
-            number_of_points: 0,
-            points: Vec::new(),
-        };
-        combined.combine(&front);
-        combined.combine(&back);
-        combined.combine(&left);
-        combined.combine(&right);
-        combined.combine(&top);
-        combined.combine(&bottom);
-
-        Some(combined)
+        frame
     }
 }

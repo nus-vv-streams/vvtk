@@ -201,7 +201,7 @@ impl ThroughputPrediction for GAEMA<f64> {
     fn add(&mut self, value: f64) {
         self.last_last_value = self.last_value;
         self.last_value = Some(value);
-        self.count = self.count + 1;
+        self.count += 1;
         self.alltime_average =
             (self.alltime_average * (self.count - 1) as f64 + value) / self.count as f64;
 
@@ -253,7 +253,7 @@ impl ThroughputPrediction for LPEMA<f64> {
     fn add(&mut self, value: f64) {
         self.last_last_value = self.last_value;
         self.last_value = Some(value);
-        self.count = self.count + 1;
+        self.count += 1;
         self.alltime_average =
             (self.alltime_average * (self.count - 1) as f64 + value) / self.count as f64;
 
@@ -364,14 +364,14 @@ pub fn get_cosines(pos: CameraPosition) -> Vec<f32> {
 
 /// Predict the quality of the point cloud based on the geometry and attribute quality
 pub fn predict_quality(geo_qp: f32, attr_qp: f32) -> f32 {
-    2.292971443660981 - 0.0020313 * geo_qp + 0.20795236 * attr_qp - 0.00464757 * geo_qp * geo_qp
+    2.292_971_4 - 0.0020313 * geo_qp + 0.20795236 * attr_qp - 0.00464757 * geo_qp * geo_qp
         + 0.00631909 * geo_qp * attr_qp
         - 0.00678052 * attr_qp * attr_qp
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
-
     const EPSILON: f64 = 0.0001;
 
     #[test]

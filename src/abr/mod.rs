@@ -1,14 +1,5 @@
 pub mod quetra;
 
-// enum RateAdapterOption {
-//     Single(),
-//     Multiplane(),
-// }
-
-// struct RateAdapterSingle {
-//     available_bitrates: &[u64],
-// }
-
 pub trait RateAdapter: Send {
     /// Selects the bitrate to be used for the next segment download
     /// based on the current buffer occupancy and network throughput.
@@ -93,7 +84,7 @@ impl RateAdapter for MCKP {
         cosines: &[f32],
     ) -> Vec<usize> {
         let mut v = vec![];
-        let (quality, qualities_chosen) = self.select_quality_helper(
+        let (_quality, qualities_chosen) = self.select_quality_helper(
             self.v,
             network_throughput,
             available_bitrates,
@@ -105,6 +96,7 @@ impl RateAdapter for MCKP {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
 

@@ -1,6 +1,6 @@
 use std::env;
 use std::path::PathBuf;
-use vivotk::codec::decoder::{MultiplaneDecodeReq, MultiplaneDecoder};
+use vivotk::codec::decoder::Tmc2rsDecoder;
 use vivotk::codec::Decoder;
 use vivotk::pcd::PointCloudData;
 
@@ -13,14 +13,14 @@ fn main() {
     let top = env::args().nth(6).expect("input file");
     let front = env::args().nth(7).expect("input file");
 
-    let mut decoder = MultiplaneDecoder::new(MultiplaneDecodeReq {
-        left: PathBuf::from(left),
-        bottom: PathBuf::from(bottom),
-        back: PathBuf::from(back),
-        right: PathBuf::from(right),
-        top: PathBuf::from(top),
-        front: PathBuf::from(front),
-    });
+    let mut decoder = Tmc2rsDecoder::new(&[
+        PathBuf::from(left),
+        PathBuf::from(bottom),
+        PathBuf::from(back),
+        PathBuf::from(right),
+        PathBuf::from(top),
+        PathBuf::from(front),
+    ]);
     let now = std::time::Instant::now();
     decoder.start().unwrap();
     while let Some(pc) = decoder.poll() {
