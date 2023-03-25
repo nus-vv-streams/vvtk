@@ -63,18 +63,17 @@ impl MPDParser {
         *self.period_markers.last().unwrap() as usize
     }
 
-    /// Get the segment template's duration. To get the time in seconds, need to divide by segment template's timescale.
+    /// Get the segment template's duration and timescale. To get the time in seconds, need to divide duration by timescale.
     /// It is assumed that all representations (in all periods) have the same segment template duration.
-    pub fn segment_duration(&self) -> u64 {
-        self.mpd.periods[0].adaptations.as_ref().unwrap()[0]
+    pub fn segment_duration(&self) -> (u64, u64) {
+        let st = self.mpd.periods[0].adaptations.as_ref().unwrap()[0]
             .representations
             .as_ref()
             .unwrap()[0]
             .segment_template
             .as_ref()
-            .unwrap()
-            .duration
-            .unwrap()
+            .unwrap();
+        (st.duration.unwrap(), st.timescale.unwrap())
     }
 
     // From https://dashif.org/docs/DASH-IF-IOP-v4.3.pdf:

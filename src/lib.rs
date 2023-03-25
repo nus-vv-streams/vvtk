@@ -33,6 +33,8 @@ pub enum BufMsg {
             tokio::sync::mpsc::UnboundedReceiver<PointCloud<PointXyzRgba>>,
         ),
     ),
+    /// Fetch result from the fetcher
+    FetchDone(FrameRequest),
     #[cfg(feature = "render")]
     /// Frame request message.
     FrameRequest(FrameRequest),

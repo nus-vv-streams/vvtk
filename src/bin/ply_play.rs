@@ -1,9 +1,7 @@
 use cgmath::Point3;
 use clap::Parser;
 use log::{debug, trace, warn};
-use lru::LruCache;
 use std::cell::RefCell;
-use std::collections::VecDeque;
 use std::ffi::OsString;
 use std::fs::File;
 use std::io::BufReader;
@@ -13,6 +11,7 @@ use vivotk::abr::quetra::{Quetra, QuetraMultiview};
 use vivotk::abr::{RateAdapter, MCKP};
 use vivotk::codec::decoder::{DracoDecoder, NoopDecoder, Tmc2rsDecoder};
 use vivotk::codec::Decoder;
+use vivotk::dash::buffer::{Buffer, FrameStatus};
 use vivotk::dash::fetcher::{FetchResult, Fetcher};
 use vivotk::dash::{ThroughputPrediction, ViewportPrediction};
 use vivotk::formats::pointxyzrgba::PointXyzRgba;
@@ -56,8 +55,9 @@ struct Args {
     height: u32,
     #[clap(long = "controls", action = clap::ArgAction::SetTrue, default_value_t = true)]
     show_controls: bool,
+    /// buffer capacity in seconds
     #[clap(short, long)]
-    buffer_capacity: Option<usize>,
+    buffer_capacity: Option<u64>,
     #[clap(short, long)]
     metrics: Option<OsString>,
     #[clap(long = "abr", value_enum, default_value_t = AbrType::Quetra)]
@@ -162,16 +162,11 @@ struct BufferManager {
     to_buf_rx: tokio::sync::mpsc::UnboundedReceiver<BufMsg>,
     buf_in_sx: tokio::sync::mpsc::UnboundedSender<FetchRequest>,
     buf_out_sx: std::sync::mpsc::Sender<(FrameRequest, PointCloud<PointXyzRgba>)>,
-    pending_frame_req: VecDeque<FrameRequest>,
-    /// How does the cache work?
-    ///
-    /// The cache is essentially a hashmap. The key contains the object_id and frame_offset. The value is a channel that the decoder will send the point cloud to.
-    /// Everytime a point cloud is received from the channel, the cache will increment the key's frame_offset and store it back into the cache.
-    /// When the channel returns None, it means that the decoder has finished decoding the point cloud and we will remove the entry from the cache.
-    ///
-    /// Note that the cache prioritizes updates made by BufMsg::PointCloud compared to updates done by incrementing the key's frame_offset.
-    /// This is because BufMsg::PointCloud contains the new channel that the decoder promised to send the point cloud to, whereas our update is a bet that the channel is not empty yet.
-    cache: LruCache<BufferCacheKey, tokio::sync::mpsc::UnboundedReceiver<PointCloud<PointXyzRgba>>>,
+    /// frame_to_answer is the frame we are pending to answer to the renderer.
+    /// Note(25Mar23): it is an option because we are only dealing with 1 object_id for now.
+    frame_to_answer: Option<FrameRequest>,
+    /// buffer stores all requests, it might be in fetching or decoding or ready state.
+    buffer: Buffer,
     total_frames: usize,
     segment_size: u64,
     shutdown_recv: tokio::sync::watch::Receiver<bool>,
@@ -182,21 +177,40 @@ impl BufferManager {
         to_buf_rx: tokio::sync::mpsc::UnboundedReceiver<BufMsg>,
         buf_in_sx: tokio::sync::mpsc::UnboundedSender<FetchRequest>,
         buf_out_sx: std::sync::mpsc::Sender<(FrameRequest, PointCloud<PointXyzRgba>)>,
-        buffer_size: usize,
+        buffer_size: u64,
         total_frames: usize,
-        segment_size: u64,
+        segment_size: (u64, u64),
         shutdown_recv: tokio::sync::watch::Receiver<bool>,
     ) -> Self {
         BufferManager {
             to_buf_rx,
             buf_in_sx,
             buf_out_sx,
-            cache: LruCache::new(std::num::NonZeroUsize::new(buffer_size).unwrap()),
-            pending_frame_req: VecDeque::new(),
+            frame_to_answer: None,
             total_frames,
-            segment_size,
+            segment_size: segment_size.0,
             shutdown_recv,
+            // buffer size is given in seconds. however our frames are only segment_size.0 / segment_size.1 seconds long.
+            buffer: Buffer::new((buffer_size * segment_size.1 / segment_size.0) as usize),
         }
+    }
+
+    /// Get next frame request assuming playback is continuous
+    fn get_next_frame_req(&self, req: &FrameRequest) -> FrameRequest {
+        FrameRequest {
+            object_id: req.object_id,
+            frame_offset: (req.frame_offset + self.segment_size) % self.total_frames as u64,
+            camera_pos: req.camera_pos,
+        }
+    }
+
+    fn prefetch_frame(&mut self) {
+        let req = self.get_next_frame_req(&self.buffer.back().unwrap().req);
+        _ = self
+            .buf_in_sx
+            .send(FetchRequest::new(req, self.buffer.len()));
+
+        self.buffer.add(req);
     }
 
     async fn run(
@@ -205,7 +219,11 @@ impl BufferManager {
         camera_trace: Option<CameraTrace>,
         mut record_camera_trace: Option<CameraTrace>,
     ) {
+        // Since we prefetch after a `FetchDone` event, once the buffer is full, we can't prefetch anymore.
+        // So, we set this flag to true once the buffer is full, so that when the frames are consumed and the first channels are discarded, we can prefetch again.
+        let mut is_desired_buffer_level_reached = false;
         loop {
+            // dbg!(&self.buffer);
             tokio::select! {
                 _ = self.shutdown_recv.changed() => {
                     trace!("[buffer mgr] received shutdown signal");
@@ -219,6 +237,7 @@ impl BufferManager {
                                 &renderer_req
                             );
 
+                            // record camera trace
                             if record_camera_trace.is_some() && renderer_req.camera_pos.is_some() {
                                 if let Some(ct) = record_camera_trace.as_mut() { ct.add(renderer_req.camera_pos.unwrap()) }
                             }
@@ -229,71 +248,93 @@ impl BufferManager {
                                 renderer_req.camera_pos = camera_trace.as_ref().map(|ct| ct.next());
                             } else {
                                 viewport_predictor.add(renderer_req.camera_pos);
+                                renderer_req.camera_pos = viewport_predictor.predict();
                             }
+
                             // First, attempt to fulfill the request from the buffer.
                             // Check in cache whether it exists
-                            if let Some(mut rx) = self.cache.pop(&BufferCacheKey::from(renderer_req)) {
-                                // send to the renderer
-                                match rx.recv().await {
-                                    Some(pc) => {
-                                        // if camera trace is not provided, we should not send camera_pos back to the renderer
-                                        // as it is just a prediction, not an instruction to move to that position
-                                        if camera_trace.is_none() {
-                                            renderer_req.camera_pos = None;
-                                        }
-                                        _ = self.buf_out_sx.send((renderer_req, pc));
-                                        let mut next_key = BufferCacheKey::from(renderer_req);
-                                        next_key.frame_offset += 1;
-                                        if !self.cache.contains(&next_key) {
-                                            self.cache.put(next_key, rx);
-                                        }
+                            if !self.buffer.is_empty() && self.buffer.front().unwrap().req.frame_offset == renderer_req.frame_offset {
+                                let mut front = self.buffer.pop_front().unwrap();
+                                match front.state {
+                                    FrameStatus::Fetching | FrameStatus::Decoding => {
+                                        // we update frame_to_answer to indicate that we are waiting to send back this data to renderer.
+                                        self.frame_to_answer = Some(renderer_req);
+                                        self.buffer.push_front(front);
                                     }
-                                    None => {
-                                        // channel is empty, so we discard this channel and enqueue the request into the pending queue
-                                        // so that the next iteration knows to send the response to renderer.
-                                        self.pending_frame_req.push_back(renderer_req);
+                                    FrameStatus::Ready(remaining_frames, mut rx) => {
+                                        // send to the renderer
+                                        match rx.recv().await {
+                                            Some(pc) => {
+                                                // if camera trace is not provided, we should not send camera_pos back to the renderer
+                                                // as it is just a prediction, not an instruction to move to that position
+                                                if camera_trace.is_none() {
+                                                    renderer_req.camera_pos = None;
+                                                }
+                                                // send to point cloud to renderer
+                                                _ = self.buf_out_sx.send((renderer_req, pc));
+                                                self.frame_to_answer = None;
+
+                                                front.req.frame_offset += 1;
+                                                front.state = FrameStatus::Ready(remaining_frames - 1, rx);
+                                                if remaining_frames > 1 {
+                                                    // we only reinsert it if there are more frames to render
+                                                    self.buffer.push_front(front);
+                                                } else if is_desired_buffer_level_reached {
+                                                    self.prefetch_frame();
+                                                    is_desired_buffer_level_reached = false;
+                                                }
+                                            }
+                                            None => {
+                                                unreachable!("we should never have an empty channel");
+                                                // channel is empty, so we discard this channel
+                                                // we update frame_to_answer to indicate that we are waiting to send back this data to renderer.
+                                                // self.frame_to_answer = Some(renderer_req);
+                                            }
+                                        }
                                     }
                                 }
                             } else {
-                                // It doesn't exist in cache, so we send a request to the fetcher to fetch the data
-                                // First we change the camera_pos as predicted by the viewport predictor, if camera trace is not provided
-                                if camera_trace.is_none() {
-                                    renderer_req.camera_pos = viewport_predictor.predict();
-                                }
-                                _ = self.buf_in_sx.send(FetchRequest::new(renderer_req, self.cache.len()));
-                                self.pending_frame_req.push_back(renderer_req);
-                            }
+                                // It has not been requested, so we send a request to the fetcher to fetch the data
+                                // TODO: should this just be the ones that is ready to render?
+                                _ = self.buf_in_sx.send(FetchRequest::new(renderer_req, self.buffer.len()));
 
-                            // NOTE(9Mar23): Although this bit of code looks spammy (we send a predictive request to the fetcher every time we receive a request from the renderer),
-                            // the overhead is only in sending the FetchRequest. The fetcher will only send a request to the network if it isn't recently requested.
-                            // However, this behaviour might change in the future.
-                            if self.cache.len() < self.cache.cap().get() {
-                                debug!("Cache length: {:}", self.cache.len());
-                                // If the cache is not full, we send a request to the fetcher to fetch the next frame
-                                let mut next_frame_req = renderer_req;
-                                next_frame_req.frame_offset = (next_frame_req.frame_offset
-                                    + self.segment_size)
-                                    % self.total_frames as u64;
-                                _ = self.buf_in_sx.send(FetchRequest::new(next_frame_req, self.cache.len()));
-                                // we don't store this in the pending frame request because it is a preemptive request, not a request by the renderer.
+                                // we update frame_to_answer to indicate that we are waiting to send back this data to renderer.
+                                self.frame_to_answer = Some(renderer_req);
+
+                                // we also update next_fetch_req so that when the fetcher returns the data, we can immediately send the next request to the fetcher
+                                self.buffer.add(renderer_req);
+                            }
+                        }
+                        BufMsg::FetchDone(req) => {
+                            // upon receiving fetch result, immediately schedule the next fetch request
+                            self.buffer.update_state(req, FrameStatus::Decoding);
+
+                            if !self.buffer.is_full() {
+                                // If the buffer is not full yet, we can send a request to the fetcher to fetch the next frame
+                                self.prefetch_frame();
+                            } else {
+                                is_desired_buffer_level_reached = true;
                             }
                         }
                         BufMsg::PointCloud((mut metadata, mut rx)) => {
                             trace!("[buffer mgr] received a point cloud result {:?}", &metadata);
+                            let orig_metadata = metadata.into();
 
-                            if !self.pending_frame_req.is_empty()
+                            let mut remaining = self.segment_size as usize;
+                            if self.frame_to_answer.is_some()
                                 && metadata.frame_offset
-                                    == self.pending_frame_req.front().unwrap().frame_offset
+                                    == self.frame_to_answer.as_ref().unwrap().frame_offset
                             {
                                 let pc = rx.recv().await.unwrap();
                                 // send results to the renderer
                                 _ = self.buf_out_sx.send((metadata.into(), pc));
-                                self.pending_frame_req.pop_front();
+                                self.frame_to_answer = None;
                                 metadata.frame_offset += 1;
+                                remaining -= 1;
                             }
 
                             // cache the point cloud
-                            self.cache.push(metadata.into(), rx);
+                            self.buffer.update(orig_metadata, metadata.into(), FrameStatus::Ready(remaining, rx));
                         }
                     }
                 }
@@ -332,6 +373,16 @@ impl From<FetchRequest> for PCMetadata {
         PCMetadata {
             object_id: val.object_id,
             frame_offset: val.frame_offset,
+        }
+    }
+}
+
+impl From<FetchRequest> for FrameRequest {
+    fn from(val: FetchRequest) -> Self {
+        FrameRequest {
+            object_id: val.object_id,
+            frame_offset: val.frame_offset,
+            camera_pos: val.camera_pos,
         }
     }
 }
@@ -474,7 +525,6 @@ fn main() {
     // initialize logger
     env_logger::init();
     let args: Args = Args::parse();
-    dbg!(args.multiview);
     let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(8)
         .enable_all()
@@ -552,14 +602,13 @@ fn main() {
                     .collect();
 
                 let abr: Box<dyn RateAdapter> = match args.abr_type {
-                    AbrType::Quetra => Box::new(Quetra::new(buffer_capacity as u64, args.fps)),
+                    AbrType::Quetra => Box::new(Quetra::new(buffer_capacity, args.fps)),
                     AbrType::Mckp => Box::new(MCKP::new(6, qualities)),
                     AbrType::QuetraMultiview => {
-                        Box::new(QuetraMultiview::new(buffer_capacity as u64, args.fps, 6, qualities))
+                        Box::new(QuetraMultiview::new(buffer_capacity, args.fps, 6, qualities))
                     }
                 };
 
-                let mut frame_range = (0, 0);
                 loop {
                     tokio::select! {
                         _ = shutdown_recv.changed() => {
@@ -568,13 +617,6 @@ fn main() {
                             break;
                         },
                         Some(req) = buf_in_rx.recv() => {
-                            // The request has just been recently fetched (or in the buffer), so we can skip it to avoid some redundant requests to the server.
-                            // However,
-                            if frame_range.0 < req.frame_offset && req.frame_offset < frame_range.1 {
-                                tokio::task::yield_now().await;
-                                continue;
-                            }
-
                             let camera_pos = req.camera_pos.unwrap_or(CameraPosition {
                                 position: Point3::new(args.camera_x, args.camera_y, args.camera_z),
                                 yaw: cgmath::Deg(args.camera_yaw).into(),
@@ -583,7 +625,7 @@ fn main() {
 
                             // We start with a guess of 1Mbps network throughput.
                             let network_throughput = if simulated_network_trace.is_none() {
-                                throughput_predictor.predict().unwrap_or(10_000_000.0)
+                                throughput_predictor.predict().unwrap_or(1_000_000.0)
                             } else {
                                 simulated_network_trace.as_ref().unwrap().next() * 1024.0
                             };
@@ -626,10 +668,10 @@ fn main() {
                                     Ok(res) => {
                                         // update throughput prediction
                                         throughput_predictor.add(res.throughput);
+                                        // send the response to the decoder
                                         _ = in_dec_sx.send((req, res));
-                                        frame_range.0 = req.frame_offset;
-                                        frame_range.1 =
-                                            req.frame_offset + fetcher.mpd_parser.segment_duration();
+                                        // let buffer know that we are done fetching
+                                        _ = to_buf_sx.send(BufMsg::FetchDone(req.into()));
                                         break;
                                     }
                                     Err(e) => {
@@ -658,7 +700,7 @@ fn main() {
                     ply_files.push(f);
                 }
                 total_frames_tx
-                    .send((ply_files.len(), 1))
+                    .send((ply_files.len(), (1, 30)))
                     .expect("sent total frames");
                 ply_files.sort();
 
@@ -774,7 +816,6 @@ fn main() {
     let mut pcd_reader = PcdAsyncReader::new(buf_out_rx, to_buf_sx);
     // set the reader max length
     pcd_reader.set_len(total_frames);
-    dbg!(pcd_reader.len());
 
     let camera = Camera::new(
         (args.camera_x, args.camera_y, args.camera_z),

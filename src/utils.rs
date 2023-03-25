@@ -125,7 +125,6 @@ impl<const N: usize> ThroughputPrediction for SimpleRunningAverage<f64, N> {
         self.values[self.next] = value;
         self.next = (self.next + 1) % N;
         self.divide_by = std::cmp::min(self.divide_by + 1, N);
-        dbg!(self.avg, self.values, self.next);
     }
 
     fn predict(&self) -> Option<f64> {

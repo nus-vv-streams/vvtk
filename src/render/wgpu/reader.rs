@@ -110,6 +110,12 @@ pub struct FrameRequest {
     pub camera_pos: Option<CameraPosition>,
 }
 
+impl PartialEq for FrameRequest {
+    fn eq(&self, other: &Self) -> bool {
+        self.object_id == other.object_id && self.frame_offset == other.frame_offset
+    }
+}
+
 #[cfg(feature = "dash")]
 impl PcdAsyncReader {
     pub fn new(
@@ -179,12 +185,19 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         camera_pos: Option<CameraPosition>,
     ) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
         let index = index as u64;
+        let now = std::time::Instant::now();
         _ = self.tx.send(BufMsg::FrameRequest(FrameRequest {
             object_id: 0,
             frame_offset: index % self.total_frames,
             camera_pos,
         }));
         if let Ok((frame_req, pc)) = self.rx.recv() {
+            let elapsed = now.elapsed();
+            debug!(
+                "get_at returned from channel ... {} in {:?}",
+                index % self.total_frames,
+                elapsed
+            );
             (frame_req.camera_pos, Some(pc))
         } else {
             (None, None)
