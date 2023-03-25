@@ -18,7 +18,7 @@ impl Psnr {
     pub fn calculate_metric(
         original: &Vec<PointXyzRgba>,
         _original_tree: &KdTree<f32, usize, 3>,
-        _reconstructed: &Vec<PointXyzRgba>,
+        _reconstructed: &[PointXyzRgba],
         reconstructed_tree: &KdTree<f32, usize, 3>,
         metrics: &mut Metrics,
     ) {

@@ -139,9 +139,9 @@ impl RateAdapter for QuetraMultiview {
         cosines: &[f32],
     ) -> Vec<usize> {
         let mut combined_bitrates = available_bitrates[0].clone();
-        for i in 1..self.v {
-            for j in 0..combined_bitrates.len() {
-                combined_bitrates[j] += available_bitrates[i][j];
+        for bitrates_per_view in available_bitrates.iter().take(self.v).skip(1) {
+            for (j, combined) in combined_bitrates.iter_mut().enumerate() {
+                *combined += bitrates_per_view[j];
             }
         }
         // Based on the network throughput and buffer occupancy, Quetra gives us the quality to download
@@ -150,9 +150,12 @@ impl RateAdapter for QuetraMultiview {
             network_throughput,
             &[combined_bitrates],
             cosines,
-        )[0];
+        );
+        // dbg!(&quality);
+        let quality = quality[0];
         // this is the total bits that Quetra suggested us to download based on the network throughput and buffer occupancy
         let target_bitrate: u64 = available_bitrates.iter().map(|v| v[quality]).sum();
+        // dbg!(&available_bitrates, &target_bitrate);
         // now we use MCKP to decide how to distribute the bits among the views
         self.mckp.select_quality(
             buffer_occupancy,

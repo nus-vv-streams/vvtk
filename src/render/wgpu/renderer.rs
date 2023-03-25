@@ -358,8 +358,8 @@ where
         {
             self.pcd_renderer
                 .update_vertices(&self.gpu.device, &self.gpu.queue, &data);
-            if camera_pos.is_some() {
-                *self.camera_state.camera = camera_pos.unwrap();
+            if let Some(pos) = camera_pos {
+                *self.camera_state.camera = pos;
             }
             return true;
         }

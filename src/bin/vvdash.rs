@@ -61,9 +61,13 @@ fn main() {
         let mut output_frame = output_path.clone();
         output_frame.push(input_frame_name.file_name().unwrap());
         let _o = File::create(&output_frame);
-        copy(&input_frame, &output_frame).unwrap_or_else(|_| panic!("failed to copy from {} to {}",
-            &input_frame.display(),
-            &output_frame.display()));
+        copy(&input_frame, &output_frame).unwrap_or_else(|_| {
+            panic!(
+                "failed to copy from {} to {}",
+                &input_frame.display(),
+                &output_frame.display()
+            )
+        });
 
         count += 1;
     }

@@ -330,14 +330,10 @@ pub fn get_cosines(pos: CameraPosition) -> Vec<f32> {
         let camera_pos = pos.position;
         let res_0 = get_point_of_intersection_with_dist(v_0, norm_0, camera_pos, look_vector);
         let res_1 = get_point_of_intersection_with_dist(v_1, norm_1, camera_pos, look_vector);
-        if res_0.is_none() {
-            // planes are parallel to look_vector
-            (1.0, 1.0)
-        } else {
+        if let Some((p_0, d_0)) = res_0 {
             // Angles returned by `back_face_culling` abs() value is similar. 
             // The negative sign is assigned to the face that is in front of the other.
             // Why do we need to do this? Because if the point intersection is behind the camera, both faces will have the same cosine value.
-            let (p_0, d_0) = res_0.unwrap();
             let (_, d_1) = res_1.unwrap();
             let c_0 = back_face_culling(camera_pos, p_0, norm_0);
             if c_0 < 0.0 && d_0 < d_1 || c_0 > 0.0 && d_0 > d_1 {
@@ -345,6 +341,8 @@ pub fn get_cosines(pos: CameraPosition) -> Vec<f32> {
             } else {
                 (-c_0, c_0)
             }
+        } else {            // planes are parallel to look_vector
+            (1.0, 1.0)
         }
     };
 

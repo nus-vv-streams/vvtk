@@ -103,7 +103,7 @@ impl Fetcher {
                 let local_file_path = self.download_dir.join(filename);
                 async move {
                     let f = File::open(local_file_path).await;
-                    if let Ok(_) = f {
+                    if f.is_ok() {
                         // File exists so we should skip downloading
                         Ok(None)
                     } else {
