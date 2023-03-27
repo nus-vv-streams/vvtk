@@ -90,9 +90,16 @@ impl RateAdapter for Quetra {
         let mut result: usize = 0;
         let mut min_diff_with_buffer_occupancy = f64::MAX;
 
+        let mut combined_bitrates = available_bitrates[0].clone();
+        for bitrates_per_view in available_bitrates.iter().skip(1) {
+            for (j, combined) in combined_bitrates.iter_mut().enumerate() {
+                *combined += bitrates_per_view[j];
+            }
+        }
+
         // Find a rate r_i where the buffer slack value (P_krb) has the smallest difference with Bt
         // In other words, we are looking for a rate that keeps the buffer occupancy at half-full.
-        for (i, r) in available_bitrates[0].iter().enumerate() {
+        for (i, r) in combined_bitrates.iter().enumerate() {
             let pkrb_r_i = self.buffer_slack(*r as f64, network_throughput);
             let diff = (pkrb_r_i - buffer_occupancy as f64).abs();
             if diff < min_diff_with_buffer_occupancy {
@@ -138,17 +145,11 @@ impl RateAdapter for QuetraMultiview {
         available_bitrates: &[Vec<u64>],
         cosines: &[f32],
     ) -> Vec<usize> {
-        let mut combined_bitrates = available_bitrates[0].clone();
-        for bitrates_per_view in available_bitrates.iter().take(self.v).skip(1) {
-            for (j, combined) in combined_bitrates.iter_mut().enumerate() {
-                *combined += bitrates_per_view[j];
-            }
-        }
         // Based on the network throughput and buffer occupancy, Quetra gives us the quality to download
         let quality = self.quetra.select_quality(
             buffer_occupancy,
             network_throughput,
-            &[combined_bitrates],
+            &available_bitrates[0..self.v],
             cosines,
         );
         // dbg!(&quality);

@@ -1,6 +1,7 @@
 use super::parser::MPDParser;
 use anyhow::{Context, Result};
 use futures::future;
+use log::info;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::fs::File;
@@ -129,7 +130,12 @@ impl Fetcher {
             .sum::<usize>()
             * 8;
         let avg_bitrate_in_bps = total_bits as f64 / (elapsed.as_secs_f64() + 1.0e-20);
-
+        if total_bits > 0 {
+            info!(
+                "Downloaded quality: {:?} total: {} bits time: {:?} avg_bitrate: {} bps",
+                quality, total_bits, elapsed, avg_bitrate_in_bps
+            );
+        }
         for (i, content) in contents.into_iter().enumerate() {
             if let Ok(Some(content)) = content {
                 let mut file = File::create(&paths[i].clone().unwrap()).await?;
