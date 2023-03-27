@@ -58,7 +58,9 @@ impl Fetcher {
         frame: u64,
         quality: &[usize],
         is_multiview: bool,
+        simulated_network_throughput: Option<f64>,
     ) -> Result<FetchResult> {
+        let start = tokio::time::Instant::now();
         let mut paths = core::array::from_fn(|_| None);
 
         // quality is representation id (0 is lowest quality)
@@ -94,7 +96,7 @@ impl Fetcher {
             bandwidths[0] = bandwidth;
             paths[0] = Some(output_path);
         }
-        let now = std::time::Instant::now();
+        let download_start = tokio::time::Instant::now();
 
         // If file exists, then there is no need to download again.
         let contents = future::join_all(urls.into_iter().filter(|url| url.is_some()).map(|url| {
@@ -120,8 +122,6 @@ impl Fetcher {
         }))
         .await;
 
-        let elapsed = now.elapsed();
-
         let total_bits = contents
             .iter()
             .filter_map(|c| c.as_ref().ok())
@@ -129,13 +129,7 @@ impl Fetcher {
             .map(|c| c.as_ref().unwrap().len())
             .sum::<usize>()
             * 8;
-        let avg_bitrate_in_bps = total_bits as f64 / (elapsed.as_secs_f64() + 1.0e-20);
-        if total_bits > 0 {
-            info!(
-                "Downloaded quality: {:?} total: {} bits time: {:?} avg_bitrate: {} bps",
-                quality, total_bits, elapsed, avg_bitrate_in_bps
-            );
-        }
+
         for (i, content) in contents.into_iter().enumerate() {
             if let Ok(Some(content)) = content {
                 let mut file = File::create(&paths[i].clone().unwrap()).await?;
@@ -145,6 +139,25 @@ impl Fetcher {
                 return Err(e.into());
             }
         }
+
+        // simulate sleep
+        if simulated_network_throughput.is_some() {
+            let simulated_time = total_bits as f64 / simulated_network_throughput.unwrap();
+            let sleep_time = Duration::from_secs_f64(simulated_time).checked_sub(start.elapsed());
+            if let Some(sleep_time) = sleep_time {
+                tokio::time::sleep(sleep_time).await;
+            }
+        }
+
+        let download_time = download_start.elapsed();
+        let avg_bitrate_in_bps = total_bits as f64 / (download_time.as_secs_f64() + 1.0e-20);
+        if total_bits > 0 {
+            info!(
+                "Downloaded quality: {:?} total: {} bits time: {:?} avg_bitrate: {} bps",
+                quality, total_bits, download_time, avg_bitrate_in_bps
+            );
+        }
+
         Ok(FetchResult {
             paths,
             throughput: avg_bitrate_in_bps,

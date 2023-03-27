@@ -64,6 +64,7 @@ struct Args {
     abr_type: AbrType,
     #[clap(long = "decoder", value_enum, default_value_t = DecoderType::Tmc2rs)]
     decoder_type: DecoderType,
+    /// Set this flag if each view is encoded separately, i.e. multiview
     #[clap(long, action = clap::ArgAction::SetTrue)]
     multiview: bool,
     /// Path to the decoder binary (only for Draco)
@@ -666,7 +667,7 @@ fn main() {
                                 trace!("[fetcher] trying request {:?}", &req);
 
                                 let p = fetcher
-                                    .download(req.object_id, req.frame_offset, &quality, args.multiview)
+                                    .download(req.object_id, req.frame_offset, &quality, args.multiview, if simulated_network_trace.is_some() { Some(network_throughput) } else { None })
                                     .await;
 
                                 match p {

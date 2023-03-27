@@ -15,14 +15,14 @@ const FPS: u64 = 30;
 
 #[derive(Clone)]
 pub struct MPDParser {
-    mpd: MPD,
+    mpd: Mpd,
     /// contains the first frame offsets for all `Period` in the MPD and the total number of frames.
     period_markers: Vec<u64>,
 }
 
 impl MPDParser {
     pub fn new(xml: &str) -> MPDParser {
-        let mpd = MPD::from_xml(xml).unwrap();
+        let mpd = Mpd::from_xml(xml).unwrap();
 
         let mut framestamps: Vec<u64> = vec![];
         let mut curr_frame = 0;
@@ -436,7 +436,7 @@ pub(super) struct Period {
 #[skip_serializing_none]
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 #[serde(default)]
-pub(super) struct MPD {
+pub(super) struct Mpd {
     #[serde(rename = "type")]
     pub mpdtype: Option<String>,
     pub xmlns: Option<String>,
@@ -454,8 +454,8 @@ pub(super) struct MPD {
     pub base_urls: Option<Vec<BaseURL>>,
 }
 
-impl MPD {
-    pub(super) fn from_xml(xml: &str) -> Result<MPD> {
+impl Mpd {
+    pub(super) fn from_xml(xml: &str) -> Result<Mpd> {
         quick_xml::de::from_str(xml).map_err(|e| e.into())
     }
 }
@@ -466,7 +466,7 @@ mod tests {
 
     #[test]
     pub fn test_run() {
-        let mpd = MPD::from_xml(
+        let mpd = Mpd::from_xml(
             r#"<?xml version='1.0'?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" 
     profiles="urn:mpeg:dash:profile:full:2011">
