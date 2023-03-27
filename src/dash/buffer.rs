@@ -65,7 +65,7 @@ impl Buffer {
     #[inline]
     /// Pushes back a new frame request with fetching status
     pub fn add(&mut self, req: FrameRequest) {
-        assert!(self.frames.len() < self.capacity);
+        assert!(self.frames.len() <= self.capacity);
         self.frames.push_back(RequestStatus {
             req,
             state: FrameStatus::Fetching,
@@ -74,13 +74,13 @@ impl Buffer {
 
     #[inline]
     pub fn push_back(&mut self, state: RequestStatus) {
-        assert!(self.frames.len() < self.capacity);
+        assert!(self.frames.len() <= self.capacity);
         self.frames.push_back(state);
     }
 
     #[inline]
     pub fn push_front(&mut self, state: RequestStatus) {
-        assert!(self.frames.len() < self.capacity);
+        assert!(self.frames.len() <= self.capacity);
         self.frames.push_front(state);
     }
 
@@ -100,25 +100,33 @@ impl Buffer {
     }
 
     #[inline]
-    /// Update the request and state of a frame
+    /// Update the request and state of a frame. Panics if key is not found. If the new_state is Ready(0, _), the frame is removed.
     pub fn update(&mut self, key: FrameRequest, new_key: FrameRequest, new_state: FrameStatus) {
         let idx = self
             .frames
             .iter()
             .position(|f| f.req == key)
             .expect("Frame not found");
+        if let FrameStatus::Ready(0, _) = new_state {
+            self.frames.remove(idx);
+            return;
+        }
         self.frames[idx].req = new_key;
         self.frames[idx].state = new_state;
     }
 
     #[inline]
-    /// Update only the state of a frame
+    /// Update only the state of a frame. Panics if key is not found. If the state is Ready(0, _), the frame is removed.
     pub fn update_state(&mut self, req: FrameRequest, state: FrameStatus) {
         let idx = self
             .frames
             .iter()
             .position(|f| f.req == req)
             .expect("Frame not found");
+        if let FrameStatus::Ready(0, _) = state {
+            self.frames.remove(idx);
+            return;
+        }
         self.frames[idx].state = state;
     }
 

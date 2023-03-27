@@ -223,7 +223,7 @@ impl BufferManager {
         // So, we set this flag to true once the buffer is full, so that when the frames are consumed and the first channels are discarded, we can prefetch again.
         let mut is_desired_buffer_level_reached = false;
         loop {
-            // dbg!(&self.buffer);
+            trace!("buffer: {:?}", &self.buffer);
             tokio::select! {
                 _ = self.shutdown_recv.changed() => {
                     trace!("[buffer mgr] received shutdown signal");
@@ -333,7 +333,7 @@ impl BufferManager {
                                 remaining -= 1;
                             }
 
-                            // cache the point cloud
+                            // cache the point cloud if there is still point clouds to render
                             self.buffer.update(orig_metadata, metadata.into(), FrameStatus::Ready(remaining, rx));
                         }
                     }
@@ -521,6 +521,11 @@ impl Drop for CameraTrace {
     }
 }
 
+/// Returns if the source file is remote
+fn is_remote_src(src: &str) -> bool {
+    src.starts_with("http://") || src.starts_with("https://")
+}
+
 fn main() {
     // initialize logger
     env_logger::init();
@@ -546,7 +551,7 @@ fn main() {
     let (total_frames_tx, total_frames_rx) = tokio::sync::oneshot::channel();
 
     // initialize variables based on args
-    let buffer_capacity = args.buffer_capacity.unwrap_or(4);
+    let buffer_capacity = args.buffer_capacity.unwrap_or(2);
     let simulated_network_trace = args.network_trace.map(|path| NetworkTrace::new(&path));
     let simulated_camera_trace = args.camera_trace.map(|path| CameraTrace::new(&path, false));
     let record_camera_trace = args
@@ -575,7 +580,7 @@ fn main() {
             };
 
         rt.spawn(async move {
-            if src.starts_with("http") {
+            if is_remote_src(&args.src) {
                 let tmpdir = tempdir().expect("created temp dir to store files");
                 let path = tmpdir.path();
                 trace!("[fetcher] Downloading files to {}", path.to_str().unwrap());
@@ -711,14 +716,13 @@ fn main() {
                             break;
                         },
                         Some(req) = buf_in_rx.recv() => {
-                            let (output_sx, output_rx) = tokio::sync::mpsc::unbounded_channel();
                             trace!("[fetcher] got fetch request {:?}", req);
-                            let pcd =
-                                read_file_to_point_cloud(ply_files.get(req.frame_offset as usize).unwrap())
-                                    .expect("read file to point cloud failed");
-                            _ = output_sx.send(pcd);
-                            // ignore if failed to send to renderer
-                            _ = to_buf_sx.send(BufMsg::PointCloud((req.into(), output_rx)));
+                            _ = in_dec_sx.send((req, FetchResult {
+                                paths: [ply_files.get(req.frame_offset as usize).map(|p| p.to_path_buf()), None, None, None, None, None],
+                                throughput: 0.0,
+                            }));
+                            // let buffer know that we are done fetching
+                            _ = to_buf_sx.send(BufMsg::FetchDone(req.into()));
                         }
                         else => break,
                     }
@@ -776,7 +780,7 @@ fn main() {
                                 _ = output_sx.send(pcd);
                             }
                             let elapsed = now.elapsed();
-                            dbg!(elapsed);
+                            debug!("Decoding took {:?}", elapsed);
                         })
                         .await
                         .unwrap();
