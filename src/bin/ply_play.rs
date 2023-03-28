@@ -34,8 +34,9 @@ use vivotk::{BufMsg, PCMetadata};
 #[derive(Parser)]
 struct Args {
     /// src can be:
-    /// 1. Directory with all the pcd files in lexicographical order
-    /// 2. location of the mpd file
+    ///
+    /// 1. Directory with all the ply files
+    /// 2. location of the mpd url (dash)
     src: String,
     #[clap(short, long, default_value_t = 30.0)]
     fps: f32,
@@ -49,8 +50,14 @@ struct Args {
     camera_pitch: f32,
     #[clap(long = "yaw", default_value_t = -90.0)]
     camera_yaw: f32,
+    /// Set the screen width.
+    ///
+    /// To enable rendering at full screen, compile with `--features fullscreen` (depends on device gpu support)
     #[clap(short, long, default_value_t = 1600)]
     width: u32,
+    /// Set the screen height.
+    ///
+    /// To enable rendering at full screen, compile with `--features fullscreen` (depends on device gpu support)
     #[clap(short, long, default_value_t = 900)]
     height: u32,
     #[clap(long = "controls", action = clap::ArgAction::SetTrue, default_value_t = true)]
@@ -88,6 +95,7 @@ struct Args {
     #[clap(long)]
     record_camera_trace: Option<PathBuf>,
     /// Enable fetcher optimizations
+    ///
     /// 1. Not fetching when file has been previously downloaded.
     #[clap(long, action = clap::ArgAction::SetTrue)]
     enable_fetcher_optimizations: bool,

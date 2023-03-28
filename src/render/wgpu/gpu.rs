@@ -34,7 +34,11 @@ impl WindowGpu {
                 &wgpu::DeviceDescriptor {
                     label: None,
                     features: wgpu::Features::empty(),
+                    #[cfg(not(feature = "fullscreen"))]
                     limits: wgpu::Limits::downlevel_defaults(),
+                    // https://github.com/gfx-rs/wgpu/discussions/2952?sort=top
+                    #[cfg(feature = "fullscreen")]
+                    limits: adapter.limits(),
                 },
                 None, // Trace path
             )

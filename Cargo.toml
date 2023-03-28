@@ -80,6 +80,8 @@ render = ["dep:winit", "dep:wgpu", "dep:wgpu_glyph", "dep:egui", "dep:egui_winit
 dash = ["dep:reqwest", "dep:regex", "dep:tempfile", "dep:quick-xml", "serde", "async"]
 async = ["dep:tokio", "dep:futures"]
 serde = ["dep:serde", "dep:serde_with"]
+# use this feature to support resizing to a screen size larger than 2048x2048 (depending on your gpu support)
+fullscreen = []
 
 [[bench]]
 name = "reader"
