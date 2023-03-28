@@ -87,6 +87,10 @@ struct Args {
     /// Path to record camera trace from the player.
     #[clap(long)]
     record_camera_trace: Option<PathBuf>,
+    /// Enable fetcher optimizations
+    /// 1. Not fetching when file has been previously downloaded.
+    #[clap(long, action = clap::ArgAction::SetTrue)]
+    enable_fetcher_optimizations: bool,
 }
 
 #[derive(clap::ValueEnum, Clone, Copy)]
@@ -586,7 +590,7 @@ fn main() {
                 let path = tmpdir.path();
                 trace!("[fetcher] Downloading files to {}", path.to_str().unwrap());
 
-                let mut fetcher = Fetcher::new(&src, path).await;
+                let mut fetcher = Fetcher::new(&src, path, args.enable_fetcher_optimizations).await;
                 total_frames_tx
                     .send((
                         fetcher.mpd_parser.total_frames(),
@@ -661,6 +665,7 @@ fn main() {
                                 &available_bitrates,
                                 &cosines,
                             );
+                            debug!("buffer_occupancy: {}, network: {}", req.buffer_occupancy, network_throughput);
 
                             // This is a retry loop, we should probably do *bounded* retry here instead of looping indefinitely.
                             loop {

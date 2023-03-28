@@ -13,6 +13,7 @@ pub struct Fetcher {
     http_client: HttpClient,
     pub mpd_parser: MPDParser,
     download_dir: PathBuf,
+    enable_optimizations: bool,
 }
 
 #[derive(Debug)]
@@ -32,7 +33,11 @@ impl Fetcher {
     // number of views
     const VIEWS: usize = 6;
 
-    pub async fn new<P: Into<PathBuf>>(mpd_url: &str, download_dir: P) -> Fetcher {
+    pub async fn new<P: Into<PathBuf>>(
+        mpd_url: &str,
+        download_dir: P,
+        enable_optimizations: bool,
+    ) -> Fetcher {
         let client = reqwest::Client::builder()
             .timeout(Duration::new(30, 0))
             .gzip(true)
@@ -48,6 +53,7 @@ impl Fetcher {
             http_client: client,
             mpd_parser: MPDParser::new(&mpd),
             download_dir: download_dir.into(),
+            enable_optimizations,
         }
     }
 
@@ -104,9 +110,10 @@ impl Fetcher {
                 let client = &self.http_client;
                 let filename = generate_filename_from_url(url.as_str());
                 let local_file_path = self.download_dir.join(filename);
+                let enable_optimizations = self.enable_optimizations;
                 async move {
                     let f = File::open(local_file_path).await;
-                    if f.is_ok() {
+                    if enable_optimizations && f.is_ok() {
                         // File exists so we should skip downloading
                         Ok(None)
                     } else {
