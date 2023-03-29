@@ -89,9 +89,6 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
 #[cfg(feature = "dash")]
 pub struct PcdAsyncReader {
     total_frames: u64,
-    /// PcdAsyncReader tries to maintain this level of buffer occupancy at any time
-    // buffer_size: u8,
-    // cache: HashMap<FrameRequest, PointCloud<PointXyzRgba>>,
     rx: Receiver<(FrameRequest, PointCloud<PointXyzRgba>)>,
     tx: UnboundedSender<BufMsg>,
 }
@@ -101,7 +98,6 @@ pub struct PcdAsyncReader {
 /// A request to the player backend for a frame to be displayed by the renderer.
 pub struct FrameRequest {
     pub object_id: u8,
-    // pub quality: u8,
     /// Frame offset from the start of the video.
     ///
     /// To get the frame number, add the offset to the frame number of the first frame in the video.
@@ -132,50 +128,11 @@ impl PcdAsyncReader {
             total_frames: 30, // default number of frames. Use `set_len` to overwrite this value
         }
     }
-
-    // fn send_next_req(&mut self, object_id: u8) {
-    //     assert_eq!(object_id, 0, "only one object supported for now");
-    //     while self.next_to_get == 0
-    //         || self.next_to_get - self.current_frame <= self.buffer_size as u64 + 1
-    //     {
-    //         debug!(
-    //             "next_to_get {}, current_frame {}, buffer_size {}",
-    //             self.next_to_get, self.current_frame, self.buffer_size
-    //         );
-    //         // FIXME: change the object_id.
-    //         self.tx
-    //             .send(FrameRequest {
-    //                 object_id,
-    //                 frame_offset: self.next_to_get as u64,
-    //             })
-    //             .unwrap();
-    //         self.next_to_get = (self.next_to_get + 1) % (self.len() as u64);
-    //         // FIXME: THIS IS A HACK to handle edge case and loop over.
-    //         if self.next_to_get == 0 {
-    //             break;
-    //         }
-    //     }
-    // }
 }
 
 #[cfg(feature = "dash")]
 impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
     fn start(&mut self) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
-        // for i in 0..self.buffer_size {
-        //     self.tx
-        //         .send(FrameRequest {
-        //             object_id: 0,
-        //             frame_offset: i as u64,
-        //         })
-        //         .unwrap();
-        // }
-        // self.next_to_get = self.buffer_size as u64;
-        // loop {
-        //     if let Some(data) = self.get_at(0) {
-        //         break Some(data);
-        //     }
-        //     std::thread::sleep(std::time::Duration::from_secs(1));
-        // }
         self.get_at(0, None)
     }
 
@@ -185,54 +142,16 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         camera_pos: Option<CameraPosition>,
     ) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
         let index = index as u64;
-        let now = std::time::Instant::now();
         _ = self.tx.send(BufMsg::FrameRequest(FrameRequest {
             object_id: 0,
             frame_offset: index % self.total_frames,
             camera_pos,
         }));
         if let Ok((frame_req, pc)) = self.rx.recv() {
-            let elapsed = now.elapsed();
-            debug!(
-                "get_at returned from channel ... {} in {:?}",
-                index % self.total_frames,
-                elapsed
-            );
             (frame_req.camera_pos, Some(pc))
         } else {
             (None, None)
         }
-
-        // remove if we have in the buffer.
-        // FIXME: change the object_id and quality.
-        // if let Some(data) = self.cache.remove(&FrameRequest {
-        //     object_id: 0u8,
-        //     frame_offset: index,
-        // }) {
-        //     trace!("get_at returned from buffer ... {}", index);
-        //     self.send_next_req(0);
-        //     self.current_frame = (self.current_frame + 1) % (self.len() as u64);
-        //     return Some(data);
-        // }
-
-        // loop {
-        //     trace!("{} looping...", index);
-        //     if let Ok((req, data)) = self.rx.recv() {
-        //         if req.frame_offset == index {
-        //             debug!("get_at returned from channel ... {}", req.frame_offset);
-        //             self.send_next_req(0);
-        //             self.current_frame = (self.current_frame + 1) % (self.len() as u64);
-        //             return Some(data);
-        //         }
-
-        //         // enqueues the data into our cache and preemptively start the next request.
-        //         debug!("get_at buffers... {}", req.frame_offset);
-        //         self.cache.insert(req, data);
-        //         self.send_next_req(0);
-        //     } else {
-        //         break None;
-        //     }
-        // }
     }
 
     fn len(&self) -> usize {

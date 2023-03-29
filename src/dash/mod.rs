@@ -5,7 +5,7 @@ pub mod fetcher;
 pub mod parser;
 
 pub trait ViewportPrediction: Send {
-    fn add(&mut self, pos: Option<CameraPosition>);
+    fn add(&mut self, pos: CameraPosition);
     fn predict(&self) -> Option<CameraPosition>;
 }
 

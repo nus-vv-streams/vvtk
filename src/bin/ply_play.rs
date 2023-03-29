@@ -234,6 +234,7 @@ impl BufferManager {
     async fn run(
         &mut self,
         mut viewport_predictor: Box<dyn ViewportPrediction>,
+        original_position: CameraPosition,
         camera_trace: Option<CameraTrace>,
         mut record_camera_trace: Option<CameraTrace>,
     ) {
@@ -265,7 +266,7 @@ impl BufferManager {
                             if camera_trace.is_some() {
                                 renderer_req.camera_pos = camera_trace.as_ref().map(|ct| ct.next());
                             } else {
-                                viewport_predictor.add(renderer_req.camera_pos);
+                                viewport_predictor.add(renderer_req.camera_pos.unwrap_or_else(|| original_position));
                                 renderer_req.camera_pos = viewport_predictor.predict();
                             }
 
@@ -285,9 +286,11 @@ impl BufferManager {
                                             Some(pc) => {
                                                 // if camera trace is not provided, we should not send camera_pos back to the renderer
                                                 // as it is just a prediction, not an instruction to move to that position
-                                                if camera_trace.is_none() {
-                                                    renderer_req.camera_pos = None;
-                                                }
+                                                let original_camera_pos = if camera_trace.is_none() {
+                                                    renderer_req.camera_pos.take()
+                                                } else {
+                                                    renderer_req.camera_pos
+                                                };
                                                 // send to point cloud to renderer
                                                 _ = self.buf_out_sx.send((renderer_req, pc));
                                                 self.frame_to_answer = None;
@@ -298,7 +301,7 @@ impl BufferManager {
                                                     // we only reinsert it if there are more frames to render
                                                     self.buffer.push_front(front);
                                                 } else if is_desired_buffer_level_reached {
-                                                    self.prefetch_frame(renderer_req.camera_pos);
+                                                    self.prefetch_frame(original_camera_pos);
                                                     is_desired_buffer_level_reached = false;
                                                 }
                                             }
@@ -313,7 +316,6 @@ impl BufferManager {
                                 }
                             } else {
                                 // It has not been requested, so we send a request to the fetcher to fetch the data
-                                // TODO: should this just be the ones that is ready to render?
                                 _ = self.buf_in_sx.send(FetchRequest::new(renderer_req, self.buffer.len()));
 
                                 // we update frame_to_answer to indicate that we are waiting to send back this data to renderer.
@@ -640,11 +642,7 @@ fn main() {
                             break;
                         },
                         Some(req) = buf_in_rx.recv() => {
-                            let camera_pos = req.camera_pos.unwrap_or(CameraPosition {
-                                position: Point3::new(args.camera_x, args.camera_y, args.camera_z),
-                                yaw: cgmath::Deg(args.camera_yaw).into(),
-                                pitch: cgmath::Deg(args.camera_pitch).into(),
-                            });
+                            let camera_pos = req.camera_pos.expect("camera position is always provided");
 
                             // We start with a guess of 1Mbps network throughput.
                             let network_throughput = if simulated_network_trace.is_none() {
@@ -829,6 +827,11 @@ fn main() {
         buffer
             .run(
                 viewport_predictor,
+                CameraPosition {
+                    position: Point3::new(args.camera_x, args.camera_y, args.camera_z),
+                    yaw: cgmath::Deg(args.camera_yaw).into(),
+                    pitch: cgmath::Deg(args.camera_pitch).into(),
+                },
                 simulated_camera_trace,
                 record_camera_trace,
             )

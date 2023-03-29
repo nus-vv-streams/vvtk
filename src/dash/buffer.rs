@@ -17,7 +17,7 @@ impl Debug for RequestStatus {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "object_id: {}, frame_offset: {}, state: {:?}",
+            "{{ object_id: {}, frame_offset: {}, state: {:?} }}",
             self.req.object_id, self.req.frame_offset, self.state
         )
     }

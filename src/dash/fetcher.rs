@@ -160,10 +160,10 @@ impl Fetcher {
         let avg_bitrate_in_bps = total_bits as f64 / (download_time.as_secs_f64() + 1.0e-20);
         if total_bits > 0 {
             info!(
-                "Downloaded quality: {:?} total: {} bits time: {} ms avg_bitrate: {} bps",
+                "Downloaded quality: {:?} total: {} bits time: {} s avg_bitrate: {} bps",
                 quality,
                 total_bits,
-                download_time.as_millis(),
+                download_time.as_secs_f32(),
                 avg_bitrate_in_bps
             );
         }

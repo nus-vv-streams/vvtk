@@ -269,7 +269,7 @@ where
         self.update_stats();
         // FIXME: avg_fps might not be accurately when a frame fails to render. but it's not a big deal
         let time_taken = now.elapsed();
-        debug!("move_to {} takes: {:?}", position, time_taken);
+        debug!("move_to {} takes: {} µs", position, time_taken.as_micros());
         self.fps =
             0.9 * self.fps + 0.1 * (1.0 / time_taken.max(self.time_to_advance).as_secs_f32());
     }
@@ -281,10 +281,6 @@ where
     }
 
     fn advance(&mut self) {
-        // println!(
-        //     "[renderer.rs] advanced called. current_position: {}",
-        //     self.current_position
-        // );
         if self.current_position == self.reader.len() - 1 {
             self.move_to(0);
         } else {
