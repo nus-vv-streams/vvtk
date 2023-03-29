@@ -1,6 +1,6 @@
 use cgmath::Point3;
 use clap::Parser;
-use log::{debug, trace, warn};
+use log::{debug, info, trace, warn};
 use std::cell::RefCell;
 use std::ffi::OsString;
 use std::fs::File;
@@ -44,7 +44,7 @@ struct Args {
     camera_x: f32,
     #[clap(short = 'y', long, default_value_t = 0.0)]
     camera_y: f32,
-    #[clap(short = 'z', long, default_value_t = 1.3)]
+    #[clap(short = 'z', long, default_value_t = 1.5)]
     camera_z: f32,
     #[clap(long = "pitch", default_value_t = 0.0)]
     camera_pitch: f32,
@@ -217,8 +217,13 @@ impl BufferManager {
         }
     }
 
-    fn prefetch_frame(&mut self) {
-        let req = self.get_next_frame_req(&self.buffer.back().unwrap().req);
+    fn prefetch_frame(&mut self, camera_pos: Option<CameraPosition>) {
+        assert!(camera_pos.is_some());
+        let last_req = FrameRequest {
+            camera_pos,
+            ..self.buffer.back().unwrap().req
+        };
+        let req = self.get_next_frame_req(&last_req);
         _ = self
             .buf_in_sx
             .send(FetchRequest::new(req, self.buffer.len()));
@@ -293,7 +298,7 @@ impl BufferManager {
                                                     // we only reinsert it if there are more frames to render
                                                     self.buffer.push_front(front);
                                                 } else if is_desired_buffer_level_reached {
-                                                    self.prefetch_frame();
+                                                    self.prefetch_frame(renderer_req.camera_pos);
                                                     is_desired_buffer_level_reached = false;
                                                 }
                                             }
@@ -324,7 +329,7 @@ impl BufferManager {
 
                             if !self.buffer.is_full() {
                                 // If the buffer is not full yet, we can send a request to the fetcher to fetch the next frame
-                                self.prefetch_frame();
+                                self.prefetch_frame(req.camera_pos);
                             } else {
                                 is_desired_buffer_level_reached = true;
                             }
@@ -340,7 +345,7 @@ impl BufferManager {
                             {
                                 let pc = rx.recv().await.unwrap();
                                 // send results to the renderer
-                                _ = self.buf_out_sx.send((metadata.into(), pc));
+                                _ = self.buf_out_sx.send((self.frame_to_answer.unwrap(), pc));
                                 self.frame_to_answer = None;
                                 metadata.frame_offset += 1;
                                 remaining -= 1;
@@ -673,7 +678,7 @@ fn main() {
                                 &available_bitrates,
                                 &cosines,
                             );
-                            debug!("buffer_occupancy: {}, network: {}", req.buffer_occupancy, network_throughput);
+                            info!("buffer_occupancy: {}, network: {}, cosines: {:?}", req.buffer_occupancy, network_throughput, &cosines);
 
                             // This is a retry loop, we should probably do *bounded* retry here instead of looping indefinitely.
                             loop {

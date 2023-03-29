@@ -316,12 +316,19 @@ fn get_point_of_intersection_with_dist(
 /// 
 /// Assumption(14Mar23): the object has a cube-shaped bounding box, centered at the origin with side length 1.
 pub fn get_cosines(pos: CameraPosition) -> Vec<f32> {
+    use log::debug;
+
     let look_vector = Vector3 {
         x: pos.yaw.0.cos(),
         y: pos.pitch.0.sin(),
         z: pos.yaw.0.sin() + pos.yaw.0.sin().signum() * pos.pitch.0.cos(),
     }
     .normalize();
+    debug!("look_vector: {:?}, camera_pos: {:?}", Vector3 {
+        x: pos.yaw.0.cos(),
+        y: pos.pitch.0.sin(),
+        z: pos.yaw.0.sin() + pos.yaw.0.sin().signum() * pos.pitch.0.cos(),
+    }, pos);
 
     let get_cosine_pair = |(v_0, norm_0): (Point3<f32>, Vector3<f32>),
                            (v_1, norm_1): (Point3<f32>, Vector3<f32>)|
