@@ -70,10 +70,6 @@ name = "vvdash"
 [[bin]]
 name = "vivotk"
 
-[[bin]]
-name = "multiplane"
-required-features = ["async", "serde"]
-
 [features]
 default = ["render", "dash"]
 render = ["dep:winit", "dep:wgpu", "dep:wgpu_glyph", "dep:egui", "dep:egui_winit_platform", "dep:egui_wgpu_backend", "dep:epi"]
