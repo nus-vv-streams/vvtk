@@ -6,6 +6,8 @@ use std::fs::File;
 use std::io;
 use std::path::Path;
 use std::path::PathBuf;
+use vivotk::abr::quetra::{Quetra, QuetraMultiview};
+use vivotk::abr::{RateAdapter, MCKP};
 
 // take binary files from input folder and a simulated network condition,
 // then output binary files of varying qualities into output folder (should decoding be done here?)
@@ -84,6 +86,7 @@ fn main() {
     let mut input_folder_pathbuf: &PathBuf;
 
     // getting entries from default input folder ("R05" folder) to retrieve infomation (any alternatives?)
+    // longdress format: r1_longdress_dec_0000.ply
     let entries = get_entries(input_folder_R05.as_path()).expect("failed to get entries");
 
     let re = Regex::new(r"(.{7})(.{3})_(.{3})_(.{3})_(\d{4}).pcd").unwrap();
@@ -110,52 +113,77 @@ fn main() {
     start_no = starting_frame_int;
 
     while count < total_frames {
-        let quality: &str;
-        // buffer-based approach used for rate adaptation, appropriate lower and higher reservoir
-        // needed in order to avoid overflow and underflow
-        let mut bandwidth_buf: f32 = 0.0;
-        for i in count..count + frame_increment_int {
-            bandwidth_buf += bandwidth[i];
+        if algorithm == "abr" {
+            // abr algorithm
+            //
+            let quality: &str;
+            // buffer-based approach used for rate adaptation, appropriate lower and higher reservoir
+            // needed in order to avoid overflow and underflow
+            let mut bandwidth_buf: f32 = 0.0;
+            for i in count..count + frame_increment_int {
+                bandwidth_buf += bandwidth[i];
+            }
+
+            // for simulation purposes, use the .bin file sizes as benchmark for values (naive algo)
+            // values used for longdress, R01 to R05
+            if bandwidth_buf < 4641.836 {
+                input_folder_pathbuf = &input_folder_R01;
+                quality = "R01";
+            } else if bandwidth_buf < 7975.9168 {
+                input_folder_pathbuf = &input_folder_R02;
+                quality = "R02";
+            } else if bandwidth_buf < 14050.2664 {
+                input_folder_pathbuf = &input_folder_R03;
+                quality = "R03";
+            } else if bandwidth_buf < 25974.38 {
+                input_folder_pathbuf = &input_folder_R04;
+                quality = "R04";
+            } else {
+                input_folder_pathbuf = &input_folder_R05;
+                quality = "R05";
+            }
+
+            // take and use the regex input from CLI, format of frame name to be considered:
+            // can extract out regex of format 'S25C2AI' to be an input param in the future (-f flag?)
+            // longdress format: r1_longdress_dec_0000.ply
+            let in_frame_name = format!(
+                "S25C2AI{}_F30_rec_{}.{}",
+                quality,
+                format!("{:0>4}", count + start_no),
+                extension
+            );
+
+            let out_frame_name = format!("out_{}_{}.{}", count, quality, extension);
+
+            let mut input_frame = input_folder_pathbuf.clone();
+            input_frame.push(&in_frame_name);
+            let mut output_frame = output_path.clone();
+            output_frame.push(&out_frame_name);
+            let _o = File::create(&output_frame);
+            copy(&input_frame, &output_frame).expect(&format!(
+                "failed to copy from {} to {}",
+                &input_frame.display(),
+                &output_frame.display()
+            ));
+
+            count += frame_increment_int;
+        } else if algorithm == "quetra" {
+            // buffer capacity set to 2 seconds, fps 30
+            let abr = Quetra::new(2, 30.0);
+
+            let mut buffer_occupancy = 0;
+            let mut network_throughput = 0.0;
+
+            let mut available_bitrates = vec![];
+
+            let cosines = vec![0.0, 0.0, 0.0, 0.0, 0.0];
+
+            let quality = abr.select_quality(
+                buffer_occupancy,
+                network_throughput,
+                &available_bitrates,
+                &cosines,
+            );
         }
-
-        // a simplistic average value is chosen (4411.4, size in KB of 1s of R05 binaries),
-        // additional research needed to determine appropriate lower and higher reservoir values
-        // for simulation purposes, use the .bin file sizes as benchmark for values (naive algo)
-        if bandwidth_buf < 120.0 {
-            // input_folder = read_dir(&input_folder_lo).unwrap();
-            input_folder_pathbuf = &input_folder_R01;
-            quality = "R01";
-        } else {
-            // input_folder = read_dir(&input_folder_hi).unwrap();
-            input_folder_pathbuf = &input_folder_R05;
-            quality = "R05";
-        }
-
-        // take and use the regex input from CLI, format of frame name to be considered:
-        // can extract out regex of format 'S25C2AI' to be an input param in the future (-f flag?)
-        let in_frame_name = format!(
-            "S25C2AI{}_F30_rec_{}.{}",
-            quality,
-            format!("{:0>4}", count + start_no),
-            extension
-        );
-
-        let out_frame_name = format!("out_{}_{}.{}", count, quality, extension);
-
-        let mut input_frame = input_folder_pathbuf.clone();
-        input_frame.push(&in_frame_name);
-        let mut output_frame = output_path.clone();
-        output_frame.push(&out_frame_name);
-        let _o = File::create(&output_frame);
-        copy(&input_frame, &output_frame).expect(&format!(
-            "failed to copy from {} to {}",
-            &input_frame.display(),
-            &output_frame.display()
-        ));
-
-        count += frame_increment_int;
     }
-
-    // decoding after binaries are in out folder (should be separate function?)
-    //
 }
