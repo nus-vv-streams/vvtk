@@ -452,7 +452,7 @@ where
         }
     }
 
-    fn update_camera(&self, queue: &Queue, camera_uniform: CameraUniform) {
+    pub(super) fn update_camera(&self, queue: &Queue, camera_uniform: CameraUniform) {
         queue.write_buffer(
             &self.camera_buffer,
             0,

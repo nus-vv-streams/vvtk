@@ -8,6 +8,8 @@ use std::path::Path;
 use wgpu::{Buffer, Device, Queue, Texture, TextureDescriptor, TextureView};
 use winit::dpi::PhysicalSize;
 
+use super::camera::CameraPosition;
+
 pub struct PngWriter<'a> {
     output_dir: OsString,
     size: PhysicalSize<u32>,
@@ -29,8 +31,8 @@ impl<'a> PngWriter<'a> {
         camera_x: f32,
         camera_y: f32,
         camera_z: f32,
-        camera_yaw: f32,
-        camera_pitch: f32,
+        camera_yaw: cgmath::Rad<f32>,
+        camera_pitch: cgmath::Rad<f32>,
         width: u32,
         height: u32,
     ) -> Self {
@@ -77,11 +79,7 @@ impl<'a> PngWriter<'a> {
         };
         let output_buffer = device.create_buffer(&output_buffer_desc);
 
-        let camera = Camera::new(
-            (camera_x, camera_y, camera_z),
-            cgmath::Deg(camera_yaw),
-            cgmath::Deg(camera_pitch),
-        );
+        let camera = Camera::new((camera_x, camera_y, camera_z), camera_yaw, camera_pitch);
         let camera_state = CameraState::new(camera, size.width, size.height);
         Self {
             output_dir,
@@ -96,6 +94,14 @@ impl<'a> PngWriter<'a> {
             camera_state,
             point_renderer: None,
             count: 0,
+        }
+    }
+
+    /// Update the camera position
+    pub fn update_camera_pos(&mut self, pos: CameraPosition) {
+        self.camera_state.update_camera_pos(pos);
+        if let Some(ref mut renderer) = self.point_renderer {
+            renderer.update_camera(&self.queue, self.camera_state.camera_uniform);
         }
     }
 

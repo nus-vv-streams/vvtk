@@ -707,7 +707,6 @@ fn main() {
             .await
     });
 
-    // let mut pcd_reader = PcdAsyncReader::new(buf_out_rx, out_buf_sx, args.buffer_size);
     let mut pcd_reader = PcdAsyncReader::new(buf_out_rx, to_buf_sx);
     // set the reader max length
     pcd_reader.set_len(total_frames);

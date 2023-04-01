@@ -74,6 +74,9 @@ name = "vivotk"
 name = "multiplane"
 required-features = ["async", "serde"]
 
+[[bin]]
+name = "exporter"
+
 [features]
 default = ["render", "dash"]
 render = ["dep:winit", "dep:wgpu", "dep:wgpu_glyph", "dep:egui", "dep:egui_winit_platform", "dep:egui_wgpu_backend", "dep:epi"]
