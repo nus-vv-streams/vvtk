@@ -146,7 +146,7 @@ impl Decoder for Tmc2rsDecoder {
             })
             .unwrap();
         let elapsed = now.elapsed();
-        debug!("Decoder for 6 frames took {} ms", elapsed.as_millis());
+        debug!("Decoder took {} micros", elapsed.as_micros());
         frame
     }
 }

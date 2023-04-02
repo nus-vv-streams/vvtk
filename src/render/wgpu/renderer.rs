@@ -322,7 +322,7 @@ where
             self.time_since_last_update += dt;
             if self.time_since_last_update >= self.time_to_advance {
                 self.advance();
-                self.time_since_last_update -= self.time_to_advance;
+                self.time_since_last_update = Duration::from_secs(0);
             }
         };
 

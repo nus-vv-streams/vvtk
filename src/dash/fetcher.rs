@@ -66,7 +66,6 @@ impl Fetcher {
         is_multiview: bool,
         simulated_network_throughput: Option<f64>,
     ) -> Result<FetchResult> {
-        let start = tokio::time::Instant::now();
         let mut paths = core::array::from_fn(|_| None);
 
         // quality is representation id (0 is lowest quality)
@@ -150,7 +149,8 @@ impl Fetcher {
         // simulate sleep
         if simulated_network_throughput.is_some() {
             let simulated_time = total_bits as f64 / simulated_network_throughput.unwrap();
-            let sleep_time = Duration::from_secs_f64(simulated_time).checked_sub(start.elapsed());
+            let sleep_time =
+                Duration::from_secs_f64(simulated_time).checked_sub(download_start.elapsed());
             if let Some(sleep_time) = sleep_time {
                 tokio::time::sleep(sleep_time).await;
             }
