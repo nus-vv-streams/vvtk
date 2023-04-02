@@ -177,6 +177,7 @@ impl From<PCMetadata> for BufferCacheKey {
 struct BufferManager {
     to_buf_rx: tokio::sync::mpsc::UnboundedReceiver<BufMsg>,
     buf_in_sx: tokio::sync::mpsc::UnboundedSender<FetchRequest>,
+    buf_dec_sx: tokio::sync::mpsc::UnboundedSender<(FrameRequest, FetchResult)>,
     buf_out_sx: std::sync::mpsc::Sender<(FrameRequest, PointCloud<PointXyzRgba>)>,
     /// frame_to_answer is the frame we are pending to answer to the renderer.
     /// Note(25Mar23): it is an option because we are only dealing with 1 object_id for now.
@@ -192,6 +193,7 @@ impl BufferManager {
     fn new(
         to_buf_rx: tokio::sync::mpsc::UnboundedReceiver<BufMsg>,
         buf_in_sx: tokio::sync::mpsc::UnboundedSender<FetchRequest>,
+        buf_dec_sx: tokio::sync::mpsc::UnboundedSender<(FrameRequest, FetchResult)>,
         buf_out_sx: std::sync::mpsc::Sender<(FrameRequest, PointCloud<PointXyzRgba>)>,
         buffer_size: u64,
         total_frames: usize,
@@ -201,6 +203,7 @@ impl BufferManager {
         BufferManager {
             to_buf_rx,
             buf_in_sx,
+            buf_dec_sx,
             buf_out_sx,
             frame_to_answer: None,
             total_frames,
@@ -328,9 +331,10 @@ impl BufferManager {
                                 self.buffer.add(renderer_req);
                             }
                         }
-                        BufMsg::FetchDone(req) => {
+                        BufMsg::FetchDone((req, result)) => {
                             // upon receiving fetch result, immediately schedule the next fetch request
                             self.buffer.update_state(req, FrameStatus::Decoding);
+                            _ = self.buf_dec_sx.send((req, result));
 
                             if !self.buffer.is_full() {
                                 // If the buffer is not full yet, we can send a request to the fetcher to fetch the next frame
@@ -428,7 +432,8 @@ fn main() {
     // important to use tokio::mpsc here instead of std because it is bridging from sync -> async
     // the content is produced by the renderer and consumed by the fetcher
     let (buf_in_sx, mut buf_in_rx) = tokio::sync::mpsc::unbounded_channel::<FetchRequest>();
-    let (in_dec_sx, mut in_dec_rx) = tokio::sync::mpsc::unbounded_channel();
+    let (buf_dec_sx, mut buf_dec_rx) =
+        tokio::sync::mpsc::unbounded_channel::<(FrameRequest, FetchResult)>();
     let (to_buf_sx, to_buf_rx) = tokio::sync::mpsc::unbounded_channel();
     // this buffer is used to store the fetched data. It is a bounded buffer. It will store the data in segments.
     // the content is produced by the fetcher and consumed by the decoder thread.
@@ -559,10 +564,8 @@ fn main() {
                                     Ok(res) => {
                                         // update throughput prediction
                                         throughput_predictor.add(res.throughput);
-                                        // send the response to the decoder
-                                        _ = in_dec_sx.send((req, res));
                                         // let buffer know that we are done fetching
-                                        _ = to_buf_sx.send(BufMsg::FetchDone(req.into()));
+                                        _ = to_buf_sx.send(BufMsg::FetchDone((req.into(), res)));
                                         break;
                                     }
                                     Err(e) => {
@@ -603,12 +606,11 @@ fn main() {
                         },
                         Some(req) = buf_in_rx.recv() => {
                             trace!("[fetcher] got fetch request {:?}", req);
-                            _ = in_dec_sx.send((req, FetchResult {
+                            // let buffer know that we are done fetching
+                            _ = to_buf_sx.send(BufMsg::FetchDone((req.into(), FetchResult {
                                 paths: [ply_files.get(req.frame_offset as usize).map(|p| p.to_path_buf()), None, None, None, None, None],
                                 throughput: 0.0,
-                            }));
-                            // let buffer know that we are done fetching
-                            _ = to_buf_sx.send(BufMsg::FetchDone(req.into()));
+                            })));
                         }
                         else => break,
                     }
@@ -632,7 +634,7 @@ fn main() {
                     Some((req, FetchResult {
                         mut paths,
                         throughput: _,
-                    })) = in_dec_rx.recv() => {
+                    })) = buf_dec_rx.recv() => {
                         debug!("got fetch result {:?}", req);
                         let decoder_path = decoder_path.clone();
                         let to_buf_sx = to_buf_sx.clone();
@@ -682,6 +684,7 @@ fn main() {
     let mut buffer = BufferManager::new(
         to_buf_rx,
         buf_in_sx,
+        buf_dec_sx,
         buf_out_sx,
         // 2s buffer
         buffer_capacity,

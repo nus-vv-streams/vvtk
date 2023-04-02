@@ -17,6 +17,7 @@ pub mod simulation;
 pub mod upsample;
 pub mod utils;
 
+use dash::fetcher::FetchResult;
 use formats::{pointxyzrgba::PointXyzRgba, PointCloud};
 
 #[cfg(feature = "render")]
@@ -35,7 +36,7 @@ pub enum BufMsg {
         ),
     ),
     /// Fetch result from the fetcher
-    FetchDone(FrameRequest),
+    FetchDone((FrameRequest, FetchResult)),
     #[cfg(feature = "render")]
     /// Frame request message.
     FrameRequest(FrameRequest),
