@@ -1,6 +1,32 @@
 //! This binary is used to export pngs from a video playback session.
 //!
-//! The video file can be either a local file or a remote url that points to a MPD file.
+//! The camera trace file is a csv file that contains the camera position and orientation for each frame.
+//! The format of the csv file is (x, y, z, pitch, yaw, roll):
+//! ```csv
+//! 0,0,1.5,0,-90,0.0
+//! 0,0,1.5,0,-90,0.0
+//! ```
+//!
+//! The quality trace file is a csv file that contains the quality for each frame.
+//! The format of the csv file is qualities for each views (view_0, view_1, view_2, view_3, view_4, view_5, view_6).
+//! You can also provide only 1 quality. In this case, this number will be the quality for all views.
+//! ```csv
+//! 0,0,0,5,5,5
+//! 3
+//! ```
+//!
+//! # Usage
+//!
+//! For remote files
+//! ```bash
+//! cargo run --bin exporter --release -- --url http://localhost:3000/longdress.mpd --quality quality_trace.csv [camera_trace.csv] [output_folder]
+//! ```
+//!
+//! For local files
+//! ```bash
+//! cargo run --bin exporter --release -- --ply_folder [ply_folder] [camera_trace.csv] [output_folder]
+//! ```
+//!
 
 use clap::Parser;
 use std::fs::File;
