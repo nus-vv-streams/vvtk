@@ -85,7 +85,6 @@ fn main() {
     // let mut input_folder: ReadDir;
     let mut input_folder_pathbuf: &PathBuf;
 
-    // getting entries from default input folder ("R05" folder) to retrieve infomation (any alternatives?)
     // longdress format: r1_longdress_dec_0000.ply
     let entries = get_entries(input_folder_R05.as_path()).expect("failed to get entries");
 
@@ -95,7 +94,6 @@ fn main() {
     let first_entry_filename = entries[0].as_path().to_str().unwrap();
     let first_entry_filename_short =
         &first_entry_filename[(input_folder_R05.as_path().to_str().unwrap().chars().count() + 1)..]; // + 1 for the slash /
-    println!("First entry filename: {}", first_entry_filename_short);
     assert!(re.is_match(first_entry_filename_short)); // panics if file name not a match, able to input regex as CLI params?
 
     // S25C2AIR05_F30_rec_0536.pcd -> [R05] [F30] [0536] information needed for decoding are retrieved from file name
@@ -110,20 +108,18 @@ fn main() {
         starting_frame_int = starting_frame.parse().unwrap();
         total_frames = entries.len() * frame_increment_int;
     }
-    let mut available_bitrates: Vec<Vec<u64>> = vec![];
-    // push 4641 into available_bitrates
-    available_bitrates.push(vec![4641 as u64]);
-    available_bitrates.push(vec![7975 as u64]);
-    available_bitrates.push(vec![14050 as u64]);
-    available_bitrates.push(vec![25974 as u64]);
-    available_bitrates.push(vec![46778 as u64]);
+    // let mut available_bitrates: Vec<Vec<u64>> = vec![];
+    // available_bitrates.push(vec![4641 as u64]);
+    // available_bitrates.push(vec![7975 as u64]);
+    // available_bitrates.push(vec![14050 as u64]);
+    // available_bitrates.push(vec![25974 as u64]);
+    // available_bitrates.push(vec![46778 as u64]);
+    let available_bitrates = vec![vec![4641, 7975, 14050, 25974, 46778]];
 
     start_no = starting_frame_int;
 
-    while count < total_frames {
-        if algorithm == "abr" {
-            // abr algorithm
-            //
+    if algorithm == "naive" {
+        while count < total_frames {
             let quality: &str;
             let rate_prefix: &str;
             // buffer-based approach used for rate adaptation, appropriate lower and higher reservoir
@@ -134,19 +130,19 @@ fn main() {
 
             // for simulation purposes, use the .bin file sizes as benchmark for values (naive algo)
             // values used for longdress, R01 to R05
-            if bandwidth_buf < 4641.836 {
+            if bandwidth_buf < available_bitrates[0][0] as f32 {
                 input_folder_pathbuf = &input_folder_R01;
                 quality = "R01";
                 rate_prefix = "r1";
-            } else if bandwidth_buf < 7975.9168 {
+            } else if bandwidth_buf < available_bitrates[1][0] as f32 {
                 input_folder_pathbuf = &input_folder_R02;
                 quality = "R02";
                 rate_prefix = "r2";
-            } else if bandwidth_buf < 14050.2664 {
+            } else if bandwidth_buf < available_bitrates[2][0] as f32 {
                 input_folder_pathbuf = &input_folder_R03;
                 quality = "R03";
                 rate_prefix = "r3";
-            } else if bandwidth_buf < 25974.38 {
+            } else if bandwidth_buf < available_bitrates[3][0] as f32 {
                 input_folder_pathbuf = &input_folder_R04;
                 quality = "R04";
                 rate_prefix = "r4";
@@ -165,12 +161,13 @@ fn main() {
                     extension
                 );
 
-                let out_frame_name = format!("out_{}_{}.{}", i, quality, extension);
+                // let out_frame_name = format!("out_{}_{}.{}", format!("{:0>4}", i), quality, extension);
+                let out_frame_name = format!("out_{}.{}", format!("{:0>4}", i), extension);
 
                 let mut input_frame = input_folder_pathbuf.clone();
                 input_frame.push(&in_frame_name);
                 let mut output_frame = output_path.clone();
-                output_frame.push(&out_frame_name);
+                output_frame.push(&out_frame_name); // out_frame_name
                 let _o = File::create(&output_frame);
                 copy(&input_frame, &output_frame).expect(&format!(
                     "failed to copy from {} to {}",
@@ -178,23 +175,81 @@ fn main() {
                     &output_frame.display()
                 ));
             }
-
             count += 30;
-        } else if algorithm == "quetra" {
-            // buffer capacity set to 2 seconds, fps 30
-            let abr = Quetra::new(2, 30.0);
+        }
+    } else if algorithm == "quetra" {
+        // buffer capacity set to 2 seconds, fps 30
+        let quetra = Quetra::new(2, 30.0);
 
-            let mut buffer_occupancy = 0;
-            let mut network_throughput = 0.0;
+        let mut buffer_occupancy = 0;
+        let mut network_throughput;
 
-            let cosines = vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let cosines = vec![];
 
-            let quality = abr.select_quality(
+        while count < total_frames {
+            let quality_prefix: &str;
+            let rate_prefix: &str;
+            network_throughput = (bandwidth[count]) as f64;
+            let quality = quetra.select_quality(
                 buffer_occupancy,
                 network_throughput,
                 &available_bitrates,
                 &cosines,
             );
+            // dbg!(network_throughput, quality[0]);
+
+            // fill buffer based on the downloaded segment duration
+            let download_bitrate = available_bitrates[0][quality[0]] as f64;
+            dbg!(download_bitrate);
+            let no_of_frames: usize = (network_throughput / download_bitrate) as usize;
+            dbg!(no_of_frames);
+            buffer_occupancy = (no_of_frames) as u64;
+
+            if quality[0] == 0 {
+                input_folder_pathbuf = &input_folder_R01;
+                quality_prefix = "R01";
+                rate_prefix = "r1";
+            } else if quality[0] == 1 {
+                input_folder_pathbuf = &input_folder_R02;
+                quality_prefix = "R02";
+                rate_prefix = "r2";
+            } else if quality[0] == 2 {
+                input_folder_pathbuf = &input_folder_R03;
+                quality_prefix = "R03";
+                rate_prefix = "r3";
+            } else if quality[0] == 3 {
+                input_folder_pathbuf = &input_folder_R04;
+                quality_prefix = "R04";
+                rate_prefix = "r4";
+            } else {
+                input_folder_pathbuf = &input_folder_R05;
+                quality_prefix = "R05";
+                rate_prefix = "r5";
+            }
+
+            // longdress format: r1_longdress_dec_0000.ply
+            let in_frame_name = format!(
+                "{}_longdress_dec_{}.{}",
+                rate_prefix,
+                format!("{:0>4}", count + start_no),
+                extension
+            );
+
+            // let out_frame_name = format!("out_{}_{}.{}", format!("{:0>4}", count), quality_prefix, extension);
+            let out_frame_name = format!("out_{}.{}", format!("{:0>4}", count), extension);
+
+            let mut input_frame = input_folder_pathbuf.clone();
+            input_frame.push(&in_frame_name);
+            let mut output_frame = output_path.clone();
+            output_frame.push(&out_frame_name); // out_frame_name
+            let _o = File::create(&output_frame);
+            copy(&input_frame, &output_frame).expect(&format!(
+                "failed to copy from {} to {}",
+                &input_frame.display(),
+                &output_frame.display()
+            ));
+
+            count += 1;
         }
     }
 }
