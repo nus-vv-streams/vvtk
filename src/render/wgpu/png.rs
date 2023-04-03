@@ -22,6 +22,7 @@ pub struct PngWriter<'a> {
     output_buffer: Buffer,
     camera_state: CameraState,
     point_renderer: Option<PointCloudRenderer<PointCloud<PointXyzRgba>>>,
+    background_color: Option<wgpu::Color>,
     count: usize,
 }
 
@@ -93,8 +94,16 @@ impl<'a> PngWriter<'a> {
             output_buffer,
             camera_state,
             point_renderer: None,
+            background_color: None,
             count: 0,
         }
+    }
+
+    /// Set the background color. Call this function before the first [`write_to_png`] call
+    ///
+    /// [`write_to_png`]: #method.write_to_png
+    pub fn set_background_color(&mut self, color: wgpu::Color) {
+        self.background_color = Some(color);
     }
 
     /// Update the camera position
@@ -107,13 +116,18 @@ impl<'a> PngWriter<'a> {
 
     pub fn write_to_png(&mut self, pc: &PointCloud<PointXyzRgba>) {
         if self.point_renderer.is_none() {
-            self.point_renderer = Some(PointCloudRenderer::new(
+            let renderer = PointCloudRenderer::new(
                 &self.device,
                 self.texture_desc.format,
                 pc,
                 self.size,
                 &self.camera_state,
-            ));
+            );
+            self.point_renderer = Some(if let Some(color) = self.background_color {
+                renderer.with_background_color(color)
+            } else {
+                renderer
+            })
         }
 
         let point_renderer = self.point_renderer.as_mut().unwrap();

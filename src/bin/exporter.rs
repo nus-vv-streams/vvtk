@@ -109,6 +109,12 @@ async fn main() {
         args.width,
         args.height,
     );
+    png_writer.set_background_color(wgpu::Color {
+        r: 0.0,
+        g: 0.44,
+        b: 0.09,
+        a: 1.0,
+    });
     let camera_trace = CameraTrace::new(&args.camera_trace, false);
 
     if let Some(quality) = args.quality {

@@ -398,6 +398,11 @@ pub struct PointCloudRenderer<T: Renderable> {
     render_pipeline: RenderPipeline,
     vertex_buffer: Buffer,
     num_vertices: usize,
+    /// Background color of the window
+    ///
+    /// wgpu color scheme is super weird:
+    /// 0.025 -> 44, 0.05 -> 63, 0.1 -> 89, 0.2 -> 124, 0.3 -> 149, 0.4 -> 170, 0.5 -> 188, 0.6 -> 203, 0.7 -> 218, 0.8 -> 231, 0.9 -> 243, 1 -> 255
+    background_color: wgpu::Color,
     _data: PhantomData<T>,
 }
 
@@ -440,8 +445,20 @@ where
             render_pipeline,
             vertex_buffer,
             num_vertices,
+            // bluish color
+            background_color: wgpu::Color {
+                r: 0.1,
+                g: 0.2,
+                b: 0.3,
+                a: 1.0,
+            },
             _data: PhantomData::default(),
         }
+    }
+
+    pub fn with_background_color(mut self, color: wgpu::Color) -> Self {
+        self.background_color = color;
+        self
     }
 
     pub fn resize(&mut self, new_size: PhysicalSize<u32>, device: &Device) {
@@ -483,16 +500,8 @@ where
                 resolve_target: None,
                 ops: wgpu::Operations {
                     // `load` field tells wgpu how to handle colors stored from the previous frame.
-                    // This will clear the screen with a bluish color.
-                    //
-                    // wgpu color scheme is super weird:
-                    // 0.025 -> 44, 0.05 -> 63, 0.1 -> 89, 0.2 -> 124, 0.3 -> 149, 0.4 -> 170, 0.5 -> 188, 0.6 -> 203, 0.7 -> 218, 0.8 -> 231, 0.9 -> 243, 1 -> 255
-                    load: wgpu::LoadOp::Clear(wgpu::Color {
-                        r: 0.1,
-                        g: 0.2,
-                        b: 0.3,
-                        a: 1.0,
-                    }),
+                    // This will clear the screen with our background color.
+                    load: wgpu::LoadOp::Clear(self.background_color),
                     // true if we want to store the rendered results to the Texture behind our TextureView (in this case it's the SurfaceTexture).
                     store: true,
                 },
