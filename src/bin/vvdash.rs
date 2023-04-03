@@ -4,6 +4,7 @@ use std::fs;
 use std::fs::copy;
 use std::fs::File;
 use std::io;
+use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use vivotk::abr::quetra::{Quetra, QuetraMultiview};
@@ -56,6 +57,7 @@ fn main() {
     let algorithm = args.algorithm;
     let throughput_estimation = args.throughput_estimation;
     let start_no: usize;
+    let mut buffer_status: Vec<u64> = Vec::new();
 
     // reading network conditions
     let network_content =
@@ -178,8 +180,8 @@ fn main() {
             count += 30;
         }
     } else if algorithm == "quetra" {
-        // buffer capacity set to 2 seconds, fps 30
-        let quetra = Quetra::new(2, 30.0);
+        // buffer capacity set to 5 seconds, fps 30
+        let quetra = Quetra::new(5, 30.0);
 
         let mut buffer_occupancy = 0;
         let mut network_throughput;
@@ -200,10 +202,9 @@ fn main() {
 
             // fill buffer based on the downloaded segment duration
             let download_bitrate = available_bitrates[0][quality[0]] as f64;
-            dbg!(download_bitrate);
             let no_of_frames: usize = (network_throughput / download_bitrate) as usize;
-            dbg!(no_of_frames);
             buffer_occupancy = (no_of_frames) as u64;
+            buffer_status.push(buffer_occupancy);
 
             if quality[0] == 0 {
                 input_folder_pathbuf = &input_folder_R01;
@@ -250,6 +251,13 @@ fn main() {
             ));
 
             count += 1;
+        }
+        // save buffer_status to file called buffer_status.txt in output_path
+        let mut buffer_status_file_path = output_path.clone();
+        buffer_status_file_path.push("buffer_status.csv");
+        let mut file = File::create(buffer_status_file_path).unwrap();
+        for i in &buffer_status {
+            write!(file, "{},", i).unwrap();
         }
     }
 }
