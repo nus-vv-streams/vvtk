@@ -19,7 +19,6 @@ struct Args {
     output_path: PathBuf,
     network_path: PathBuf,
     algorithm: String,
-    throughput_estimation: String,
 }
 
 fn get_filename(filepath: &Path) -> io::Result<()> {
@@ -55,9 +54,9 @@ fn main() {
     let output_path = args.output_path;
     let network_path = args.network_path;
     let algorithm = args.algorithm;
-    let throughput_estimation = args.throughput_estimation;
     let start_no: usize;
     let mut buffer_status: Vec<u64> = Vec::new();
+    let mut quality_selected: Vec<u64> = Vec::new();
 
     // reading network conditions
     let network_content =
@@ -110,12 +109,6 @@ fn main() {
         starting_frame_int = starting_frame.parse().unwrap();
         total_frames = entries.len() * frame_increment_int;
     }
-    // let mut available_bitrates: Vec<Vec<u64>> = vec![];
-    // available_bitrates.push(vec![4641 as u64]);
-    // available_bitrates.push(vec![7975 as u64]);
-    // available_bitrates.push(vec![14050 as u64]);
-    // available_bitrates.push(vec![25974 as u64]);
-    // available_bitrates.push(vec![46778 as u64]);
     let available_bitrates = vec![vec![4641, 7975, 14050, 25974, 46778]];
 
     start_no = starting_frame_int;
@@ -180,8 +173,8 @@ fn main() {
             count += 30;
         }
     } else if algorithm == "quetra" {
-        // buffer capacity set to 5 seconds, fps 30
-        let quetra = Quetra::new(5, 30.0);
+        // buffer capacity set to 10 seconds, fps 30
+        let quetra = Quetra::new(10, 30.0);
 
         let mut buffer_occupancy = 0;
         let mut network_throughput;
@@ -210,22 +203,27 @@ fn main() {
                 input_folder_pathbuf = &input_folder_R01;
                 quality_prefix = "R01";
                 rate_prefix = "r1";
+                quality_selected.push(1);
             } else if quality[0] == 1 {
                 input_folder_pathbuf = &input_folder_R02;
                 quality_prefix = "R02";
                 rate_prefix = "r2";
+                quality_selected.push(2);
             } else if quality[0] == 2 {
                 input_folder_pathbuf = &input_folder_R03;
                 quality_prefix = "R03";
                 rate_prefix = "r3";
+                quality_selected.push(3);
             } else if quality[0] == 3 {
                 input_folder_pathbuf = &input_folder_R04;
                 quality_prefix = "R04";
                 rate_prefix = "r4";
+                quality_selected.push(4);
             } else {
                 input_folder_pathbuf = &input_folder_R05;
                 quality_prefix = "R05";
                 rate_prefix = "r5";
+                quality_selected.push(5);
             }
 
             // longdress format: r1_longdress_dec_0000.ply
@@ -257,6 +255,14 @@ fn main() {
         buffer_status_file_path.push("buffer_status.csv");
         let mut file = File::create(buffer_status_file_path).unwrap();
         for i in &buffer_status {
+            write!(file, "{},", i).unwrap();
+        }
+
+        // save quality_selected to file called quality_selected.txt in output_path
+        let mut quality_selected_file_path = output_path.clone();
+        quality_selected_file_path.push("quality_selected.csv");
+        let mut file = File::create(quality_selected_file_path).unwrap();
+        for i in &quality_selected {
             write!(file, "{},", i).unwrap();
         }
     }
