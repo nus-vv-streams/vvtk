@@ -3216,7 +3216,7 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 [[package]]
 name = "tmc2rs"
 version = "0.1.0"
-source = "git+https://github.com/benclmnt/tmc2-rs?branch=main#daed3eae2e86d263734d38085ded3baca8df8761"
+source = "git+https://github.com/benclmnt/tmc2-rs?branch=main#aa1f2132ff0e5b626a508098c6247fa7c27f51b9"
 dependencies = [
  "cgmath",
  "clap 4.1.11",

@@ -96,7 +96,7 @@ impl QualityTrace {
     }
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 2)]
 async fn main() {
     let args: Args = Args::parse();
     let mut png_writer = PngWriter::new(
