@@ -6,7 +6,7 @@ pub struct AntiAlias {
     pub x: f32,
     pub y: f32,
     pub z: f32,
-    pub scale: f32
+    pub scale: f32,
 }
 
 impl Default for AntiAlias {
@@ -15,7 +15,7 @@ impl Default for AntiAlias {
             x: 0.0,
             y: 0.0,
             z: 0.0,
-            scale: 1.0
+            scale: 1.0,
         }
     }
 }
@@ -25,7 +25,7 @@ impl AntiAlias {
         let antialias_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Antialias Buffer"),
             contents: bytemuck::cast_slice(&[*self]),
-            usage: wgpu::BufferUsages::UNIFORM
+            usage: wgpu::BufferUsages::UNIFORM,
         });
 
         let antialias_bind_group_layout =
