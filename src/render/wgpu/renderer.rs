@@ -538,7 +538,7 @@ impl MetricsRenderer {
     pub fn new(size: PhysicalSize<u32>, device: &Device) -> Self {
         let font = ab_glyph::FontArc::try_from_slice(include_bytes!("Inconsolata-Regular.ttf"))
             .expect("Could not initialize font");
-        let mut glyph_brush =
+        let glyph_brush =
             GlyphBrushBuilder::using_font(font).build(device, wgpu::TextureFormat::Bgra8UnormSrgb);
 
         Self { size, glyph_brush }

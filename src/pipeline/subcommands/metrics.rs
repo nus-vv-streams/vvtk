@@ -1,7 +1,7 @@
 use std::{
     ffi::OsString,
     fs::File,
-    io::{BufWriter, Write},
+    io::{BufWriter},
     path::{Path, PathBuf},
 };
 
@@ -69,13 +69,18 @@ impl Subcommand for Metrics {
                     output_file.as_os_str()
                 ));
                 let mut writer = BufWriter::new(file);
-                metrics.write_to(&mut writer);
-                progress.send(Progress::Incr);
+                metrics.write_to(&mut writer)
+                    .expect("should be able to write");
+
+                progress.send(Progress::Incr)
+                    .expect("should be able to send");
             }
             PipelineMessage::End => {
-                progress.send(Progress::Completed);
+                progress.send(Progress::Completed)
+                    .expect("should be able to send")
             }
         }
-        out.send(message);
+        out.send(message)
+            .expect("should be able to send")
     }
 }

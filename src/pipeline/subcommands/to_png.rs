@@ -188,12 +188,15 @@ impl Subcommand for ToPng<'_> {
                     buffer.save(output_path.join(Path::new(&filename))).unwrap();
                 }
                 self.output_buffer.unmap();
-                progress.send(Progress::Incr);
+                progress.send(Progress::Incr)
+                    .expect("should be able to send")
             }
             PipelineMessage::End => {
-                progress.send(Progress::Completed);
+                progress.send(Progress::Completed)
+                    .expect("should be able to send")
             }
         }
-        out.send(message);
+        out.send(message)
+            .expect("should be able to send")
     }
 }

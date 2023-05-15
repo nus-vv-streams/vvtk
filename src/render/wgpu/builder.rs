@@ -2,7 +2,7 @@ use crate::render::wgpu::camera::Camera;
 use std::collections::HashMap;
 use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
-use winit::event_loop::{ControlFlow, EventLoop};
+use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowId};
 
 #[derive(Debug)]
@@ -52,7 +52,7 @@ pub struct RenderBuilder {
 impl Default for RenderBuilder {
     fn default() -> Self {
         Self {
-            event_loop: EventLoop::with_user_event(),
+            event_loop: EventLoopBuilder::<RenderEvent>::with_user_event().build(),
             window_objects: HashMap::new(),
         }
     }

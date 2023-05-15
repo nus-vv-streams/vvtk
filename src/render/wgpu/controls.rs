@@ -5,7 +5,7 @@ use crate::render::wgpu::gpu::WindowGpu;
 use egui::{Button, CentralPanel, Context, FontDefinitions, Label, Slider};
 use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
-use epi::{App, Frame};
+use epi::Frame;
 use std::iter;
 use std::sync::Arc;
 use std::time::Instant;
@@ -140,9 +140,11 @@ impl ControlWindow {
         }
     }
 
+    /*
     fn name(&self) -> &str {
         "Control Window"
     }
+    */
 }
 
 impl Windowed for ControlWindow {
@@ -270,7 +272,7 @@ impl ControlWindow {
             &self.gpu.device,
             &self.gpu.queue,
             &full_output.textures_delta,
-        );
+        ).expect("should be able to add texture");
         // self.egui_rpass.update_texture(
         //     &self.gpu.device,
         //     &self.gpu.queue,
