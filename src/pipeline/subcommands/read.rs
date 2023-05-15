@@ -31,10 +31,11 @@ impl Subcommand for Read {
         message: PipelineMessage,
         out: &Sender<PipelineMessage>,
         progress: &Sender<Progress>,
-        ) {
+    ) {
         if let PipelineMessage::End = message {
             let mut files = find_all_files(&self.args.files);
-            progress.send(Progress::Length(files.len()))
+            progress
+                .send(Progress::Length(files.len()))
                 .expect("should be able to send");
             files.sort();
             for file in files {
@@ -43,17 +44,17 @@ impl Subcommand for Read {
                     out.send(PipelineMessage::PointCloud(pc))
                         .expect("should be able to send");
                 }
-                progress.send(Progress::Incr)
+                progress
+                    .send(Progress::Incr)
                     .expect("should be able to send");
-
             }
-            progress.send(Progress::Completed)
+            progress
+                .send(Progress::Completed)
                 .expect("should be able to send");
             out.send(PipelineMessage::End)
                 .expect("should be able to send");
         } else {
-            out.send(message)
-                .expect("should be able to send");
+            out.send(message).expect("should be able to send");
         }
     }
 }

@@ -57,16 +57,17 @@ impl Subcommand for Write {
                 if let Err(e) = write_pcd_file(&pcd, pcd_data_type, &output_file) {
                     println!("Failed to write {:?}\n{e}", output_file);
                 }
-                progress.send(Progress::Incr)
+                progress
+                    .send(Progress::Incr)
                     .expect("should be able to send");
             }
             PipelineMessage::End => {
-                progress.send(Progress::Completed)
+                progress
+                    .send(Progress::Completed)
                     .expect("should be able to send");
             }
         }
-        out.send(message)
-            .expect("should be able to send");
+        out.send(message).expect("should be able to send");
     }
 }
 

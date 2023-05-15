@@ -268,11 +268,13 @@ impl ControlWindow {
             scale_factor: window.scale_factor() as f32,
         };
 
-        self.egui_rpass.add_textures(
-            &self.gpu.device,
-            &self.gpu.queue,
-            &full_output.textures_delta,
-        ).expect("should be able to add texture");
+        self.egui_rpass
+            .add_textures(
+                &self.gpu.device,
+                &self.gpu.queue,
+                &full_output.textures_delta,
+            )
+            .expect("should be able to add texture");
         // self.egui_rpass.update_texture(
         //     &self.gpu.device,
         //     &self.gpu.queue,
