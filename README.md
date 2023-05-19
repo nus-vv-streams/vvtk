@@ -1,18 +1,111 @@
 # The Vivo Toolkit (VivoTk)
 
-![format badge](https://github.com/Hungkhoaitay/in-summer-we-render/actions/workflows/format.yml/badge.svg)
-![build badge](https://github.com/Hungkhoaitay/in-summer-we-render/actions/workflows/build.yml/badge.svg)
+![format badge](https://github.com/nus-vv-streams/vivotk/actions/workflows/format.yml/badge.svg)
+![build badge](https://github.com/nus-vv-streams/vivotk/actions/workflows/build.yml/badge.svg)
 
 ### Rust version
 
-Use Rust 1.58.1
+Use Rust 1.69
 
 ### Coding Style
 
 We follow the [official Rust coding style](https://github.com/rust-dev-tools/fmt-rfcs/blob/master/guide/guide.md).  You can use `rustfmt` (or run `cargo fmt`) to automatically format your code.
 
-## Binaries
+## Commands
 
+### `vv convert` 
+
+Convert a volumetric video to another format.  
+
+A volumetric video can be represented in 3D, in the following ways:
+- A set of ASCII PLY files (with `.ply` extensions) in a directory, in lexographical order of names
+- A set of binary PLY files (with `.ply` extensions) in a directory, in lexographical order of names
+- A set of PCD files (with `.pcd` extensions) in a directory, in lexographical order of names
+
+`vv convert` can convert the above format from one to another.
+
+The output of `vv convert` can also be in 2D format.  A volumetric video can be represented in 2D, in the following ways:
+- A set of PNG files (with `.png` extensions) in a directory, in lexographical order of names
+- An MP4 video
+
+#### Examples
+
+```
+vv convert --input indir --output outdir --out-format pcd
+```
+
+```
+vv convert --input indir --output movie.mp4  --height 900 -width 1600 --camera-x 0 --camera-y 0 --camera-z 0
+```
+
+### `vv play`
+
+Plays a folder of pcd files in lexicographical order. A window will appear upon running the binary from which you can navigate using your mouse and keyboard. Controls are described further below.
+
+```shell
+Plays a folder of pcd files in lexicographical order
+
+USAGE:
+    vv play [OPTIONS] <DIRECTORY>
+
+ARGS:
+    <DIRECTORY>    Directory with all the pcd files in lexicographical order
+
+OPTIONS:
+    -b, --buffer-size <BUFFER_SIZE>    [default: 1]
+        --controls
+    -f, --fps <FPS>                    [default: 30]
+    -h, --height <HEIGHT>              [default: 900]
+        --help                         Print help information
+        --pitch <CAMERA_PITCH>         [default: -20]
+    -w, --width <WIDTH>                [default: 1600]
+    -x, --camera-x <CAMERA_X>          [default: 0]
+    -y, --camera-y <CAMERA_Y>          [default: 0]
+        --yaw <CAMERA_YAW>             [default: -90]
+    -z, --camera-z <CAMERA_Z>          [default: 0]
+```
+
+### Controls
+
+With the main screen focused, 
+
+1. `W` Key - Moves your position to the front
+2. `A` Key - Moves your position to the left
+3. `S` Key - Moves your position to the back
+4. `D` Key - Moves your position to the right
+5. 'Q' Key - Moves your position up
+6. `E` Key - Moves your position down
+7. `Space` Key - Toggles Play/Pause
+8. `LeftArrow` Key - Rewinds by 1 frame
+9. `RightArrow` Key - Advances by 1 frame
+10. `Mouse` Drag - Adjusts camera yaw / pitch (Hold right click on Mac, left click on Windows)
+
+With the secondary window focused,
+
+![Playback Controls Secondary Window](docs/images/playback_controls.png)
+
+The Play/Pause button toggles between play and pause. The slider allows you to navigate to any frame you wish.
+
+The information displayed in the window are:
+
+1. Current Frame / Total Frames
+2. Camera Information - Useful to recreate a certain view through command line arguments
+
+### Example
+
+The following command will play all `.pcd` files in the `./pcds/` directory.
+
+```shell
+vv play ./pcds
+```
+
+You can buffer the render with a set number of frames using `-b`
+
+```shell
+vv play ./pcds -b 100
+```
+
+## Old Binaries
 ### `ply_to_pcd`
 
 Converts ply files that are in Point_XYZRGBA format to pcd files
