@@ -90,6 +90,7 @@ fn create_pcd(point_cloud: &PointCloud<PointXyzRgba>) -> PointCloudData {
         1,
         [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
         point_cloud.number_of_points as u64,
+        PCDDataType::Ascii, // this is a placeholder value, it will be overwritten accoradingly in write_pcd_file()
     )
     .unwrap();
     let bytes = unsafe {

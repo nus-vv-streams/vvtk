@@ -80,9 +80,17 @@ impl<R: BufRead> Parser<R> {
         let (width, height) = self.parse_width_and_height()?;
         let viewpoint = self.parse_viewpoint()?;
         let points = self.parse_points()?;
+        let data_type = self.parse_data_type()?;
 
-        PCDHeader::new(version, fields, width, height, viewpoint, points)
+        PCDHeader::new(version, fields, width, height, viewpoint, points, data_type)
             .map_err(|s| self.header_err("", s))
+    }
+
+    fn parse_data_type(&mut self) -> Result<PCDDataType> {
+        self.next_line()?;
+        self.strip_line_prefix("DATA")?
+            .parse::<PCDDataType>()
+            .map_err(|e| self.header_err("DATA", e.to_string()))
     }
 
     fn parse_header_version(&mut self) -> Result<PCDVersion> {
@@ -181,7 +189,7 @@ impl<R: BufRead> Parser<R> {
     }
 
     fn parse_data(mut self, header: PCDHeader) -> Result<PointCloudData> {
-        self.next_line()?;
+        // self.next_line()?;
         let data_type_str = self.strip_line_prefix("DATA")?;
         let data_type =
             PCDDataType::from_str(data_type_str).map_err(|s| self.header_err("DATA", s))?;
