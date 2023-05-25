@@ -44,8 +44,8 @@ kiddo = "0.2.4"
 wgpu_glyph = "0.17.0"
 
 
-[[bin]]
-name = "ply_to_pcd"
+# [[bin]]
+# name = "ply_to_pcd"
 
 [[bin]]
 name = "vvdash"
