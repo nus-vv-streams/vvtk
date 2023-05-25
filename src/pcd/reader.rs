@@ -1,8 +1,7 @@
-use crate::pcd::data_types::{PCDField, PCDFieldDataType, PCDHeader, PCDVersion, PointCloudData};
+use crate::pcd::data_types::{PCDField, PCDFieldDataType, PCDHeader, PCDVersion, PointCloudData, PCDDataType};
 use std::convert::TryInto;
 use std::fmt::Debug;
 
-use crate::pcd::PCDDataType;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
@@ -344,6 +343,7 @@ mod tests {
             1,
             [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
             213,
+            crate::pcd::PCDDataType::Ascii
         )
         .unwrap()
     }
@@ -607,6 +607,7 @@ mod tests {
                HEIGHT 1 \n\
                VIEWPOINT 0 0 0 1 0 0 0 \n\
                POINTS 213 \n\
+               DATA ascii \n\
         ";
 
         let mut parser = Parser::new(BufReader::new(header_str.as_bytes()));
@@ -635,6 +636,8 @@ mod tests {
                VIEWPOINT 0 0 0 1 0 0 0 \n\
                # I am another comment\n\
                POINTS 213 \n\
+               # I am another comment\n\
+               DATA ascii \n\
                # I am another comment\n\
         ";
 
