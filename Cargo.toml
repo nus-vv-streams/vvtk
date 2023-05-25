@@ -47,8 +47,8 @@ wgpu_glyph = "0.17.0"
 # [[bin]]
 # name = "ply_to_pcd"
 
-[[bin]]
-name = "vvdash"
+# [[bin]]
+# name = "vvdash"
 
 [[bin]]
 name = "vivotk"
