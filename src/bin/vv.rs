@@ -1,24 +1,19 @@
 use std::str::FromStr;
+use std::fs::File;
+use std::{path::{Path, PathBuf}, ffi::OsString};
 use kdam::tqdm;
-use ply_rs::{ply, ply::Property, parser, writer, ply::Encoding};
-use byteorder::{NativeEndian, ByteOrder, LittleEndian, BigEndian};
-// use std::ffi::OsString;
-use std::{path::{Path, PathBuf}, ffi::OsString, io::BufWriter};
-// use vivotk::pcd::{
-//     write_pcd_file, PCDDataType, PCDField, PCDFieldSize, PCDFieldType, PCDHeader, PCDVersion,
-//     PointCloudData,
-// };
-use vivotk::pcd::{PCDDataType};
-use clap::{command, Command, arg, ArgAction, Arg, Parser};
+use clap::{Parser};
+use ply_rs::{ply, parser, writer, ply::{Encoding, Payload}, ply::DefaultElement};
 
-mod ply_to_pcd_mod;
-use ply_to_pcd_mod::ply_to_pcd;
+use vivotk::pcd::{write_pcd_file, read_pcd_file, PCDDataType};
+use vivotk::ply::read_ply;
+use vivotk::formats::pointxyzrgba::PointXyzRgba;
+use vivotk::formats::PointCloud;
+use vivotk::pipeline::subcommands::write::create_pcd;
+use vivotk::pipeline::subcommands::to_png::{pc_to_png, ToPng};
+use vivotk::utils::{find_all_files, read_file_to_point_cloud};
 
 mod ply_play_mod;
-
-use std::fs::File;
-use vivotk::pcd::{read_pcd_file, write_pcd_file};
-
 
 #[derive(Parser, Debug)]
 enum VVSubCommand {
@@ -32,15 +27,28 @@ enum VVSubCommand {
 struct ConvertArgs {
     #[clap(short, long)]
     output: String,
-
     #[clap(long, default_value = "pcd")]
     output_format: ConvertOutputFormat, 
-
     #[clap(short, long, default_value = "binary")]
     storage_type: PCDDataType,
-
     #[clap(short, long)]
     input: Vec<OsString>,
+    #[clap(short = 'n', long)]
+    frames: Option<usize>,
+    #[clap(short = 'x', long, default_value_t = 0.0)]
+    camera_x: f32,
+    #[clap(short = 'y', long, default_value_t = 0.0)]
+    camera_y: f32,
+    #[clap(short = 'z', long, default_value_t = 1.3)]
+    camera_z: f32,
+    #[clap(long = "yaw", default_value_t = -90.0, allow_hyphen_values = true)]
+    camera_yaw: f32,
+    #[clap(long = "pitch", default_value_t = 0.0)]
+    camera_pitch: f32,
+    #[clap(long, default_value_t = 1600)]
+    width: u32,
+    #[clap(long, default_value_t = 900)]
+    height: u32,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -65,7 +73,6 @@ impl ToString for ConvertOutputFormat {
 
 impl FromStr for ConvertOutputFormat {
     type Err = String;
-
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "ply" => Ok(ConvertOutputFormat::PLY),
@@ -78,188 +85,178 @@ impl FromStr for ConvertOutputFormat {
 }
 
 fn main() {
-    let subcommand: VVSubCommand = VVSubCommand::parse();
-
+    let cmd_args_original = std::env::args_os();
+    let cmd_args_vec: Vec<String> = cmd_args_original
+        .map(|arg| arg.into_string().unwrap())
+        .collect(); 
+    println!("cmd_args_vec: {:?}", cmd_args_vec);
+    let subcommand: VVSubCommand = VVSubCommand::parse_from(cmd_args_vec.clone());
     match subcommand {
         VVSubCommand::Convert(args) => {
-            // Handle the "convert" subcommand
-            println!("convert mode");
-            println!("rest of args: {:?} ", args);
+            println!("Convert mode, rest of args: {:?} ", args);
+            let mut files = find_all_files(&args.input);
+            files.sort();
+            for file in tqdm!(files.into_iter()) {
+                println!("file: {:?}", file);
+                let current_file_type = file.extension().unwrap().to_str().unwrap();
+                let target_file_type = args.output_format.to_string();
+
+                // create output dir
+                let output_path = Path::new(&args.output);
+                std::fs::create_dir_all(output_path).expect("Failed to create output directory");
+                match (current_file_type, target_file_type.as_str()) {
+                    ("ply", "ply") => ply_to_ply(output_path, args.storage_type, file),
+                    ("ply", "pcd") => ply_to_pcd(output_path, args.storage_type, file),
+                    ("pcd", "ply") => pcd_to_ply(output_path, args.storage_type, file),
+                    ("pcd", "pcd") => pcd_to_pcd(output_path, args.storage_type, file),
+                    (_, "png")     => {
+                        convert_to_png(file, &args)
+                    }
+                    _ => println!("unsupported file type"),
+                }
+            }
         }
         VVSubCommand::Play(args) => {
-            // Handle the "play" subcommand
-            println!("play mode");
-            println!("rest of args: {:?} ", args);
+            println!("play mode, rest of args: {:?} ", args);
+            ply_play_mod::play(args);
         }
     }
-
-
-    // let matches = command!() // requires `cargo` feature
-    //     .subcommand(
-    //         Command::new("convert")
-    //             .about("does convert things")
-    //             .arg(
-    //                 arg!(--input  <INPUT_DIR>  "specify input directory")
-    //                 .required(true).action(clap::ArgAction::Append)
-                    
-    //             )
-    //             .arg(
-    //                 arg!(--output <OUTPUT_DIR> "specify output directory")
-    //                 .required(true)
-    //             )
-    //             .arg(
-    //                 arg!(--out_format <OUTPUT_FORMAT> "specify output format, can be ply or pcd")
-    //                 .default_value("pcd")
-    //                 .required(false)
-    //             )
-    //             .arg(
-    //                 arg!(--storage_type <STORAGE_TYPE> "specify output type, can be ascii or binary")
-    //                 .default_value("binary")
-    //                 .required(false)
-    //             )
-    //             , 
-    //     )
-    //     .subcommand(
-    //         Command::new("play")
-    //             .about("does play things")
-    //             // to allow any args, will be parsed later
-
-    //     )
-    //     .get_matches();
-
-    //     match matches.subcommand() {
-    //         Some(("convert", sub_matches)) => {
-    //             // println!("subcommand matches: {:?}", sub_matches);
-    //             let input_dirs: Vec<OsString> = sub_matches.get_many::<String>("input")
-    //                                                     .unwrap_or_default().map(|x| x.clone().into()).collect();
-
-    //             println!("input_dir: {:?}", &input_dirs);
-    //             let output_dir = sub_matches.get_one::<String>("output").unwrap();
-    //             println!("output_dir: {:?}", output_dir);
-    //             let out_format = sub_matches.get_one::<String>("out_format").unwrap();
-    //             println!("out_format: {:?}", out_format);
-    //             let storage_type = sub_matches.get_one::<String>("storage_type").unwrap();
-                
-    //             // convert to type Vec<OsString>
-    //             let storage_pcd_data_type: PCDDataType = storage_type.parse().unwrap();
-    //             println!("storage_type_PCDDataType: {:?}", storage_pcd_data_type); 
-                 
-    //             // ply_to_pcd(output_dir.clone(), storage_pcd_data_type, input_dirs.clone());
-
-    //             // pcd_to_pcd(output_dir.clone(), storage_pcd_data_type, input_dirs.clone());           
-
-    //             ply_to_ply(output_dir.clone(), storage_pcd_data_type, input_dirs.clone());   
-    //         }
-    //         Some(("play", sub_matches)) => {
-    //             println!("play");
-    //             println!("subcommand matches: {:?}", sub_matches);
-    //             // let args = ply_play_mod::Args::parse_from();
-    //             // ply_play::Args::parse_from(&["play", "test", "test2"]);
-    //         }
-    //         _ => unreachable!(),
-    //     }
-
-    // println!("Hello, world end!");
 }
 
-fn ply_to_ply(output_dir:String, storage_type:PCDDataType, files:Vec<OsString>){
-    let files_to_convert = filter_files_with_extention(files, "ply");
-    let output_path = Path::new(&output_dir);
-    std::fs::create_dir_all(output_path).expect("Failed to create output directory");
-    let mut count = 0;
+fn convert_to_png(file_path:PathBuf, args: &ConvertArgs){
+    let pc = read_file_to_point_cloud(&file_path);
+    // println!("args_vec: {:?}", args);
+    let args_vec: Vec<String> = [ "to_png",
+        "--output-dir", args.output.as_str(),
+        "-x", args.camera_x.to_string().as_str(),
+        "-y", args.camera_y.to_string().as_str(),
+        "-z", args.camera_z.to_string().as_str(),
+        "--yaw", args.camera_yaw.to_string().as_str(),
+        "--pitch", args.camera_pitch.to_string().as_str(),
+        "--width", args.width.to_string().as_str(),
+        "--height", args.height.to_string().as_str(),
+    ].iter().map(|s| s.to_string()).collect();
+    let mut to_png = ToPng::from_args_unboxed(args_vec); 
+    let filename = Path::new(file_path.file_name().unwrap());
+    pc_to_png(&mut to_png, pc.unwrap(), filename.to_str().unwrap());
+}
 
+fn ply_to_ply(output_path:&Path, storage_type:PCDDataType, file_path:PathBuf){
     let ply_parser = parser::Parser::<ply::DefaultElement>::new();
-    let ply_writer = writer::Writer::new();
-    for file_path in tqdm!(files_to_convert.into_iter()) {
-        let mut f = std::fs::File::open(&file_path).unwrap();
-        let mut ply = ply_parser.read_ply(&mut f).unwrap();
+    let mut f = std::fs::File::open(&file_path).unwrap();
+    let mut ply = ply_parser.read_ply(&mut f).unwrap();
 
-        println!("ply header: {:?}", ply.header);
-        match storage_type {
-            PCDDataType::Ascii => {
-                ply.header.encoding = ply_rs::ply::Encoding::Ascii;
-            },
-            PCDDataType::Binary => {
-                ply.header.encoding = set_encoding();
-            },
-            _ => unreachable!(),
-        }
-        let filename = Path::new(file_path.file_name().unwrap()).with_extension("ply");
-        let output_file = output_path.join(filename);
-        let mut file = File::create(&output_file).unwrap();
-
-        if let Err(e) = ply_writer.write_ply(&mut file, &mut ply) {
-            println!(
-                "Failed to write {:?} to {:?}\n{e}",
-                file_path.into_os_string(),
-                output_file.into_os_string()
-            );
-            continue;
-        }
+    ply.header.encoding = match storage_type {
+        PCDDataType::Ascii => ply_rs::ply::Encoding::Ascii,
+        PCDDataType::Binary => set_encoding(),
+        _ => unreachable!(),
+    };
         
-        count += 1;
-    }
-    println!("Successfully converted {count} files"); 
-}
+    let filename = Path::new(file_path.file_name().unwrap()).with_extension("ply");
+    let output_file = output_path.join(filename);
+    let mut file = File::create(&output_file).unwrap();
 
-fn pcd_to_pcd(output_dir:String, storage_type:PCDDataType, files:Vec<OsString>){
-    let files_to_convert = filter_files_with_extention(files, "pcd");
-    let output_path = Path::new(&output_dir);
-    std::fs::create_dir_all(output_path).expect("Failed to create output directory");
-    let mut count = 0;
-
-    for file_path in tqdm!(files_to_convert.into_iter()) {
-        // read one pcd file, determine type(ascii or binary)
-        let pcd = read_pcd_file(file_path.clone()).unwrap();
-        let filename = Path::new(file_path.file_name().unwrap()).with_extension("pcd");
-        let output_file = output_path.join(filename);
-        if let Err(e) = write_pcd_file(&pcd, storage_type, &output_file) {
-            println!(
-                "Failed to write {:?} to {:?}\n{e}",
-                file_path.into_os_string(),
-                output_file.into_os_string()
-            );
-            continue;
-        }
-        count += 1;
-    }
-    println!("Successfully converted {count} files");
-}
-
-fn expand_directory(p: &Path, extension: &str) -> Vec<PathBuf> {
-    let mut files = vec![];
-    let dir_entry = p.read_dir().unwrap();
-    for entry in dir_entry {
-        let entry = entry.unwrap().path();
-        if !entry.is_file() {
-            // We do not recursively search
-            continue;
-        }
-
-        if is_this_extension(&entry, extension) {
-            files.push(entry);
-        }
+    let ply_writer = writer::Writer::<ply::DefaultElement>::new();
+    if let Err(e) = ply_writer.write_ply(&mut file, &mut ply) {
+        println!(
+            "Failed to write {:?} to {:?}\n{e}",
+            file_path.into_os_string(),
+            output_file.into_os_string()
+        );
     }
 
-    files
 }
 
-pub fn filter_files_with_extention(os_strings: Vec<OsString>, extension: &str) -> Vec<PathBuf> {
-    let mut files_to_convert = vec![];
-    for file_str in os_strings {
-        let path = Path::new(&file_str);
-        if path.is_dir() {
-            files_to_convert.extend(expand_directory(path, extension));
-        } else if is_this_extension(path, extension) {
-            files_to_convert.push(path.to_path_buf());
-        }
+fn pcd_to_pcd(output_path:&Path, storage_type:PCDDataType, file_path:PathBuf){
+    let pcd = read_pcd_file(file_path.clone()).unwrap();
+    let filename = Path::new(file_path.file_name().unwrap()).with_extension("pcd");
+    let output_file = output_path.join(filename);
+    if let Err(e) = write_pcd_file(&pcd, storage_type, &output_file) {
+        println!(
+            "Failed to write {:?} to {:?}\n{e}",
+            file_path.into_os_string(),
+            output_file.into_os_string()
+        );
     }
-    files_to_convert
 }
 
-fn is_this_extension(p: &Path, extension: &str) -> bool {
-    p.extension().map(|f| extension.eq(f)).unwrap_or(false)
+fn ply_to_pcd(output_path:&Path, storage_type:PCDDataType, file_path:PathBuf){
+    let pointxyzrgba = read_ply(file_path.clone()).unwrap();
+    let pcd = create_pcd(&pointxyzrgba);
+
+    let filename = Path::new(file_path.file_name().unwrap()).with_extension("pcd");
+    let output_file = output_path.join(filename.clone());
+    if let Err(e) = write_pcd_file(&pcd, storage_type, &output_file) {
+        println!(
+            "Failed to write {:?} to {:?}\n{e}",
+            file_path.into_os_string(),
+            output_file.into_os_string()
+        );
+    }
 }
+
+
+fn pcd_to_ply(output_path:&Path, storage_type:PCDDataType, file_path:PathBuf){
+    let pcd = read_pcd_file(&file_path).unwrap();
+
+    let x_prop_def = ply_rs::ply::PropertyDef::new("x".to_string(), ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float));
+    let y_prop_def = ply_rs::ply::PropertyDef::new("y".to_string(), ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float));
+    let z_prop_def = ply_rs::ply::PropertyDef::new("z".to_string(), ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float));
+    let red_prop_def = ply_rs::ply::PropertyDef::new("red".to_string(), ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::UChar));
+    let green_prop_def = ply_rs::ply::PropertyDef::new("green".to_string(), ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::UChar));
+    let blue_prop_def = ply_rs::ply::PropertyDef::new("blue".to_string(), ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::UChar));
+    
+    let mut element = ply_rs::ply::ElementDef::new("vertex".to_string());
+    element.properties.insert("x".to_string(), x_prop_def);
+    element.properties.insert("y".to_string(), y_prop_def);
+    element.properties.insert("z".to_string(), z_prop_def);
+    element.properties.insert("red".to_string(), red_prop_def);
+    element.properties.insert("green".to_string(), green_prop_def);
+    element.properties.insert("blue".to_string(), blue_prop_def);
+    element.count = pcd.header().width() as usize;
+
+    let mut ply_header = ply_rs::ply::Header::new();
+    ply_header.encoding = match storage_type {
+        PCDDataType::Ascii => ply_rs::ply::Encoding::Ascii,
+        PCDDataType::Binary => set_encoding(),
+        _ => unreachable!(),
+    };
+    ply_header.elements.insert("vertex".to_string(), element); 
+
+    let pcd_pointxyzrgba: PointCloud<PointXyzRgba> = pcd.into();
+    let mut pay_load_vec = Vec::<DefaultElement>::new();
+    pcd_pointxyzrgba.points.into_iter().for_each(|point| {
+        let mut ply_point = DefaultElement::new();
+        ply_point.insert("x".to_string(), ply_rs::ply::Property::Float(point.x));
+        ply_point.insert("y".to_string(), ply_rs::ply::Property::Float(point.y));
+        ply_point.insert("z".to_string(), ply_rs::ply::Property::Float(point.z));
+        ply_point.insert("red".to_string(), ply_rs::ply::Property::UChar(point.r));
+        ply_point.insert("green".to_string(), ply_rs::ply::Property::UChar(point.g));
+        ply_point.insert("blue".to_string(), ply_rs::ply::Property::UChar(point.b));
+        pay_load_vec.push(ply_point);
+    });
+    let mut pay_load = Payload::<DefaultElement>::new();
+    pay_load.insert("vertex".to_string(), pay_load_vec);
+    
+    let mut ply = ply_rs::ply::Ply::<DefaultElement>::new();
+    ply.header = ply_header;
+    ply.payload = pay_load;
+
+    let filename = Path::new(file_path.file_name().unwrap()).with_extension("ply");
+    let output_file = output_path.join(filename);
+    let mut file = File::create(&output_file).unwrap();
+
+    let ply_writer = writer::Writer::<ply::DefaultElement>::new();
+    if let Err(e) = ply_writer.write_ply(&mut file, &mut ply) {
+        println!(
+            "Failed to write {:?} to {:?}\n{e}",
+            file_path.into_os_string(),
+            output_file.into_os_string()
+        );
+    }
+
+}
+
 
 
 #[cfg(target_endian = "little")]

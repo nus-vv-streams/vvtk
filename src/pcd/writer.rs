@@ -211,6 +211,7 @@ mod tests {
                 1,
                 [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
                 1,
+                "ascii".parse().unwrap(),
             )
             .unwrap(),
             data,
@@ -252,6 +253,7 @@ mod tests {
                 1,
                 [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
                 1,
+                "binary".parse().unwrap(),
             )
             .unwrap(),
             data,
