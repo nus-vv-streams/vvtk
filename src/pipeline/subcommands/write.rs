@@ -48,6 +48,7 @@ impl Subcommand for Write {
         let output_path = Path::new(&self.args.output_dir);
         let pcd_data_type = self.args.pcd.expect("PCD data type should be provided");
         match &message {
+
             PipelineMessage::PointCloud(pc) => {
                 let pcd = create_pcd(pc);
                 let file_name = format!("{}.pcd", self.count);
@@ -60,6 +61,10 @@ impl Subcommand for Write {
                 progress
                     .send(Progress::Incr)
                     .expect("should be able to send");
+                progress
+                    .send(Progress::Completed)
+                    .expect("should be able to send");
+                // out.send(PipelineMessage::End).expect("should be able to send");
             }
             PipelineMessage::End => {
                 progress
@@ -67,11 +72,12 @@ impl Subcommand for Write {
                     .expect("should be able to send");
             }
         }
+        println!("Write: {:?}", message);
         out.send(message).expect("should be able to send");
     }
 }
 
-fn create_pcd(point_cloud: &PointCloud<PointXyzRgba>) -> PointCloudData {
+pub fn create_pcd(point_cloud: &PointCloud<PointXyzRgba>) -> PointCloudData {
     let header = PCDHeader::new(
         PCDVersion::V0_7,
         vec![
@@ -79,9 +85,9 @@ fn create_pcd(point_cloud: &PointCloud<PointXyzRgba>) -> PointCloudData {
             PCDField::new("y".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
             PCDField::new("z".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
             PCDField::new(
-                "rgb".to_string(),
+                "rgba".to_string(),
                 PCDFieldSize::Four,
-                PCDFieldType::Float,
+                PCDFieldType::Unsigned,
                 1,
             )
             .unwrap(),
