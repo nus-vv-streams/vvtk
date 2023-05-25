@@ -1,7 +1,9 @@
 mod metrics;
 mod read;
-mod to_png;
-mod write;
+pub mod to_png;
+pub mod write;
+mod convert;
+mod play;
 
 use std::sync::mpsc::Sender;
 
@@ -9,6 +11,7 @@ pub use metrics::Metrics;
 pub use read::Read;
 pub use to_png::ToPng;
 pub use write::Write;
+pub use convert::Convert;
 
 use super::{PipelineMessage, Progress};
 

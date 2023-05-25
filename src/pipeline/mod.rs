@@ -1,5 +1,6 @@
 mod executor;
-mod subcommands;
+pub mod subcommands;
+
 
 use std::sync::mpsc::Receiver;
 
@@ -7,7 +8,7 @@ use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
 
 use self::{
     executor::Executor,
-    subcommands::{Metrics, Read, Subcommand, ToPng, Write},
+    subcommands::{Metrics, Read, Subcommand, ToPng, Write, Convert},
 };
 
 use clearscreen;
@@ -20,6 +21,7 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
         "to_png" => Some(Box::from(ToPng::from_args)),
         "read" => Some(Box::from(Read::from_args)),
         "metrics" => Some(Box::from(Metrics::from_args)),
+        "convert" => Some(Box::from(Convert::from_args)),
         _ => None,
     }
 }
@@ -41,6 +43,8 @@ pub struct Pipeline;
 impl Pipeline {
     pub fn execute() {
         let pipeline = Self::gather_pipeline_from_args();
+        println!("Executing pipeline");
+
         let mut handles = vec![];
         let mut names = vec![];
         let mut progress_recvs = vec![];
@@ -53,6 +57,7 @@ impl Pipeline {
         let mut completed = 0;
         let mut progress = vec![0; progress_recvs.len()];
         let mut length = 0;
+        println!("progress_recvs.len(): {}", progress_recvs.len());
         while completed < progress_recvs.len() {
             for (idx, recv) in progress_recvs.iter().enumerate() {
                 while let Ok(prog) = recv.try_recv() {
@@ -69,7 +74,8 @@ impl Pipeline {
                     }
                 }
             }
-            clearscreen::clear().expect("Failed to clear screen");
+            println!("Progress completed: {:?}", completed);
+            // clearscreen::clear().expect("Failed to clear screen");
             for i in 0..progress.len() {
                 println!("{}: {} / {}", names[i], progress[i], length)
             }
