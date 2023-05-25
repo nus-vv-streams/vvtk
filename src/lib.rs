@@ -7,4 +7,4 @@ pub mod pcd;
 pub mod pipeline;
 pub mod ply;
 pub mod render;
-mod utils;
+pub mod utils;

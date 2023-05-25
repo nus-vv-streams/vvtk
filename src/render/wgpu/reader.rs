@@ -7,6 +7,7 @@ use std::fmt::Debug;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, Sender};
+use crate::ply::read_ply;
 
 pub trait RenderReader<T: Renderable> {
     fn get_at(&self, index: usize) -> Option<T>;
@@ -14,18 +15,21 @@ pub trait RenderReader<T: Renderable> {
     fn is_empty(&self) -> bool;
 }
 
-pub struct PcdFileReader {
+// pub trait FileReader {}
+
+pub struct PointCloudFileReader {
     files: Vec<PathBuf>,
+    file_type: String,
 }
 
-impl PcdFileReader {
-    pub fn from_directory(directory: &Path) -> Self {
+impl PointCloudFileReader{
+    pub fn from_directory(directory: &Path, file_type: &str) -> Self {
         let mut files = vec![];
         for file_entry in directory.read_dir().unwrap() {
             match file_entry {
                 Ok(entry) => {
                     if let Some(ext) = entry.path().extension() {
-                        if ext.eq("pcd") {
+                        if ext.eq(file_type) {
                             files.push(entry.path());
                         }
                     }
@@ -36,20 +40,21 @@ impl PcdFileReader {
             }
         }
         files.sort();
-        Self { files }
-    }
-
-    pub fn file_at(&self, index: usize) -> Option<&PathBuf> {
-        self.files.get(index)
+        Self {
+            files,
+            file_type: file_type.to_string(),
+        }
     }
 }
 
-impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
+impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
     fn get_at(&self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-        self.files
-            .get(index)
-            .and_then(|f| read_pcd_file(f).ok())
-            .map(PointCloud::from)
+        let file_path = self.files.get(index)?;
+        match self.file_type.as_str() {
+            "pcd" => self.files.get(index).and_then(|f| read_pcd_file(f).ok()).map(PointCloud::from),
+            "ply" => Some(read_ply(file_path).unwrap()),
+            _ => panic!("Invalid file type"),
+        }
     }
 
     fn len(&self) -> usize {
