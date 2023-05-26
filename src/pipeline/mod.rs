@@ -43,7 +43,12 @@ pub struct Pipeline;
 impl Pipeline {
     pub fn execute() {
         let pipeline = Self::gather_pipeline_from_args();
-        println!("Executing pipeline");
+        
+        println!("Executing pipeline:");
+        for (exec, progress) in &pipeline {
+            println!("sender    {}", exec.name());
+            println!("progress: {:?}", &progress);
+        }
 
         let mut handles = vec![];
         let mut names = vec![];
@@ -94,13 +99,18 @@ impl Pipeline {
         let mut accumulated_args: Vec<String> = vec![];
         let mut prev_recv: Option<Receiver<PipelineMessage>> = None;
 
+        // println!("args: {:?}", args);
         for arg in args.skip(1) {
+            println!("arg: {}", &arg);
             let is_command = subcommand(&arg);
             if is_command.is_some() {
+                println!("is_command.is_some()");
                 if let Some(creator) = command_creator.take() {
+                    println!("command_creator.take()");
                     let forwarded_args = accumulated_args;
                     accumulated_args = vec![];
                     let (mut executor, recv, progress) = Executor::create(forwarded_args, creator);
+                    println!("recv: {:?}", recv);
                     if let Some(recv) = prev_recv.take() {
                         executor.set_input(recv);
                     }
@@ -111,6 +121,8 @@ impl Pipeline {
             }
             accumulated_args.push(arg);
         }
+
+        println!("accumulated_args: {:?}", accumulated_args);
         let creator = command_creator
             .take()
             .expect("Should have at least one command");

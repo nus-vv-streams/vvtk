@@ -39,11 +39,23 @@ impl Subcommand for Read {
                 .expect("should be able to send");
             files.sort();
             for file in files {
-                let point_cloud = read_file_to_point_cloud(&file);
-                if let Some(pc) = point_cloud {
-                    out.send(PipelineMessage::PointCloud(pc))
-                        .expect("should be able to send");
-                }
+                println!("Reading file: {:?}", file);
+                let point_cloud = read_file_to_point_cloud(&file).unwrap();
+                println!("read point cloud successfully with size: {}", point_cloud.points.len());
+                // if let Some(pc) = point_cloud {
+                    
+                    // out.send(PipelineMessage::PointCloud(pc)).unwrap_or_else(|err| {
+                    //     println!("Error: {:?}", err);
+                    // });
+                out.send(PipelineMessage::PointCloud(point_cloud)).expect("should be able to send");
+                println!("Send point cloud successfully");
+
+                // get receiver number in the pipeline
+                let mut recv_num = 0;
+                
+                
+
+                // }
                 progress
                     .send(Progress::Incr)
                     .expect("should be able to send");
