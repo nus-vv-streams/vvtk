@@ -3,7 +3,6 @@ use crate::formats::PointCloud;
 use crate::pcd::read_pcd_file;
 use crate::BufMsg;
 
-use log::debug;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
