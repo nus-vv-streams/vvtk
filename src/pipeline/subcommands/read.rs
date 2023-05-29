@@ -36,6 +36,7 @@ impl Read {
 
 impl Subcommand for Read {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
+        println!("Reading files");
         if messages.is_empty() {
             let mut files = find_all_files(&self.args.files);
             files.sort();
@@ -56,8 +57,12 @@ impl Subcommand for Read {
 
                 let point_cloud = read_file_to_point_cloud(&file);
                 if let Some(pc) = point_cloud {
+                    println!("pc length {}", pc.points.len());
                     channel.send(PipelineMessage::PointCloud(pc));
                 }
+                
+
+                
             }
             channel.send(PipelineMessage::End);
         } else {

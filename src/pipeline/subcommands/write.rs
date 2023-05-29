@@ -34,8 +34,10 @@ impl Write {
 
 impl Subcommand for Write {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
+        println!("Start writing...");
         let output_path = Path::new(&self.args.output_dir);
         for message in messages {
+            println!("message: {:?}", message);
             match &message {
                 PipelineMessage::PointCloud(pc) => {
                     let pcd_data_type = self.args.pcd.expect("PCD data type should be provided");
