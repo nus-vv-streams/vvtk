@@ -20,7 +20,7 @@ pub trait RenderReader<T: Renderable> {
 // pub trait FileReader {}
 
 pub struct PointCloudFileReader {
-    files: Vec<PathBuf>,,
+    files: Vec<PathBuf>,
     file_type: String,
 }
 
@@ -59,7 +59,7 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
             .get(index)?;
         match self.file_type.as_str() {
             "pcd" => self.files.get(index).and_then(|f| read_pcd_file(f).ok()).map(PointCloud::from),
-            "ply" => Some(read_ply(file_path).unwrap()),
+            // "ply" => Some(read_ply(file_path).unwrap()),
             _ => panic!("Invalid file type"),
         }
     }

@@ -6,7 +6,6 @@ use egui::{Button, CentralPanel, Context, FontDefinitions, Label, Slider};
 use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
 use epi::Frame;
-use epi::Frame;
 use std::iter;
 use std::sync::Arc;
 use std::time::Instant;
