@@ -1,17 +1,20 @@
+mod channel;
 mod executor;
 pub mod subcommands;
 
+use crossbeam_channel::Receiver;
 
-use std::sync::mpsc::Receiver;
+// use std::sync::mpsc::Receiver;
 
-use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
+use crate::{
+    formats::{pointxyzrgba::PointXyzRgba, PointCloud},
+    metrics::Metrics,
+};
 
 use self::{
     executor::Executor,
-    subcommands::{Metrics, Read, Subcommand, ToPng, Write, Convert},
+    subcommands::{Downsampler, MetricsCalculator, Read, Subcommand, ToPng, Upsampler, Write},
 };
-
-use clearscreen;
 
 pub type SubcommandCreator = Box<dyn Fn(Vec<String>) -> Box<dyn Subcommand>>;
 
@@ -20,40 +23,49 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
         "write" => Some(Box::from(Write::from_args)),
         "to_png" => Some(Box::from(ToPng::from_args)),
         "read" => Some(Box::from(Read::from_args)),
-        "metrics" => Some(Box::from(Metrics::from_args)),
-        "convert" => Some(Box::from(Convert::from_args)),
+        "metrics" => Some(Box::from(MetricsCalculator::from_args)),
+        "downsample" => Some(Box::from(Downsampler::from_args)),
+        "upsample" => Some(Box::from(Upsampler::from_args)),
+        // "convert" => Some(Box::from(Convert::from_args)),
         _ => None,
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PipelineMessage {
     PointCloud(PointCloud<PointXyzRgba>),
+    Metrics(Metrics),
     End,
 }
 
 #[derive(Debug)]
 pub enum Progress {
     Incr,
-    Length(usize),
     Completed,
 }
 pub struct Pipeline;
 
 impl Pipeline {
     pub fn execute() {
-        let pipeline = Self::gather_pipeline_from_args();
-        
-        println!("Executing pipeline:");
-        for (exec, progress) in &pipeline {
-            println!("sender    {}", exec.name());
-            println!("progress: {:?}", &progress);
-        }
-
+        let (mut executors, progresses) = Self::gather_pipeline_from_args();
         let mut handles = vec![];
         let mut names = vec![];
         let mut progress_recvs = vec![];
-        for (exec, progress) in pipeline {
+        let all_input_names: Vec<Vec<String>> = executors.iter().map(|e| e.input_names()).collect();
+
+        for (idx, input_names) in all_input_names.iter().enumerate() {
+            let mut inputs = vec![];
+            for input_name in input_names {
+                for executor in &mut executors {
+                    if executor.output_name().eq(input_name) {
+                        inputs.push(executor.output());
+                    }
+                }
+            }
+            executors[idx].set_inputs(inputs);
+        }
+
+        for (exec, progress) in executors.into_iter().zip(progresses) {
             names.push(exec.name());
             progress_recvs.push(progress);
             handles.push(exec.run());
@@ -61,8 +73,6 @@ impl Pipeline {
 
         let mut completed = 0;
         let mut progress = vec![0; progress_recvs.len()];
-        let mut length = 0;
-        println!("progress_recvs.len(): {}", progress_recvs.len());
         while completed < progress_recvs.len() {
             for (idx, recv) in progress_recvs.iter().enumerate() {
                 while let Ok(prog) = recv.try_recv() {
@@ -73,17 +83,14 @@ impl Pipeline {
                         Progress::Completed => {
                             completed += 1;
                         }
-                        Progress::Length(l) => {
-                            length = l;
-                        }
                     }
                 }
             }
-            println!("Progress completed: {:?}", completed);
-            // clearscreen::clear().expect("Failed to clear screen");
+            println!("=======================");
             for i in 0..progress.len() {
-                println!("{}: {} / {}", names[i], progress[i], length)
+                println!("{}: {}", names[i], progress[i])
             }
+            println!("=======================");
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
 
@@ -92,12 +99,12 @@ impl Pipeline {
         }
     }
 
-    fn gather_pipeline_from_args() -> Vec<(Executor, Receiver<Progress>)> {
+    fn gather_pipeline_from_args() -> (Vec<Executor>, Vec<Receiver<Progress>>) {
         let args = std::env::args();
-        let mut pipeline: Vec<(Executor, Receiver<Progress>)> = vec![];
+        let mut executors = vec![];
+        let mut progresses = vec![];
         let mut command_creator: Option<SubcommandCreator> = None;
         let mut accumulated_args: Vec<String> = vec![];
-        let mut prev_recv: Option<Receiver<PipelineMessage>> = None;
 
         // println!("args: {:?}", args);
         for arg in args.skip(1) {
@@ -109,13 +116,9 @@ impl Pipeline {
                     println!("command_creator.take()");
                     let forwarded_args = accumulated_args;
                     accumulated_args = vec![];
-                    let (mut executor, recv, progress) = Executor::create(forwarded_args, creator);
-                    println!("recv: {:?}", recv);
-                    if let Some(recv) = prev_recv.take() {
-                        executor.set_input(recv);
-                    }
-                    prev_recv = Some(recv);
-                    pipeline.push((executor, progress));
+                    let (executor, progress) = Executor::create(forwarded_args, creator);
+                    executors.push(executor);
+                    progresses.push(progress);
                 }
                 command_creator = is_command;
             }
@@ -127,12 +130,9 @@ impl Pipeline {
             .take()
             .expect("Should have at least one command");
 
-        let (mut executor, _, progress) = Executor::create(accumulated_args, creator);
-        if let Some(recv) = prev_recv.take() {
-            executor.set_input(recv);
-        }
-        pipeline.push((executor, progress));
-
-        pipeline
+        let (executor, progress) = Executor::create(accumulated_args, creator);
+        executors.push(executor);
+        progresses.push(progress);
+        (executors, progresses)
     }
 }

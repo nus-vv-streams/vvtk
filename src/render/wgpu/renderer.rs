@@ -1,4 +1,3 @@
-use crate::render::wgpu::antialias::AntiAlias;
 use crate::render::wgpu::builder::{
     Attachable, EventType, RenderEvent, RenderInformation, Windowed,
 };
@@ -8,11 +7,11 @@ use crate::render::wgpu::reader::RenderReader;
 use std::iter;
 use std::marker::PhantomData;
 use std::time::{Duration, Instant};
-use wgpu::util::{DeviceExt, StagingBelt};
+use wgpu::util::StagingBelt;
 use wgpu::{
-    BindGroup, Buffer, CommandEncoder, Device, Extent3d, LoadOp, Operations, Queue,
-    RenderPassDepthStencilAttachment, RenderPipeline, SurfaceError, Texture, TextureDescriptor,
-    TextureDimension, TextureFormat, TextureUsages, TextureView,
+    BindGroup, Buffer, CommandEncoder, Device, LoadOp, Operations, Queue,
+    RenderPassDepthStencilAttachment, RenderPipeline, SurfaceError, Texture, TextureFormat,
+    TextureView,
 };
 use wgpu_glyph::{ab_glyph, GlyphBrush, GlyphBrushBuilder, Section, Text};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
@@ -21,48 +20,7 @@ use winit::event_loop::{EventLoop, EventLoopProxy};
 use winit::window::{Window, WindowBuilder, WindowId};
 
 use super::metrics_reader::MetricsReader;
-
-pub trait Renderable: Clone {
-    fn buffer_layout_desc<'a>() -> wgpu::VertexBufferLayout<'a>;
-    fn create_render_pipeline(
-        device: &Device,
-        format: TextureFormat,
-        layout: Option<&wgpu::PipelineLayout>,
-    ) -> RenderPipeline;
-    fn create_depth_texture(
-        device: &Device,
-        size: PhysicalSize<u32>,
-    ) -> (wgpu::Texture, wgpu::TextureView) {
-        let depth_texture = device.create_texture(&TextureDescriptor {
-            label: None,
-            size: Extent3d {
-                width: size.width,
-                height: size.height,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::Depth32Float,
-            usage: TextureUsages::RENDER_ATTACHMENT,
-        });
-
-        let depth_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
-        (depth_texture, depth_view)
-    }
-    fn create_buffer(&self, device: &wgpu::Device) -> wgpu::Buffer {
-        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: self.bytes(),
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-        })
-    }
-    fn antialias(&self) -> AntiAlias {
-        AntiAlias::default()
-    }
-    fn bytes(&self) -> &[u8];
-    fn vertices(&self) -> usize;
-}
+use super::renderable::Renderable;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum PlaybackState {
@@ -151,7 +109,7 @@ where
 
     // Playback
     current_position: usize,
-    fps: f32,
+    fps: f32, // the average playout fps
     time_to_advance: std::time::Duration,
     state: PlaybackState,
     time_since_last_update: std::time::Duration,
@@ -228,13 +186,13 @@ where
     fn new(
         event_proxy: EventLoopProxy<RenderEvent>,
         gpu: WindowGpu,
-        reader: T,
+        mut reader: T,
         fps: f32,
         camera_state: CameraState,
         metrics_reader: Option<MetricsReader>,
     ) -> Self {
         let initial_render = reader
-            .get_at(0)
+            .start()
             .expect("There should be at least one point cloud to render!");
         let pcd_renderer = PointCloudRenderer::new(
             &gpu.device,
@@ -293,11 +251,24 @@ where
     }
 
     fn move_to(&mut self, position: usize) {
-        if position < self.reader.len() {
-            self.current_position = position;
-            self.update_vertices();
-            self.update_stats();
+        if position >= self.reader.len() {
+            return;
         }
+        let now = Instant::now();
+        let tmp = self.current_position;
+        self.current_position = position;
+        if !self.update_vertices() {
+            self.current_position = tmp;
+        }
+        self.update_stats();
+        // FIXME: avg_fps might not be accurately when a frame fails to render. but it's not a big deal
+        let time_taken = now.elapsed();
+        println!(
+            "time taken: {}",
+            time_taken.max(self.time_to_advance).as_secs_f32()
+        );
+        self.fps =
+            0.9 * self.fps + 0.1 * (1.0 / time_taken.max(self.time_to_advance).as_secs_f32());
     }
 
     fn back(&mut self) {
@@ -307,6 +278,10 @@ where
     }
 
     fn advance(&mut self) {
+        // println!(
+        //     "[renderer.rs] advanced called. current_position: {}",
+        //     self.current_position
+        // );
         if self.current_position == self.reader.len() - 1 {
             self.move_to(0);
         } else {
@@ -314,12 +289,8 @@ where
         }
     }
 
-    fn current_position(&self) -> usize {
-        self.current_position
-    }
-
-    fn current(&self) -> Option<U> {
-        self.reader.get_at(self.current_position())
+    fn current(&mut self) -> Option<U> {
+        self.reader.get_at(self.current_position)
     }
 
     fn handle_device_event(&mut self, event: &DeviceEvent) {
@@ -377,11 +348,13 @@ where
         self.render()
     }
 
-    fn update_vertices(&mut self) {
+    fn update_vertices(&mut self) -> bool {
         if let Some(data) = self.current() {
             self.pcd_renderer
                 .update_vertices(&self.gpu.device, &self.gpu.queue, &data);
+            return true;
         }
+        return false;
     }
 
     fn update_stats(&mut self) {

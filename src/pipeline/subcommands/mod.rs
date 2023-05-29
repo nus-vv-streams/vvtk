@@ -1,25 +1,19 @@
+mod downsample;
 mod metrics;
 mod read;
 pub mod to_png;
 pub mod write;
-mod convert;
-mod play;
 
-use std::sync::mpsc::Sender;
-
-pub use metrics::Metrics;
+pub use downsample::Downsampler;
+pub use metrics::MetricsCalculator;
 pub use read::Read;
 pub use to_png::ToPng;
+pub use upsample::Upsampler;
 pub use write::Write;
 pub use convert::Convert;
 
-use super::{PipelineMessage, Progress};
+use super::{channel::Channel, PipelineMessage};
 
 pub trait Subcommand {
-    fn handle(
-        &mut self,
-        message: PipelineMessage,
-        out: &Sender<PipelineMessage>,
-        progress: &Sender<Progress>,
-    );
+    fn handle(&mut self, messages: Vec<PipelineMessage>, out: &Channel);
 }
