@@ -1,10 +1,8 @@
 use clap::Parser;
 
-use crate::formats::pointxyzrgba::PointXyzRgba;
-use crate::formats::PointCloud;
+
 use crate::pcd::{
-    write_pcd_file, PCDDataType, PCDField, PCDFieldSize, PCDFieldType, PCDHeader, PCDVersion,
-    PointCloudData,
+    write_pcd_file, PCDDataType, create_pcd
 };
 use crate::pipeline::channel::Channel;
 use crate::pipeline::PipelineMessage;
@@ -12,7 +10,6 @@ use std::fs::File;
 use std::path::Path;
 
 use super::Subcommand;
-
 #[derive(Parser)]
 struct Args {
     #[clap(short, long)]
@@ -66,37 +63,4 @@ impl Subcommand for Write {
             channel.send(message);
         }
     }
-}
-
-pub fn create_pcd(point_cloud: &PointCloud<PointXyzRgba>) -> PointCloudData {
-    let header = PCDHeader::new(
-        PCDVersion::V0_7,
-        vec![
-            PCDField::new("x".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
-            PCDField::new("y".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
-            PCDField::new("z".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
-            PCDField::new(
-                "rgba".to_string(),
-                PCDFieldSize::Four,
-                PCDFieldType::Unsigned,
-                1,
-            )
-            .unwrap(),
-        ],
-        point_cloud.number_of_points as u64,
-        1,
-        [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-        point_cloud.number_of_points as u64,
-        PCDDataType::Ascii, // this is a placeholder value, it will be overwritten accoradingly in write_pcd_file()
-    )
-    .unwrap();
-    let bytes = unsafe {
-        let mut points = std::mem::ManuallyDrop::new(point_cloud.points.clone());
-        Vec::from_raw_parts(
-            points.as_mut_ptr() as *mut u8,
-            point_cloud.number_of_points * std::mem::size_of::<PointXyzRgba>(),
-            points.capacity() * std::mem::size_of::<PointXyzRgba>(),
-        )
-    };
-    PointCloudData::new(header, bytes).unwrap()
 }

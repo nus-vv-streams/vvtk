@@ -72,6 +72,7 @@ impl Pipeline {
             handles.push(exec.run());
         }
 
+        println!("progress_recvs.len(): {}", progress_recvs.len());
         let mut completed = 0;
         let mut progress = vec![0; progress_recvs.len()];
         while completed < progress_recvs.len() {

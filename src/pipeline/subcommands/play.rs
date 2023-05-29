@@ -47,9 +47,9 @@ impl Play {
         })
     }
 
-    fn infer_format(path: &str, play_format: &str) -> &str {
+    fn infer_format(path: &str, play_format: &str) -> String {
         if play_format.eq("pcd") || play_format.eq("ply") {
-            return play_format;
+            return play_format.to_string();
         }
 
         let path = Path::new(path);
@@ -74,9 +74,9 @@ impl Play {
             }
         }
         if pcd_count > ply_count {
-            "pcd"
+            "pcd".to_string()
         } else {
-            "ply"
+            "ply".to_string()
         }
     }
 
@@ -85,7 +85,7 @@ impl Play {
 }
 
 impl Subcommand for Play {
-    fn handle(&mut self, messages: Vec<PipelineMessage>, out: &Channel) {
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         // !! if no messages, then read from directory and render it to screen
         if messages.is_empty() {
             let play_format = Play::infer_format(&self.args.directory, &self.args.play_format);
@@ -95,7 +95,8 @@ impl Subcommand for Play {
             // !! also accept messages(PipelineMessage::PointCloud) from other subcommands
             // !! and then render it to screen
         }
+        channel.send(PipelineMessage::End);
     }
 
-
 }
+

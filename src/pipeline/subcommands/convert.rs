@@ -1,11 +1,15 @@
 use std::ffi::OsString;
-use std::sync::mpsc::Sender;
 use std::str::FromStr;
-use super::super::super::pcd::PCDDataType;
+use std::path::{Path, PathBuf};
+use kdam::tqdm;
 use clap::Parser;
-use super::Subcommand;
-use crate::pipeline::{PipelineMessage, Progress};
+use crate::pcd::PCDDataType;
+
+use crate::pipeline::Subcommand;
+use crate::pipeline::PipelineMessage;
 use crate::pipeline::channel::Channel;
+
+use crate::utils::{find_all_files, pcd_to_pcd, pcd_to_ply, ply_to_pcd, ply_to_ply};
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum ConvertOutputFormat {
     PLY,
@@ -74,7 +78,29 @@ impl Subcommand for Convert {
         channel: &Channel,
     ) {
         if messages.is_empty() {
-            println!("Message is empty");
+            println!("Start converting...");
+            let mut files = find_all_files(&self.args.input);
+            files.sort();
+
+            // create output dir
+            let output_path = Path::new(&self.args.output);
+            std::fs::create_dir_all(output_path).expect("Failed to create output directory");
+
+            for file in tqdm!(files.into_iter()) {
+                let current_file_type = file.extension().unwrap();
+                let target_file_type = self.args.output_format.to_string();
+
+                match (current_file_type.to_str().unwrap(), target_file_type.as_str()) {
+                    ("ply", "ply") => ply_to_ply(output_path, self.args.storage_type, file),
+                    ("ply", "pcd") => ply_to_pcd(output_path, self.args.storage_type, file),
+                    ("pcd", "ply") => pcd_to_ply(output_path, self.args.storage_type, file),
+                    ("pcd", "pcd") => pcd_to_pcd(output_path, self.args.storage_type, file),
+                    _ => println!("unsupported file type"),
+                }
+
+            } 
+
+            channel.send(PipelineMessage::End);
         }
         else {
             for message in messages {
@@ -83,3 +109,4 @@ impl Subcommand for Convert {
         }
     }
 }
+
