@@ -5,7 +5,7 @@ use super::super::super::pcd::PCDDataType;
 use clap::Parser;
 use super::Subcommand;
 use crate::pipeline::{PipelineMessage, Progress};
-
+use crate::pipeline::channel::Channel;
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum ConvertOutputFormat {
     PLY,
@@ -70,19 +70,16 @@ impl Convert {
 impl Subcommand for Convert {
     fn handle(
         &mut self,
-        message: PipelineMessage,
-        out: &Sender<PipelineMessage>,
-        progress: &Sender<Progress>,
+        messages: Vec<PipelineMessage>,
+        channel: &Channel,
     ) {
-        println!("Converting submannd: {:?}", message);
-        if let PipelineMessage::End = message {
-            // print args
-            println!("Converting submannd arg: {:?}", self.args);
-
-            progress.send(Progress::Completed).expect("should be able to send");
-            out.send(PipelineMessage::End).expect("should be able to send");
-        } else {
-            out.send(message).expect("should be able to send");
+        if messages.is_empty() {
+            println!("Message is empty");
+        }
+        else {
+            for message in messages {
+                channel.send(message);
+            }
         }
     }
 }

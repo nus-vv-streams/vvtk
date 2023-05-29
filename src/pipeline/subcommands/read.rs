@@ -1,5 +1,4 @@
 use std::ffi::OsString;
-
 use clap::Parser;
 
 use super::Subcommand;

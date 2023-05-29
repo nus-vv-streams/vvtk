@@ -60,8 +60,8 @@ criterion = "0.3"
 # name = "ply_play"
 # required-features = ["render", "dash"]
 
-[[bin]]
-name = "vvdash"
+# [[bin]]
+# name = "vvdash"
 
 [[bin]]
 name = "vivotk"

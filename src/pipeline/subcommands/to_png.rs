@@ -3,17 +3,7 @@ use crate::pipeline::PipelineMessage;
 use crate::render::wgpu::png::PngWriter;
 use clap::Parser;
 use std::ffi::OsString;
-use std::path::Path;
 use super::Subcommand;
-
-use crate::formats::pointxyzrgba::PointXyzRgba;
-use crate::formats::PointCloud;
-use crate::render::wgpu::renderer::PointCloudRenderer;
-use std::num::NonZeroU32;
-use std::sync::mpsc::Sender;
-use wgpu::{Buffer, Device, Queue, Texture, TextureDescriptor, TextureView};
-use winit::dpi::PhysicalSize;
-
 
 /// Converts a folder of .pcd files to a folder of .png images
 #[derive(Parser)]

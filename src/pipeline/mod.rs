@@ -13,7 +13,7 @@ use crate::{
 
 use self::{
     executor::Executor,
-    subcommands::{Downsampler, MetricsCalculator, Read, Subcommand, ToPng, Upsampler, Write},
+    subcommands::{Downsampler, MetricsCalculator, Read, Subcommand, ToPng, Upsampler, Write, Convert, Play},
 };
 
 pub type SubcommandCreator = Box<dyn Fn(Vec<String>) -> Box<dyn Subcommand>>;
@@ -26,7 +26,8 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
         "metrics" => Some(Box::from(MetricsCalculator::from_args)),
         "downsample" => Some(Box::from(Downsampler::from_args)),
         "upsample" => Some(Box::from(Upsampler::from_args)),
-        // "convert" => Some(Box::from(Convert::from_args)),
+        "convert" => Some(Box::from(Convert::from_args)),
+        "play" => Some(Box::from(Play::from_args)),
         _ => None,
     }
 }
@@ -99,21 +100,27 @@ impl Pipeline {
         }
     }
 
+    // !! collect all the arguments from terminal and create the pipeline
     fn gather_pipeline_from_args() -> (Vec<Executor>, Vec<Receiver<Progress>>) {
-        let args = std::env::args();
+        let args: Vec<String> = std::env::args().collect();
         let mut executors = vec![];
         let mut progresses = vec![];
         let mut command_creator: Option<SubcommandCreator> = None;
         let mut accumulated_args: Vec<String> = vec![];
 
-        // println!("args: {:?}", args);
-        for arg in args.skip(1) {
-            println!("arg: {}", &arg);
+        // !! check the second argument, which is the name of the subcommand, we want at least one subcommand
+        if !Self::if_at_least_one_command(&args[1]) {
+            eprintln!("Expected at least one valid command on the first arg, got {}", args[1]);
+        }
+
+        // !! skip the first argument, which is the name of the program
+        for arg in args.iter().skip(1) {
             let is_command = subcommand(&arg);
             if is_command.is_some() {
-                println!("is_command.is_some()");
-                if let Some(creator) = command_creator.take() {
-                    println!("command_creator.take()");
+                if let Some(creator) = command_creator.take() 
+                // !! the first take is always None
+                {
+                    // !! enters here when there are at least two subcommands
                     let forwarded_args = accumulated_args;
                     accumulated_args = vec![];
                     let (executor, progress) = Executor::create(forwarded_args, creator);
@@ -122,10 +129,11 @@ impl Pipeline {
                 }
                 command_creator = is_command;
             }
-            accumulated_args.push(arg);
+            accumulated_args.push(arg.clone());
         }
 
-        println!("accumulated_args: {:?}", accumulated_args);
+        // !! the following is duplicated from the above to handle the case of only one command
+        // !! TODO: maybe better to refactor as "do while" loop
         let creator = command_creator
             .take()
             .expect("Should have at least one command");
@@ -135,4 +143,26 @@ impl Pipeline {
         progresses.push(progress);
         (executors, progresses)
     }
+
+    fn if_at_least_one_command(first_arg: &str) -> bool {
+        subcommand(first_arg).is_some()
+    }
 }
+
+#[cfg(test)]
+mod pipeline_mod_test {
+    use super::*;
+
+    #[test]
+    fn if_at_least_one_command_test() {
+        assert!(Pipeline::if_at_least_one_command("read"));
+        assert!(Pipeline::if_at_least_one_command("write"));
+        assert!(Pipeline::if_at_least_one_command("to_png"));
+        assert!(Pipeline::if_at_least_one_command("metrics"));
+        assert!(Pipeline::if_at_least_one_command("downsample"));
+        assert!(Pipeline::if_at_least_one_command("upsample"));
+        assert!(Pipeline::if_at_least_one_command("convert"));
+        assert!(!Pipeline::if_at_least_one_command("not_a_command"));
+
+    }
+} 
