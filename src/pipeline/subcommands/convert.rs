@@ -1,6 +1,5 @@
 use std::ffi::OsString;
-use std::str::FromStr;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use kdam::tqdm;
 use clap::Parser;
 use crate::pcd::PCDDataType;
@@ -9,40 +8,8 @@ use crate::pipeline::Subcommand;
 use crate::pipeline::PipelineMessage;
 use crate::pipeline::channel::Channel;
 
-use crate::utils::{find_all_files, pcd_to_pcd, pcd_to_ply, ply_to_pcd, ply_to_ply};
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum ConvertOutputFormat {
-    PLY,
-    PCD,
-    PNG,
-    MP4,
-}
+use crate::utils::{find_all_files, pcd_to_pcd, pcd_to_ply, ply_to_pcd, ply_to_ply, ConvertOutputFormat};
 
-impl ToString for ConvertOutputFormat {
-    fn to_string(&self) -> String {
-        match self {
-            ConvertOutputFormat::PLY => "ply",
-            ConvertOutputFormat::PCD => "pcd",
-            ConvertOutputFormat::PNG => "png",
-            ConvertOutputFormat::MP4 => "mp4",
-        }
-        .to_string()
-    }
-}
-
-impl FromStr for ConvertOutputFormat {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "ply" => Ok(ConvertOutputFormat::PLY),
-            "pcd" => Ok(ConvertOutputFormat::PCD),
-            "png" => Ok(ConvertOutputFormat::PNG),
-            "mp4" => Ok(ConvertOutputFormat::MP4),
-            _ => Err(format!("{} is not a valid output format", s)),
-        }
-    }
-}
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -97,6 +64,8 @@ impl Subcommand for Convert {
                     ("pcd", "pcd") => pcd_to_pcd(output_path, self.args.storage_type, file),
                     _ => println!("unsupported file type"),
                 }
+
+                channel.send(PipelineMessage::DummyForIncrement);
 
             } 
 

@@ -2,10 +2,10 @@ use std::{
     ffi::OsString,
     path::{Path, PathBuf},
 };
-
+use std::str::FromStr;
 use crate::{
     formats::{pointxyzrgba::PointXyzRgba, PointCloud},
-    pcd::{read_pcd_file, PCDDataType, create_pcd, write_pcd_file},
+    pcd::{read_pcd_file, PCDDataType, create_pcd, write_pcd_file, PointCloudData},
     ply::read_ply,
 };
 use ply_rs::{ply, parser, writer, ply::{Encoding, Payload}, ply::DefaultElement};
@@ -109,10 +109,7 @@ pub fn ply_to_pcd(output_path:&Path, storage_type:PCDDataType, file_path:PathBuf
     }
 }
 
-
-pub fn pcd_to_ply(output_path:&Path, storage_type:PCDDataType, file_path:PathBuf){
-    let pcd = read_pcd_file(&file_path).unwrap();
-
+pub fn pcd_to_ply_from_data(output_path:&Path, storage_type:PCDDataType, pcd: PointCloudData) -> Result<(), Box<dyn std::error::Error>>{
     let x_prop_def = ply_rs::ply::PropertyDef::new("x".to_string(), ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float));
     let y_prop_def = ply_rs::ply::PropertyDef::new("y".to_string(), ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float));
     let z_prop_def = ply_rs::ply::PropertyDef::new("z".to_string(), ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float));
@@ -156,22 +153,72 @@ pub fn pcd_to_ply(output_path:&Path, storage_type:PCDDataType, file_path:PathBuf
     ply.header = ply_header;
     ply.payload = pay_load;
 
-    let filename = Path::new(file_path.file_name().unwrap()).with_extension("ply");
-    let output_file = output_path.join(filename);
-    let mut file = File::create(&output_file).unwrap();
+    println!("Writing to {:?}", output_path);
+    // get dir part and check existence, create if not exist
+    let dir = output_path.parent().unwrap();
+    if !dir.exists() {
+        std::fs::create_dir_all(dir).unwrap();
+    }
+
+    let mut file = File::create(&output_path).unwrap();
+
 
     let ply_writer = writer::Writer::<ply::DefaultElement>::new();
     if let Err(e) = ply_writer.write_ply(&mut file, &mut ply) {
+        Result::Err(Box::new(e))
+    }
+    else {
+        Result::Ok(())
+    }
+}
+
+pub fn pcd_to_ply(output_path:&Path, storage_type:PCDDataType, file_path:PathBuf){
+    let pcd = read_pcd_file(&file_path).unwrap();
+    let filename = Path::new(file_path.file_name().unwrap()).with_extension("ply");
+    let output_file = output_path.join(filename);
+    if let Err(e) = pcd_to_ply_from_data(&output_file, storage_type, pcd) {
         println!(
             "Failed to write {:?} to {:?}\n{e}",
             file_path.into_os_string(),
-            output_file.into_os_string()
+            output_file.to_str(),
         );
     }
 
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum ConvertOutputFormat {
+    PLY,
+    PCD,
+    PNG,
+    MP4,
+}
 
+impl ToString for ConvertOutputFormat {
+    fn to_string(&self) -> String {
+        match self {
+            ConvertOutputFormat::PLY => "ply",
+            ConvertOutputFormat::PCD => "pcd",
+            ConvertOutputFormat::PNG => "png",
+            ConvertOutputFormat::MP4 => "mp4",
+        }
+        .to_string()
+    }
+}
+
+impl FromStr for ConvertOutputFormat {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "ply" => Ok(ConvertOutputFormat::PLY),
+            "pcd" => Ok(ConvertOutputFormat::PCD),
+            "png" => Ok(ConvertOutputFormat::PNG),
+            "mp4" => Ok(ConvertOutputFormat::MP4),
+            _ => Err(format!("{} is not a valid output format", s)),
+        }
+    }
+}
 
 #[cfg(target_endian = "little")]
 fn set_encoding() -> Encoding {
@@ -181,4 +228,67 @@ fn set_encoding() -> Encoding {
 #[cfg(target_endian = "big")]
 fn set_encoding() -> Encoding {
     Encoding::BinaryBigEndian
+}
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+
+    #[test]
+    fn test_read_ply() {
+        let ply_ascii_path = PathBuf::from("./test_files/ply_ascii/longdress_vox10_1213_short.ply");
+        let pc = read_ply(&ply_ascii_path).unwrap();
+        assert_eq!(pc.number_of_points, 20);
+        assert_eq!(pc.points[0],  PointXyzRgba{ x: 171.0, y: 63.0, z: 255.0, r: 183, g: 165, b: 155, a: 255});
+        assert_eq!(pc.points[19], PointXyzRgba{ x: 175.0, y: 60.0, z: 253.0, r: 161, g: 145, b: 133, a: 255});
+    }
+
+    #[test]
+    fn test_ply_to_ply() {
+        let ply_ascii_path = PathBuf::from("./test_files/ply_ascii/longdress_vox10_1213_short.ply");
+        let output_path    = PathBuf::from("./test_files/ply_binary");
+        ply_to_ply(&output_path, PCDDataType::Binary, ply_ascii_path);
+        let output_path = output_path.join("longdress_vox10_1213_short.ply");
+        let pc = read_file_to_point_cloud(&output_path).unwrap();
+        assert_eq!(pc.number_of_points, 20);
+        assert_eq!(pc.points[0],  PointXyzRgba{ x: 171.0, y: 63.0, z: 255.0, r: 183, g: 165, b: 155, a: 255});
+        assert_eq!(pc.points[9],  PointXyzRgba{ x: 172.0, y: 61.0, z: 255.0, r: 161, g: 145, b: 134, a: 255});
+        assert_eq!(pc.points[19], PointXyzRgba{ x: 175.0, y: 60.0, z: 253.0, r: 161, g: 145, b: 133, a: 255});
+    }
+
+    #[test]
+    fn test_ply_to_pcd() {
+        let ply_ascii_path = PathBuf::from("./test_files/ply_ascii/longdress_vox10_1213_short.ply");
+        let output_path    = PathBuf::from("./test_files/pcd_binary");
+        ply_to_pcd(&output_path, PCDDataType::Binary, ply_ascii_path.clone());
+        let output_path = output_path.join("longdress_vox10_1213_short.pcd");
+        let pc = read_file_to_point_cloud(&output_path).unwrap();
+        assert_eq!(pc.number_of_points, 20);
+        assert_eq!(pc.points[0],  PointXyzRgba{ x: 171.0, y: 63.0, z: 255.0, r: 183, g: 165, b: 155, a: 255});
+        assert_eq!(pc.points[9],  PointXyzRgba{ x: 172.0, y: 61.0, z: 255.0, r: 161, g: 145, b: 134, a: 255});
+        assert_eq!(pc.points[19], PointXyzRgba{ x: 175.0, y: 60.0, z: 253.0, r: 161, g: 145, b: 133, a: 255});
+
+        let output_path    = PathBuf::from("./test_files/pcd_ascii");
+        ply_to_pcd(&output_path, PCDDataType::Ascii, ply_ascii_path);
+        let output_path = output_path.join("longdress_vox10_1213_short.pcd");
+        let pc = read_file_to_point_cloud(&output_path).unwrap();
+        assert_eq!(pc.number_of_points, 20);
+        assert_eq!(pc.points[0],  PointXyzRgba{ x: 171.0, y: 63.0, z: 255.0, r: 183, g: 165, b: 155, a: 255});
+        assert_eq!(pc.points[9],  PointXyzRgba{ x: 172.0, y: 61.0, z: 255.0, r: 161, g: 145, b: 134, a: 255});
+        assert_eq!(pc.points[19], PointXyzRgba{ x: 175.0, y: 60.0, z: 253.0, r: 161, g: 145, b: 133, a: 255}); 
+    }
+
+    #[test]
+    fn test_pcd_to_ply() {
+        let pcd_ascii_path = PathBuf::from("./test_files/pcd_ascii/longdress_vox10_1213_short.pcd");
+        let output_path    = PathBuf::from("./test_files/ply_ascii/from_pcd");
+        pcd_to_ply(&output_path, PCDDataType::Ascii, pcd_ascii_path);
+        let output_path = output_path.join("longdress_vox10_1213_short.ply");
+        let pc = read_file_to_point_cloud(&output_path).unwrap();
+        assert_eq!(pc.number_of_points, 20);
+        assert_eq!(pc.points[0],  PointXyzRgba{ x: 171.0, y: 63.0, z: 255.0, r: 183, g: 165, b: 155, a: 255});
+        assert_eq!(pc.points[9],  PointXyzRgba{ x: 172.0, y: 61.0, z: 255.0, r: 161, g: 145, b: 134, a: 255});
+        assert_eq!(pc.points[19], PointXyzRgba{ x: 175.0, y: 60.0, z: 253.0, r: 161, g: 145, b: 133, a: 255});
+    }
 }
