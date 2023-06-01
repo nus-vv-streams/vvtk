@@ -12,7 +12,7 @@ use crate::{
 };
 
 use self::{
-    executor::Executor,
+    executor::Executor, executor::ExecutorBuilder,
     subcommands::{Downsampler, MetricsCalculator, Read, Subcommand, ToPng, Upsampler, Write, Convert, Play},
 };
 
@@ -37,6 +37,7 @@ pub enum PipelineMessage {
     PointCloud(PointCloud<PointXyzRgba>),
     Metrics(Metrics),
     End,
+    DummyForIncrement,
 }
 
 #[derive(Debug)]
@@ -109,6 +110,7 @@ impl Pipeline {
         let mut command_creator: Option<SubcommandCreator> = None;
         let mut accumulated_args: Vec<String> = vec![];
 
+        let mut executor_builder = ExecutorBuilder::new();
         // !! check the second argument, which is the name of the subcommand, we want at least one subcommand
         if !Self::if_at_least_one_command(&args[1]) {
             eprintln!("Expected at least one valid command on the first arg, got {}", args[1]);
@@ -124,7 +126,7 @@ impl Pipeline {
                     // !! enters here when there are at least two subcommands
                     let forwarded_args = accumulated_args;
                     accumulated_args = vec![];
-                    let (executor, progress) = Executor::create(forwarded_args, creator);
+                    let (executor, progress) = executor_builder.create(forwarded_args, creator);
                     executors.push(executor);
                     progresses.push(progress);
                 }
@@ -139,7 +141,7 @@ impl Pipeline {
             .take()
             .expect("Should have at least one command");
 
-        let (executor, progress) = Executor::create(accumulated_args, creator);
+        let (executor, progress) = executor_builder.create(accumulated_args, creator);
         executors.push(executor);
         progresses.push(progress);
         (executors, progresses)
