@@ -38,6 +38,7 @@ impl Subcommand for Upsampler {
                 PipelineMessage::End => {
                     channel.send(message);
                 }
+                PipelineMessage::DummyForIncrement => {}
             };
         }
     }
