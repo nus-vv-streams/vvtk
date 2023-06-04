@@ -291,4 +291,5 @@ mod test {
         assert_eq!(pc.points[9],  PointXyzRgba{ x: 172.0, y: 61.0, z: 255.0, r: 161, g: 145, b: 134, a: 255});
         assert_eq!(pc.points[19], PointXyzRgba{ x: 175.0, y: 60.0, z: 253.0, r: 161, g: 145, b: 133, a: 255});
     }
+
 }
