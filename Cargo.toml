@@ -56,9 +56,9 @@ crossbeam-channel = "0.5.6"
 [dev-dependencies]
 criterion = "0.3"
 
-# [[bin]]
-# name = "ply_play"
-# required-features = ["render", "dash"]
+[[bin]]
+name = "ply_play"
+required-features = ["render", "dash"]
 
 # [[bin]]
 # name = "vvdash"

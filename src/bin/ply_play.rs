@@ -38,9 +38,9 @@ struct Args {
     camera_yaw: f32,
     #[clap(long = "pitch", default_value_t = 0.0)]
     camera_pitch: f32,
-    #[clap(short, long, default_value_t = 1600)]
+    #[clap(short = 'W', long, default_value_t = 1600)]
     width: u32,
-    #[clap(short, long, default_value_t = 900)]
+    #[clap(short = 'H', long, default_value_t = 900)]
     height: u32,
     #[clap(long = "controls")]
     show_controls: bool,
