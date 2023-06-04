@@ -193,3 +193,23 @@ fn centroid(points: Vec<PointXyzRgba>) -> PointXyzRgba {
         a: (a / size) as u8,
     }
 }
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::{utils::read_file_to_point_cloud, pcd::{create_pcd, write_pcd_file}};
+
+    use std::path::PathBuf;
+    #[test]
+    fn test_downsample() {
+        let pcd_path = PathBuf::from("./test_files/pcd_ascii/longdress_vox10_1213_short_upsampled.pcd");
+        let pcd = read_file_to_point_cloud(&pcd_path).unwrap();
+        println!("before: {:?}", pcd);
+        let downsampled = downsample(pcd, 2);
+        println!("Downsampled: {:?}", downsampled);
+        let pcd = create_pcd(&downsampled);
+        let outpath = PathBuf::from("./test_files/pcd_ascii/longdress_vox10_1213_short_up_downsampled.pcd");
+        write_pcd_file(&pcd, crate::pcd::PCDDataType::Ascii, &outpath).unwrap();
+    }
+}
