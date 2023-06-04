@@ -41,22 +41,23 @@ impl ExecutorBuilder {
                 let input_streams = arg
                     .split("=")
                     .nth(1)
-                    .expect("Expected name of input stream");
-                
-                // check if input stream name is in the set, panic if not
-                if !self.output_stream_names.contains(input_streams) {
-                    // get the existing output stream names, concat them with ", "
-                    let existing_output_stream_names = self.output_stream_names
-                        .iter()
-                        .map(|s| format!("`{}`", s))
-                        .collect::<Vec<String>>()
-                        .join(", ");
-
-                    panic!("No output stream with name `{}` found, existing outputs are {}", input_streams, existing_output_stream_names);
-                }
+                    .expect("Expected name of input stream"); 
 
                 for input_name in input_streams.split(",") {
-                    input_stream_names.push(input_name.to_string());
+                    // check if input stream name is in the set, panic if not
+                    if !self.output_stream_names.contains(input_name) {
+                        // get the existing output stream names, concat them with ", "
+                        let existing_output_stream_names = self.output_stream_names
+                            .iter()
+                            .map(|s| format!("`{}`", s))
+                            .collect::<Vec<String>>()
+                            .join(", ");
+
+                        panic!("No output stream with name `{}` found, existing outputs are {}", input_streams, existing_output_stream_names);
+                    }
+                    else {
+                        input_stream_names.push(input_name.to_string());
+                    }
                 }
                 has_input = true;
             } else if arg.starts_with("+output") {
