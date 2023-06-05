@@ -12,7 +12,7 @@ use vivotk::render::wgpu::{
     camera::Camera,
     controls::Controller,
     metrics_reader::MetricsReader,
-    reader::{FrameRequest, PcdAsyncReader, RenderReader},
+    reader::{FrameRequest, PcdAsyncReader, RenderReader, PointCloudFileReader},
     renderer::Renderer,
 };
 use vivotk::utils::read_file_to_point_cloud;
@@ -138,7 +138,6 @@ fn main() {
             .unwrap()
             .add_output(render);
     }
-    builder.run();
 
     // In MacOS, renderer must run in main thread.
     builder.run();

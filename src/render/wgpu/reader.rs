@@ -1,6 +1,7 @@
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
 use crate::pcd::read_pcd_file;
+use crate::utils::read_file_to_point_cloud;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
@@ -46,6 +47,58 @@ impl PcdFileReader {
         self.files.get(index)
     }
 }
+
+pub struct PointCloudFileReader {
+    files: Vec<PathBuf>,
+    file_type: String,
+}
+
+impl PointCloudFileReader{
+    pub fn from_directory(directory: &Path, file_type: &str) -> Self {
+        let mut files = vec![];
+        for file_entry in directory.read_dir().unwrap() {
+            match file_entry {
+                Ok(entry) => {
+                    if let Some(ext) = entry.path().extension() {
+                        if ext.eq(file_type) {
+                            files.push(entry.path());
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("{e}")
+                }
+            }
+        }
+        files.sort();
+        Self {
+            files,
+            file_type: file_type.to_string(),
+        }
+    }
+}
+
+impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
+    fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
+        self.get_at(0)
+    }
+
+    fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
+        let file_path = self.files.get(index)?;
+        read_file_to_point_cloud(file_path)
+    }
+
+    fn len(&self) -> usize {
+        self.files.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.files.is_empty()
+    }
+
+    fn set_len(&mut self, _len: usize) {}
+}
+
 
 impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
     fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {

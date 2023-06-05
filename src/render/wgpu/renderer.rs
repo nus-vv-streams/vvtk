@@ -75,7 +75,9 @@ where
         let window = WindowBuilder::new()
             .with_title("Point Cloud Renderer")
             .with_position(PhysicalPosition { x: 0, y: 0 })
-            .with_inner_size(self.size)
+            .with_resizable(true)
+            .with_min_inner_size(self.size)
+            // .with_inner_size(self.size)
             .build(event_loop)
             .unwrap();
 
