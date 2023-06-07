@@ -77,6 +77,9 @@ where
             .with_position(PhysicalPosition { x: 0, y: 0 })
             .with_resizable(true)
             .with_min_inner_size(self.size)
+            .with_max_inner_size(
+                PhysicalSize::new(2048, 2048),
+            )
             // .with_inner_size(self.size)
             .build(event_loop)
             .unwrap();
@@ -265,10 +268,10 @@ where
         self.update_stats();
         // FIXME: avg_fps might not be accurately when a frame fails to render. but it's not a big deal
         let time_taken = now.elapsed();
-        println!(
-            "time taken: {}",
-            time_taken.max(self.time_to_advance).as_secs_f32()
-        );
+        // println!(
+        //     "time taken: {}",
+        //     time_taken.max(self.time_to_advance).as_secs_f32()
+        // );
         self.fps =
             0.9 * self.fps + 0.1 * (1.0 / time_taken.max(self.time_to_advance).as_secs_f32());
     }

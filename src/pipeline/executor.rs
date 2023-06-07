@@ -14,14 +14,12 @@ pub struct Executor {
 }
 
 pub struct ExecutorBuilder {
-    input_stream_names: HashSet<String>,
     output_stream_names: HashSet<String>,
 }
 
 impl ExecutorBuilder {
     pub fn new() -> Self {
         ExecutorBuilder {
-            input_stream_names:  HashSet::new(),
             output_stream_names: HashSet::new(),
         }
     }

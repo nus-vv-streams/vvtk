@@ -38,7 +38,7 @@ impl Subcommand for Read {
         if messages.is_empty() {
             let mut files = find_all_files(&self.args.files);
             files.sort();
-            for file in files {
+            for (i, file) in files.iter().enumerate() {
                 match &self.args.filetype {
                     FileType::All => {}
                     FileType::Pcd => {
@@ -55,7 +55,7 @@ impl Subcommand for Read {
 
                 let point_cloud = read_file_to_point_cloud(&file);
                 if let Some(pc) = point_cloud {
-                    channel.send(PipelineMessage::PointCloud(pc));
+                    channel.send(PipelineMessage::IndexedPointCloud(pc, i as u32));
                 }
             }
             channel.send(PipelineMessage::End);

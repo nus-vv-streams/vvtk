@@ -20,7 +20,6 @@ pub struct PngWriter<'a> {
     output_buffer: Buffer,
     camera_state: CameraState,
     point_renderer: Option<PointCloudRenderer<PointCloud<PointXyzRgba>>>,
-    count: usize,
 }
 
 impl<'a> PngWriter<'a> {
@@ -95,11 +94,10 @@ impl<'a> PngWriter<'a> {
             output_buffer,
             camera_state,
             point_renderer: None,
-            count: 0,
         }
     }
 
-    pub fn write_to_png(&mut self, pc: &PointCloud<PointXyzRgba>) {
+    pub fn write_to_png(&mut self, pc: &PointCloud<PointXyzRgba>, filename: &str) {
         if self.point_renderer.is_none() {
             self.point_renderer = Some(PointCloudRenderer::new(
                 &self.device,
@@ -147,8 +145,6 @@ impl<'a> PngWriter<'a> {
                 ImageBuffer::<Rgba<u8>, _>::from_raw(self.size.width, self.size.height, data)
                     .unwrap();
 
-            let filename = format!("{}.png", self.count);
-            self.count += 1;
             let output_path = Path::new(&self.output_dir);
             buffer.save(output_path.join(Path::new(&filename))).unwrap();
         }

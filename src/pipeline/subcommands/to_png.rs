@@ -4,6 +4,7 @@ use crate::render::wgpu::png::PngWriter;
 use clap::Parser;
 use std::ffi::OsString;
 use super::Subcommand;
+use cgmath::num_traits::pow;
 
 /// Converts a folder of .pcd files to a folder of .png images
 #[derive(Parser)]
@@ -25,10 +26,14 @@ struct Args {
     width: u32,
     #[clap(long, default_value_t = 900)]
     height: u32,
+    #[clap(long, default_value_t = 5)]
+    name_length: u32,
 }
 
 pub struct ToPng<'a> {
     writer: PngWriter<'a>,
+    name_length: u32,
+    count: u32,
 }
 
 impl<'a> ToPng<'a> {
@@ -42,6 +47,7 @@ impl<'a> ToPng<'a> {
             camera_pitch,
             width,
             height,
+            name_length,
         }: Args = Args::parse_from(args);
 
         Box::from(ToPng {
@@ -55,16 +61,28 @@ impl<'a> ToPng<'a> {
                 width,
                 height,
             ),
+            name_length,
+            count: 0,
         })
     }
 }
 
 impl Subcommand for ToPng<'_> {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
+
+        let max_count = pow(10, self.name_length as usize);
+
         for message in messages {
             match &message {
-                PipelineMessage::PointCloud(pc) => {
-                    self.writer.write_to_png(pc);
+                PipelineMessage::IndexedPointCloud(pc, i) => {
+                    let padded_count = format!("{:0>width$}", i, width=self.name_length as usize);
+                    let filename = format!("{}.png", padded_count);
+                    self.count += 1;
+                    if self.count >= max_count {
+                        channel.send(PipelineMessage::End);
+                        panic!("Too many files, please increase the name length by setting --name-length")
+                    }
+                    self.writer.write_to_png(pc, &filename);
                 }
                 _ => {}
             }

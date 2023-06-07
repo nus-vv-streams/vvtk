@@ -30,9 +30,9 @@ impl Subcommand for Upsampler {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         for message in messages {
             match message {
-                PipelineMessage::PointCloud(pc) => {
+                PipelineMessage::IndexedPointCloud(pc, i) => {
                     let upsampled_pc = upsample(pc, self.factor);
-                    channel.send(PipelineMessage::PointCloud(upsampled_pc));
+                    channel.send(PipelineMessage::IndexedPointCloud(upsampled_pc, i));
                 }
                 PipelineMessage::Metrics(_) => {}
                 PipelineMessage::End => {

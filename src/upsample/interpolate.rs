@@ -87,9 +87,9 @@ pub fn upsample(point_cloud: PointCloud<PointXyzRgba>, factor: usize) -> PointCl
     }
 }
 
-
+#[cfg(test)]
 mod test {
-    use crate::{utils::read_file_to_point_cloud, pcd::{write_pcd, write_pcd_file, create_pcd}};
+    use crate::{utils::read_file_to_point_cloud, pcd::{write_pcd_file, create_pcd}};
 
     use super::*;
     use std::path::PathBuf;

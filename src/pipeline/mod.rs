@@ -34,7 +34,8 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
 
 #[derive(Debug, Clone)]
 pub enum PipelineMessage {
-    PointCloud(PointCloud<PointXyzRgba>),
+    IndexedPointCloud(PointCloud<PointXyzRgba>, u32),
+    // PointCloud(PointCloud<PointXyzRgba>),
     Metrics(Metrics),
     End,
     DummyForIncrement,
@@ -55,6 +56,7 @@ impl Pipeline {
         let mut progress_recvs = vec![];
         let all_input_names: Vec<Vec<String>> = executors.iter().map(|e| e.input_names()).collect();
 
+        // !! set named input outputs
         for (idx, input_names) in all_input_names.iter().enumerate() {
             let mut inputs = vec![];
             for input_name in input_names {

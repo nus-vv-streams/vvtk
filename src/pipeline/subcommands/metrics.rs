@@ -1,10 +1,3 @@
-use std::{
-    ffi::OsString,
-    fs::File,
-    io::BufWriter,
-    path::{Path, PathBuf},
-};
-
 use clap::Parser;
 
 use crate::{
@@ -37,7 +30,7 @@ impl Subcommand for MetricsCalculator {
             .expect("Expecting two input streams for metrics");
 
         match (&message_one, &message_two) {
-            (PipelineMessage::PointCloud(original), PipelineMessage::PointCloud(reconstructed)) => {
+            (PipelineMessage::IndexedPointCloud(original, _), PipelineMessage::IndexedPointCloud(reconstructed, _)) => {
                 let metrics = calculate_metrics(original, reconstructed);
                 channel.send(PipelineMessage::Metrics(metrics));
             }

@@ -1,3 +1,4 @@
+use cgmath::num_traits::pow;
 use clap::Parser;
 
 
@@ -8,7 +9,7 @@ use crate::pipeline::channel::Channel;
 use crate::pipeline::PipelineMessage;
 use std::fs::File;
 use std::path::Path;
-use crate::utils::{ConvertOutputFormat, pcd_to_ply, pcd_to_ply_from_data};
+use crate::utils::{ConvertOutputFormat, pcd_to_ply_from_data};
 
 use super::Subcommand;
 #[derive(Parser)]
@@ -21,6 +22,9 @@ struct Args {
 
     #[clap(short, long, default_value = "binary")]
     storage_type: Option<PCDDataType>,
+
+    #[clap(long, default_value_t = 5)]
+    name_length: usize,
 }
 pub struct Write {
     args: Args,
@@ -39,15 +43,23 @@ impl Write {
 impl Subcommand for Write {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         let output_path = Path::new(&self.args.output_dir);
+        let max_count = pow(10, self.args.name_length);
         for message in messages {
             match &message {
-                PipelineMessage::PointCloud(pc) => {
+                PipelineMessage::IndexedPointCloud(pc, i) => {
                     println!("Writing point cloud with point num {}", pc.points.len());
                     let pcd_data_type = self.args.storage_type.expect("PCD data type should be provided");
                     let output_format = self.args.output_format.to_string();
-
-                    let file_name = format!("{}.{}", self.count, output_format);
+                    
+                    // !! use index(i) instead of count to make sure the order of files
+                    let padded_count = format!("{:0width$}", i, width = self.args.name_length);
+                    let file_name = format!("{}.{}", padded_count, output_format);
                     self.count += 1;
+                    if self.count >= max_count {
+                        channel.send(PipelineMessage::End);
+                        panic!("Too many files, please increase the name length by setting --name-length")
+                    }
+
                     let file_name = Path::new(&file_name);
                     let output_file = output_path.join(file_name);
                     if !output_path.exists() {

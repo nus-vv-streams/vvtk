@@ -50,7 +50,6 @@ impl PcdFileReader {
 
 pub struct PointCloudFileReader {
     files: Vec<PathBuf>,
-    file_type: String,
 }
 
 impl PointCloudFileReader{
@@ -73,7 +72,6 @@ impl PointCloudFileReader{
         files.sort();
         Self {
             files,
-            file_type: file_type.to_string(),
         }
     }
 }

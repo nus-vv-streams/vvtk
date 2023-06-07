@@ -28,15 +28,15 @@ struct Args {
     quality: u8,
     #[clap(short, long, default_value_t = 30.0)]
     fps: f32,
-    #[clap(short = 'x', long, default_value_t = 0.0)]
+    #[clap(short = 'x', long, default_value_t = 0.0, allow_negative_numbers = true)]
     camera_x: f32,
-    #[clap(short = 'y', long, default_value_t = 0.0)]
+    #[clap(short = 'y', long, default_value_t = 0.0, allow_negative_numbers = true)]
     camera_y: f32,
-    #[clap(short = 'z', long, default_value_t = 1.3)]
+    #[clap(short = 'z', long, default_value_t = 1.3, allow_negative_numbers = true)]
     camera_z: f32,
-    #[clap(long = "yaw", default_value_t = -90.0)]
+    #[clap(long = "yaw", default_value_t = -90.0, allow_negative_numbers = true)]
     camera_yaw: f32,
-    #[clap(long = "pitch", default_value_t = 0.0)]
+    #[clap(long = "pitch", default_value_t = 0.0, allow_negative_numbers = true)]
     camera_pitch: f32,
     #[clap(short = 'W', long, default_value_t = 1600)]
     width: u32,
@@ -48,9 +48,9 @@ struct Args {
     buffer_size: Option<u8>,
     #[clap(short, long)]
     metrics: Option<OsString>,
-    #[clap(long, value_enum, default_value_t = DecoderType::Noop)]
+    #[clap(long = "decoder", value_enum, default_value_t = DecoderType::Noop)]
     decoder_type: DecoderType,
-    #[clap(long, default_value = "./")]
+    #[clap(long)]
     decoder_path: Option<OsString>,
 }
 

@@ -47,6 +47,10 @@ pub fn expand_directory(p: &Path) -> Vec<PathBuf> {
             // We do not recursively search
             continue;
         }
+        // ignore file start with .
+        if entry.file_name().unwrap().to_str().unwrap().starts_with(".") {
+            continue;
+        }
         ply_files.push(entry);
     }
 
@@ -233,6 +237,8 @@ fn set_encoding() -> Encoding {
 #[cfg(test)]
 mod test {
 
+    use std::ops::Range;
+
     use super::*;
 
     #[test]
@@ -290,6 +296,20 @@ mod test {
         assert_eq!(pc.points[0],  PointXyzRgba{ x: 171.0, y: 63.0, z: 255.0, r: 183, g: 165, b: 155, a: 255});
         assert_eq!(pc.points[9],  PointXyzRgba{ x: 172.0, y: 61.0, z: 255.0, r: 161, g: 145, b: 134, a: 255});
         assert_eq!(pc.points[19], PointXyzRgba{ x: 175.0, y: 60.0, z: 253.0, r: 161, g: 145, b: 133, a: 255});
+    }
+
+    #[test]
+    fn test_padding() {
+        let x = 101;
+        let y = 4;
+        let mut files = vec![];
+        for i in 0..=x {
+            let filename = format!("{:0width$}.pcd", i, width = y);
+            // println!("{}", filename);
+            files.push(filename);
+        }
+        files.sort();
+        println!("{:?}", files);
     }
 
 }
