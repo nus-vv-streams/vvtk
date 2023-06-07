@@ -71,7 +71,7 @@ pub fn expand_directory(p: &Path) -> Vec<PathBuf> {
             .unwrap()
             .to_str()
             .unwrap()
-            .starts_with(".")
+            .starts_with('.')
         {
             continue;
         }
