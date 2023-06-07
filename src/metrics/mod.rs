@@ -41,7 +41,7 @@ impl Metrics {
             if size == 0 {
                 break;
             }
-            let mut split = s.split(",");
+            let mut split = s.split(',');
             map.insert(
                 split.next().expect("Metric name expected").to_string(),
                 split.next().expect("Metric value expected").to_string(),

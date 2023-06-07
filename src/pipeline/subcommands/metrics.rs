@@ -30,7 +30,10 @@ impl Subcommand for MetricsCalculator {
             .expect("Expecting two input streams for metrics");
 
         match (&message_one, &message_two) {
-            (PipelineMessage::IndexedPointCloud(original, _), PipelineMessage::IndexedPointCloud(reconstructed, _)) => {
+            (
+                PipelineMessage::IndexedPointCloud(original, _),
+                PipelineMessage::IndexedPointCloud(reconstructed, _),
+            ) => {
                 let metrics = calculate_metrics(original, reconstructed);
                 channel.send(PipelineMessage::Metrics(metrics));
             }

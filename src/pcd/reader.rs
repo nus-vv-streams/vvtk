@@ -1,4 +1,6 @@
-use crate::pcd::data_types::{PCDField, PCDFieldDataType, PCDHeader, PCDVersion, PointCloudData, PCDDataType};
+use crate::pcd::data_types::{
+    PCDDataType, PCDField, PCDFieldDataType, PCDHeader, PCDVersion, PointCloudData,
+};
 use std::convert::TryInto;
 use std::fmt::Debug;
 
@@ -89,7 +91,7 @@ impl<R: BufRead> Parser<R> {
         self.next_line()?;
         self.strip_line_prefix("DATA")?
             .parse::<PCDDataType>()
-            .map_err(|e| self.header_err("DATA", e.to_string()))
+            .map_err(|e| self.header_err("DATA", e))
     }
 
     fn parse_header_version(&mut self) -> Result<PCDVersion> {
@@ -344,7 +346,7 @@ mod tests {
             1,
             [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
             213,
-            crate::pcd::PCDDataType::Ascii
+            crate::pcd::PCDDataType::Ascii,
         )
         .unwrap()
     }

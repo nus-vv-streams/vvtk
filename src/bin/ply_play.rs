@@ -1,21 +1,15 @@
 use clap::Parser;
 use std::ffi::OsString;
-use std::path::{Path, PathBuf};
-use tempfile::tempdir;
-use vivotk::codec::decoder::{DracoDecoder, NoopDecoder};
-use vivotk::codec::Decoder;
-use vivotk::dash::fetcher::Fetcher;
-use vivotk::formats::pointxyzrgba::PointXyzRgba;
-use vivotk::formats::PointCloud;
+use std::path::Path;
+
 use vivotk::render::wgpu::{
     builder::RenderBuilder,
     camera::Camera,
     controls::Controller,
     metrics_reader::MetricsReader,
-    reader::{FrameRequest, PcdAsyncReader, RenderReader, PointCloudFileReader},
+    reader::{PointCloudFileReader, RenderReader},
     renderer::Renderer,
 };
-use vivotk::utils::read_file_to_point_cloud;
 
 /// Plays a folder of pcd files in lexicographical order
 #[derive(Parser)]
@@ -28,11 +22,26 @@ struct Args {
     quality: u8,
     #[clap(short, long, default_value_t = 30.0)]
     fps: f32,
-    #[clap(short = 'x', long, default_value_t = 0.0, allow_negative_numbers = true)]
+    #[clap(
+        short = 'x',
+        long,
+        default_value_t = 0.0,
+        allow_negative_numbers = true
+    )]
     camera_x: f32,
-    #[clap(short = 'y', long, default_value_t = 0.0, allow_negative_numbers = true)]
+    #[clap(
+        short = 'y',
+        long,
+        default_value_t = 0.0,
+        allow_negative_numbers = true
+    )]
     camera_y: f32,
-    #[clap(short = 'z', long, default_value_t = 1.3, allow_negative_numbers = true)]
+    #[clap(
+        short = 'z',
+        long,
+        default_value_t = 1.3,
+        allow_negative_numbers = true
+    )]
     camera_z: f32,
     #[clap(long = "yaw", default_value_t = -90.0, allow_negative_numbers = true)]
     camera_yaw: f32,
@@ -119,13 +128,12 @@ fn main() {
     let mut builder = RenderBuilder::default();
     let slider_end = reader.len() - 1;
     let render = builder.add_window(Renderer::new(
-            reader,
-            args.fps,
-            camera,
-            (args.width, args.height),
-            metrics,
-        ));
-
+        reader,
+        args.fps,
+        camera,
+        (args.width, args.height),
+        metrics,
+    ));
 
     if args.show_controls {
         let controls = builder.add_window(Controller { slider_end });

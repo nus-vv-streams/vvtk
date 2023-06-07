@@ -12,8 +12,11 @@ use crate::{
 };
 
 use self::{
-    executor::Executor, executor::ExecutorBuilder,
-    subcommands::{Downsampler, MetricsCalculator, Read, Subcommand, ToPng, Upsampler, Write, Convert, Play},
+    executor::Executor,
+    executor::ExecutorBuilder,
+    subcommands::{
+        Convert, Downsampler, MetricsCalculator, Play, Read, Subcommand, ToPng, Upsampler, Write,
+    },
 };
 
 pub type SubcommandCreator = Box<dyn Fn(Vec<String>) -> Box<dyn Subcommand>>;
@@ -115,14 +118,17 @@ impl Pipeline {
         let mut executor_builder = ExecutorBuilder::new();
         // !! check the second argument, which is the name of the subcommand, we want at least one subcommand
         if !Self::if_at_least_one_command(&args[1]) {
-            eprintln!("Expected at least one valid command on the first arg, got {}", args[1]);
+            eprintln!(
+                "Expected at least one valid command on the first arg, got {}",
+                args[1]
+            );
         }
 
         // !! skip the first argument, which is the name of the program
         for arg in args.iter().skip(1) {
-            let is_command = subcommand(&arg);
+            let is_command = subcommand(arg);
             if is_command.is_some() {
-                if let Some(creator) = command_creator.take() 
+                if let Some(creator) = command_creator.take()
                 // !! the first take is always None
                 {
                     // !! enters here when there are at least two subcommands
@@ -168,6 +174,5 @@ mod pipeline_mod_test {
         assert!(Pipeline::if_at_least_one_command("upsample"));
         assert!(Pipeline::if_at_least_one_command("convert"));
         assert!(!Pipeline::if_at_least_one_command("not_a_command"));
-
     }
-} 
+}

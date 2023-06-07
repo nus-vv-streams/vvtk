@@ -33,10 +33,7 @@ impl PCCDashParser {
             }
         }
 
-        PCCDashParser {
-            mpd: mpd,
-            framestamps: framestamps,
-        }
+        PCCDashParser { mpd, framestamps }
     }
 
     // only gets the top-most BaseURL
@@ -50,7 +47,7 @@ impl PCCDashParser {
             .expect("no base url found")
             .base
             .clone();
-        if url.ends_with("/") {
+        if url.ends_with('/') {
             url
         } else {
             url + "/"
@@ -126,7 +123,7 @@ impl PCCDashParser {
         base_url
             + self
                 .resolve_url_template(
-                    &media,
+                    media,
                     &HashMap::from_iter(vec![
                         (
                             "RepresentationID",
@@ -205,23 +202,23 @@ fn parse_xs_duration(s: &str) -> Result<Duration> {
             }
             if let Some(s) = m.name("hours") {
                 let hours = s.as_str().parse::<u64>().unwrap();
-                secs += hours as u64 * 60 * 60;
+                secs += hours * 60 * 60;
             }
             if let Some(s) = m.name("days") {
                 let days = s.as_str().parse::<u64>().unwrap();
-                secs += days as u64 * 60 * 60 * 24;
+                secs += days * 60 * 60 * 24;
             }
             if let Some(s) = m.name("weeks") {
                 let weeks = s.as_str().parse::<u64>().unwrap();
-                secs += weeks as u64 * 60 * 60 * 24 * 7;
+                secs += weeks * 60 * 60 * 24 * 7;
             }
             if let Some(s) = m.name("months") {
                 let months = s.as_str().parse::<u64>().unwrap();
-                secs += months as u64 * 60 * 60 * 24 * 30;
+                secs += months * 60 * 60 * 24 * 30;
             }
             if let Some(s) = m.name("years") {
                 let years = s.as_str().parse::<u64>().unwrap();
-                secs += years as u64 * 60 * 60 * 24 * 365;
+                secs += years * 60 * 60 * 24 * 365;
             }
             if let Some(s) = m.name("sign") {
                 if s.as_str() == "-" {

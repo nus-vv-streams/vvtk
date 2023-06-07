@@ -52,7 +52,7 @@ pub struct PointCloudFileReader {
     files: Vec<PathBuf>,
 }
 
-impl PointCloudFileReader{
+impl PointCloudFileReader {
     pub fn from_directory(directory: &Path, file_type: &str) -> Self {
         let mut files = vec![];
         for file_entry in directory.read_dir().unwrap() {
@@ -70,9 +70,7 @@ impl PointCloudFileReader{
             }
         }
         files.sort();
-        Self {
-            files,
-        }
+        Self { files }
     }
 }
 
@@ -96,7 +94,6 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
 
     fn set_len(&mut self, _len: usize) {}
 }
-
 
 impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
     fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
@@ -133,7 +130,7 @@ impl PcdMemoryReader {
 
 impl RenderReader<PointCloud<PointXyzRgba>> for PcdMemoryReader {
     fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-        self.points.get(index).map(|pc| pc.clone())
+        self.points.get(index).cloned()
     }
 
     fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
@@ -201,7 +198,7 @@ impl PcdAsyncReader {
                 .send(FrameRequest {
                     object_id: 0u8,
                     quality: 0u8,
-                    frame_offset: self.next_to_get as u64,
+                    frame_offset: self.next_to_get,
                 })
                 .unwrap();
             self.next_to_get = (self.next_to_get + 1) % (self.len() as u64);

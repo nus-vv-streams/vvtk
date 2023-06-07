@@ -1,10 +1,10 @@
+use super::Subcommand;
 use crate::pipeline::channel::Channel;
 use crate::pipeline::PipelineMessage;
 use crate::render::wgpu::png::PngWriter;
+use cgmath::num_traits::pow;
 use clap::Parser;
 use std::ffi::OsString;
-use super::Subcommand;
-use cgmath::num_traits::pow;
 
 /// Converts a folder of .pcd files to a folder of .png images
 #[derive(Parser)]
@@ -69,13 +69,12 @@ impl<'a> ToPng<'a> {
 
 impl Subcommand for ToPng<'_> {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
-
         let max_count = pow(10, self.name_length as usize);
 
         for message in messages {
             match &message {
                 PipelineMessage::IndexedPointCloud(pc, i) => {
-                    let padded_count = format!("{:0>width$}", i, width=self.name_length as usize);
+                    let padded_count = format!("{:0>width$}", i, width = self.name_length as usize);
                     let filename = format!("{}.png", padded_count);
                     self.count += 1;
                     if self.count >= max_count {
@@ -90,7 +89,6 @@ impl Subcommand for ToPng<'_> {
         }
     }
 }
-
 
 // pub fn pc_to_png(to_png: &mut ToPng, pc: PointCloud<PointXyzRgba>, filename: &str) {
 //     if to_png.point_renderer.is_none() {

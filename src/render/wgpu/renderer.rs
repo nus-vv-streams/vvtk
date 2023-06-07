@@ -77,9 +77,7 @@ where
             .with_position(PhysicalPosition { x: 0, y: 0 })
             .with_resizable(true)
             .with_min_inner_size(self.size)
-            .with_max_inner_size(
-                PhysicalSize::new(2048, 2048),
-            )
+            .with_max_inner_size(PhysicalSize::new(2048, 2048))
             // .with_inner_size(self.size)
             .build(event_loop)
             .unwrap();
@@ -359,7 +357,7 @@ where
                 .update_vertices(&self.gpu.device, &self.gpu.queue, &data);
             return true;
         }
-        return false;
+        false
     }
 
     fn update_stats(&mut self) {
@@ -477,7 +475,7 @@ where
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &view,
+                view,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color {

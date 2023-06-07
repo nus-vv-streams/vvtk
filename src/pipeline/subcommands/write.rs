@@ -1,15 +1,12 @@
 use cgmath::num_traits::pow;
 use clap::Parser;
 
-
-use crate::pcd::{
-    write_pcd_file, PCDDataType, create_pcd
-};
+use crate::pcd::{create_pcd, write_pcd_file, PCDDataType};
 use crate::pipeline::channel::Channel;
 use crate::pipeline::PipelineMessage;
+use crate::utils::{pcd_to_ply_from_data, ConvertOutputFormat};
 use std::fs::File;
 use std::path::Path;
-use crate::utils::{ConvertOutputFormat, pcd_to_ply_from_data};
 
 use super::Subcommand;
 #[derive(Parser)]
@@ -48,9 +45,12 @@ impl Subcommand for Write {
             match &message {
                 PipelineMessage::IndexedPointCloud(pc, i) => {
                     println!("Writing point cloud with point num {}", pc.points.len());
-                    let pcd_data_type = self.args.storage_type.expect("PCD data type should be provided");
+                    let pcd_data_type = self
+                        .args
+                        .storage_type
+                        .expect("PCD data type should be provided");
                     let output_format = self.args.output_format.to_string();
-                    
+
                     // !! use index(i) instead of count to make sure the order of files
                     let padded_count = format!("{:0width$}", i, width = self.args.name_length);
                     let file_name = format!("{}.{}", padded_count, output_format);
@@ -63,7 +63,8 @@ impl Subcommand for Write {
                     let file_name = Path::new(&file_name);
                     let output_file = output_path.join(file_name);
                     if !output_path.exists() {
-                        std::fs::create_dir_all(output_path).expect("Failed to create output directory");
+                        std::fs::create_dir_all(output_path)
+                            .expect("Failed to create output directory");
                     }
 
                     // use pcd format as a trasition format now
@@ -85,8 +86,6 @@ impl Subcommand for Write {
                             continue;
                         }
                     }
-
-
                 }
                 PipelineMessage::Metrics(metrics) => {
                     let file_name = format!("{}.metrics", self.count);

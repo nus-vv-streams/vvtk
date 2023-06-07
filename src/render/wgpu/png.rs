@@ -83,7 +83,7 @@ impl<'a> PngWriter<'a> {
         );
         let camera_state = CameraState::new(camera, size.width, size.height);
         Self {
-            output_dir: output_dir,
+            output_dir,
             size,
             device,
             queue,

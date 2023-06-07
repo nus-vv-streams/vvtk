@@ -79,9 +79,6 @@ impl Play {
             "ply".to_string()
         }
     }
-
-    // TODO
-    fn render_point_cloud() {}
 }
 
 impl Subcommand for Play {
@@ -89,14 +86,14 @@ impl Subcommand for Play {
         // !! if no messages, then read from directory and render it to screen
         if messages.is_empty() {
             let play_format = Play::infer_format(&self.args.directory, &self.args.play_format);
-            println!("Playing files in {} with format {}", self.args.directory, play_format);
-            
+            println!(
+                "Playing files in {} with format {}",
+                self.args.directory, play_format
+            );
         } else {
             // !! also accept messages(PipelineMessage::PointCloud) from other subcommands
             // !! and then render it to screen
         }
         channel.send(PipelineMessage::End);
     }
-
 }
-
