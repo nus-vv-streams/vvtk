@@ -25,7 +25,22 @@ pub fn read_file_to_point_cloud(file: &PathBuf) -> Option<PointCloud<PointXyzRgb
     None
 }
 
+fn check_files_existence(files: &Vec<OsString>) -> bool {
+    let mut flag = true;
+    for file_str in files {
+        let path = Path::new(&file_str);
+        if !path.exists() {
+            println!("File {:?} does not exist", path);
+            flag = false;
+        }
+    }
+    flag
+}
+
 pub fn find_all_files(os_strings: &Vec<OsString>) -> Vec<PathBuf> {
+    if check_files_existence(os_strings) == false {
+        panic!("Some files do not exist")
+    }
     let mut files_to_convert = vec![];
     for file_str in os_strings {
         let path = Path::new(&file_str);
