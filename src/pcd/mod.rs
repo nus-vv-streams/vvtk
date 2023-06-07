@@ -36,4 +36,4 @@ mod writer;
 
 pub use data_types::*;
 pub use reader::{read_pcd, read_pcd_file, PCDReadError};
-pub use writer::{write_pcd, write_pcd_file, create_pcd};
+pub use writer::{create_pcd, write_pcd, write_pcd_file};

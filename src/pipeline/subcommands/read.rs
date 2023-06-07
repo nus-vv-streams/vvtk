@@ -1,5 +1,5 @@
-use std::ffi::OsString;
 use clap::Parser;
+use std::ffi::OsString;
 
 use super::Subcommand;
 use crate::pipeline::channel::Channel;

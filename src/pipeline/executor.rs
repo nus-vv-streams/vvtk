@@ -1,8 +1,8 @@
-use crossbeam_channel::{unbounded, Receiver};
-use std::collections::HashSet;
 use super::{
     channel::Channel, subcommands::Subcommand, PipelineMessage, Progress, SubcommandCreator,
 };
+use crossbeam_channel::{unbounded, Receiver};
+use std::collections::HashSet;
 
 pub struct Executor {
     name: String,
@@ -24,7 +24,11 @@ impl ExecutorBuilder {
         }
     }
 
-    pub fn create(&mut self, args: Vec<String>, creator: SubcommandCreator) -> (Executor, Receiver<Progress>) {
+    pub fn create(
+        &mut self,
+        args: Vec<String>,
+        creator: SubcommandCreator,
+    ) -> (Executor, Receiver<Progress>) {
         let name = args.first().expect("Should have command name").clone();
         let mut inner_args = Vec::new();
         let mut input_stream_names = Vec::new();
@@ -39,21 +43,24 @@ impl ExecutorBuilder {
                 let input_streams = arg
                     .split("=")
                     .nth(1)
-                    .expect("Expected name of input stream"); 
+                    .expect("Expected name of input stream");
 
                 for input_name in input_streams.split(",") {
                     // check if input stream name is in the set, panic if not
                     if !self.output_stream_names.contains(input_name) {
                         // get the existing output stream names, concat them with ", "
-                        let existing_output_stream_names = self.output_stream_names
+                        let existing_output_stream_names = self
+                            .output_stream_names
                             .iter()
                             .map(|s| format!("`{}`", s))
                             .collect::<Vec<String>>()
                             .join(", ");
 
-                        panic!("No output stream with name `{}` found, existing outputs are {}", input_streams, existing_output_stream_names);
-                    }
-                    else {
+                        panic!(
+                            "No output stream with name `{}` found, existing outputs are {}",
+                            input_streams, existing_output_stream_names
+                        );
+                    } else {
                         input_stream_names.push(input_name.to_string());
                     }
                 }
@@ -70,8 +77,8 @@ impl ExecutorBuilder {
             }
         }
 
-        if has_input || cmd.as_str() == "read" || cmd.as_str() == "convert" {} 
-        else {
+        if has_input || cmd.as_str() == "read" || cmd.as_str() == "convert" {
+        } else {
             panic!("`{}` needs to consume an input, but no named input is found, specify it using `+input=input_name`", cmd.as_str())
         }
 
@@ -87,7 +94,7 @@ impl ExecutorBuilder {
             channel,
             handler,
         };
-        (executor, progress_rx) 
+        (executor, progress_rx)
     }
 }
 

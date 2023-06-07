@@ -1,5 +1,8 @@
-use crate::pcd::{PCDDataType, PCDFieldDataType, PCDFieldSize, PCDFieldType, PointCloudData, PCDField, PCDHeader, PCDVersion};
 use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
+use crate::pcd::{
+    PCDDataType, PCDField, PCDFieldDataType, PCDFieldSize, PCDFieldType, PCDHeader, PCDVersion,
+    PointCloudData,
+};
 use byteorder::{NativeEndian, ReadBytesExt};
 use std::fs::File;
 use std::io::{BufWriter, Cursor, Write};

@@ -52,7 +52,7 @@ pub struct PointCloudFileReader {
     files: Vec<PathBuf>,
 }
 
-impl PointCloudFileReader{
+impl PointCloudFileReader {
     pub fn from_directory(directory: &Path, file_type: &str) -> Self {
         let mut files = vec![];
         for file_entry in directory.read_dir().unwrap() {
@@ -70,9 +70,7 @@ impl PointCloudFileReader{
             }
         }
         files.sort();
-        Self {
-            files,
-        }
+        Self { files }
     }
 }
 
@@ -96,7 +94,6 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
 
     fn set_len(&mut self, _len: usize) {}
 }
-
 
 impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
     fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {

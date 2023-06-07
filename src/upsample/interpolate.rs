@@ -89,7 +89,10 @@ pub fn upsample(point_cloud: PointCloud<PointXyzRgba>, factor: usize) -> PointCl
 
 #[cfg(test)]
 mod test {
-    use crate::{utils::read_file_to_point_cloud, pcd::{write_pcd_file, create_pcd}};
+    use crate::{
+        pcd::{create_pcd, write_pcd_file},
+        utils::read_file_to_point_cloud,
+    };
 
     use super::*;
     use std::path::PathBuf;
@@ -102,7 +105,8 @@ mod test {
         let upsampled = upsample(pcd, 2);
         println!("Upsampled: {:?}", upsampled);
         // write pcd
-        let out_path = PathBuf::from("./test_files/pcd_ascii/longdress_vox10_1213_short_upsampled.pcd");
+        let out_path =
+            PathBuf::from("./test_files/pcd_ascii/longdress_vox10_1213_short_upsampled.pcd");
         let pcd = create_pcd(&upsampled);
         write_pcd_file(&pcd, crate::pcd::PCDDataType::Ascii, &out_path).unwrap();
     }

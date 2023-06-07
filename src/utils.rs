@@ -1,17 +1,20 @@
+use crate::{
+    formats::{pointxyzrgba::PointXyzRgba, PointCloud},
+    pcd::{create_pcd, read_pcd_file, write_pcd_file, PCDDataType, PointCloudData},
+    ply::read_ply,
+};
+use ply_rs::{
+    parser, ply,
+    ply::DefaultElement,
+    ply::{Encoding, Payload},
+    writer,
+};
+use std::fs::File;
+use std::str::FromStr;
 use std::{
     ffi::OsString,
     path::{Path, PathBuf},
 };
-use std::str::FromStr;
-use crate::{
-    formats::{pointxyzrgba::PointXyzRgba, PointCloud},
-    pcd::{read_pcd_file, PCDDataType, create_pcd, write_pcd_file, PointCloudData},
-    ply::read_ply,
-};
-use ply_rs::{ply, parser, writer, ply::{Encoding, Payload}, ply::DefaultElement};
-use std::fs::File;
-
-
 
 pub fn read_file_to_point_cloud(file: &PathBuf) -> Option<PointCloud<PointXyzRgba>> {
     if let Some(ext) = file.extension().and_then(|ext| ext.to_str()) {
@@ -63,7 +66,13 @@ pub fn expand_directory(p: &Path) -> Vec<PathBuf> {
             continue;
         }
         // ignore file start with .
-        if entry.file_name().unwrap().to_str().unwrap().starts_with(".") {
+        if entry
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .starts_with(".")
+        {
             continue;
         }
         ply_files.push(entry);
@@ -72,9 +81,7 @@ pub fn expand_directory(p: &Path) -> Vec<PathBuf> {
     ply_files
 }
 
-
-
-pub fn ply_to_ply(output_path:&Path, storage_type:PCDDataType, file_path:PathBuf){
+pub fn ply_to_ply(output_path: &Path, storage_type: PCDDataType, file_path: PathBuf) {
     let ply_parser = parser::Parser::<ply::DefaultElement>::new();
     let mut f = std::fs::File::open(&file_path).unwrap();
     let mut ply = ply_parser.read_ply(&mut f).unwrap();
@@ -84,7 +91,7 @@ pub fn ply_to_ply(output_path:&Path, storage_type:PCDDataType, file_path:PathBuf
         PCDDataType::Binary => set_encoding(),
         _ => unreachable!(),
     };
-        
+
     let filename = Path::new(file_path.file_name().unwrap()).with_extension("ply");
     let output_file = output_path.join(filename);
     let mut file = File::create(&output_file).unwrap();
@@ -97,10 +104,9 @@ pub fn ply_to_ply(output_path:&Path, storage_type:PCDDataType, file_path:PathBuf
             output_file.into_os_string()
         );
     }
-
 }
 
-pub fn pcd_to_pcd(output_path:&Path, storage_type:PCDDataType, file_path:PathBuf){
+pub fn pcd_to_pcd(output_path: &Path, storage_type: PCDDataType, file_path: PathBuf) {
     let pcd = read_pcd_file(file_path.clone()).unwrap();
     let filename = Path::new(file_path.file_name().unwrap()).with_extension("pcd");
     let output_file = output_path.join(filename);
@@ -113,7 +119,7 @@ pub fn pcd_to_pcd(output_path:&Path, storage_type:PCDDataType, file_path:PathBuf
     }
 }
 
-pub fn ply_to_pcd(output_path:&Path, storage_type:PCDDataType, file_path:PathBuf){
+pub fn ply_to_pcd(output_path: &Path, storage_type: PCDDataType, file_path: PathBuf) {
     let pointxyzrgba = read_ply(file_path.clone()).unwrap();
     let pcd = create_pcd(&pointxyzrgba);
 
@@ -128,20 +134,44 @@ pub fn ply_to_pcd(output_path:&Path, storage_type:PCDDataType, file_path:PathBuf
     }
 }
 
-pub fn pcd_to_ply_from_data(output_path:&Path, storage_type:PCDDataType, pcd: PointCloudData) -> Result<(), Box<dyn std::error::Error>>{
-    let x_prop_def = ply_rs::ply::PropertyDef::new("x".to_string(), ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float));
-    let y_prop_def = ply_rs::ply::PropertyDef::new("y".to_string(), ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float));
-    let z_prop_def = ply_rs::ply::PropertyDef::new("z".to_string(), ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float));
-    let red_prop_def = ply_rs::ply::PropertyDef::new("red".to_string(), ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::UChar));
-    let green_prop_def = ply_rs::ply::PropertyDef::new("green".to_string(), ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::UChar));
-    let blue_prop_def = ply_rs::ply::PropertyDef::new("blue".to_string(), ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::UChar));
-    
+pub fn pcd_to_ply_from_data(
+    output_path: &Path,
+    storage_type: PCDDataType,
+    pcd: PointCloudData,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let x_prop_def = ply_rs::ply::PropertyDef::new(
+        "x".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float),
+    );
+    let y_prop_def = ply_rs::ply::PropertyDef::new(
+        "y".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float),
+    );
+    let z_prop_def = ply_rs::ply::PropertyDef::new(
+        "z".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float),
+    );
+    let red_prop_def = ply_rs::ply::PropertyDef::new(
+        "red".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::UChar),
+    );
+    let green_prop_def = ply_rs::ply::PropertyDef::new(
+        "green".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::UChar),
+    );
+    let blue_prop_def = ply_rs::ply::PropertyDef::new(
+        "blue".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::UChar),
+    );
+
     let mut element = ply_rs::ply::ElementDef::new("vertex".to_string());
     element.properties.insert("x".to_string(), x_prop_def);
     element.properties.insert("y".to_string(), y_prop_def);
     element.properties.insert("z".to_string(), z_prop_def);
     element.properties.insert("red".to_string(), red_prop_def);
-    element.properties.insert("green".to_string(), green_prop_def);
+    element
+        .properties
+        .insert("green".to_string(), green_prop_def);
     element.properties.insert("blue".to_string(), blue_prop_def);
     element.count = pcd.header().width() as usize;
 
@@ -151,7 +181,7 @@ pub fn pcd_to_ply_from_data(output_path:&Path, storage_type:PCDDataType, pcd: Po
         PCDDataType::Binary => set_encoding(),
         _ => unreachable!(),
     };
-    ply_header.elements.insert("vertex".to_string(), element); 
+    ply_header.elements.insert("vertex".to_string(), element);
 
     let pcd_pointxyzrgba: PointCloud<PointXyzRgba> = pcd.into();
     let mut pay_load_vec = Vec::<DefaultElement>::new();
@@ -167,7 +197,7 @@ pub fn pcd_to_ply_from_data(output_path:&Path, storage_type:PCDDataType, pcd: Po
     });
     let mut pay_load = Payload::<DefaultElement>::new();
     pay_load.insert("vertex".to_string(), pay_load_vec);
-    
+
     let mut ply = ply_rs::ply::Ply::<DefaultElement>::new();
     ply.header = ply_header;
     ply.payload = pay_load;
@@ -181,17 +211,15 @@ pub fn pcd_to_ply_from_data(output_path:&Path, storage_type:PCDDataType, pcd: Po
 
     let mut file = File::create(&output_path).unwrap();
 
-
     let ply_writer = writer::Writer::<ply::DefaultElement>::new();
     if let Err(e) = ply_writer.write_ply(&mut file, &mut ply) {
         Result::Err(Box::new(e))
-    }
-    else {
+    } else {
         Result::Ok(())
     }
 }
 
-pub fn pcd_to_ply(output_path:&Path, storage_type:PCDDataType, file_path:PathBuf){
+pub fn pcd_to_ply(output_path: &Path, storage_type: PCDDataType, file_path: PathBuf) {
     let pcd = read_pcd_file(&file_path).unwrap();
     let filename = Path::new(file_path.file_name().unwrap()).with_extension("ply");
     let output_file = output_path.join(filename);
@@ -202,7 +230,6 @@ pub fn pcd_to_ply(output_path:&Path, storage_type:PCDDataType, file_path:PathBuf
             output_file.to_str(),
         );
     }
-
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -259,56 +286,210 @@ mod test {
         let ply_ascii_path = PathBuf::from("./test_files/ply_ascii/longdress_vox10_1213_short.ply");
         let pc = read_ply(&ply_ascii_path).unwrap();
         assert_eq!(pc.number_of_points, 20);
-        assert_eq!(pc.points[0],  PointXyzRgba{ x: 171.0, y: 63.0, z: 255.0, r: 183, g: 165, b: 155, a: 255});
-        assert_eq!(pc.points[19], PointXyzRgba{ x: 175.0, y: 60.0, z: 253.0, r: 161, g: 145, b: 133, a: 255});
+        assert_eq!(
+            pc.points[0],
+            PointXyzRgba {
+                x: 171.0,
+                y: 63.0,
+                z: 255.0,
+                r: 183,
+                g: 165,
+                b: 155,
+                a: 255
+            }
+        );
+        assert_eq!(
+            pc.points[19],
+            PointXyzRgba {
+                x: 175.0,
+                y: 60.0,
+                z: 253.0,
+                r: 161,
+                g: 145,
+                b: 133,
+                a: 255
+            }
+        );
     }
 
     #[test]
     fn test_ply_to_ply() {
         let ply_ascii_path = PathBuf::from("./test_files/ply_ascii/longdress_vox10_1213_short.ply");
-        let output_path    = PathBuf::from("./test_files/ply_binary");
+        let output_path = PathBuf::from("./test_files/ply_binary");
         ply_to_ply(&output_path, PCDDataType::Binary, ply_ascii_path);
         let output_path = output_path.join("longdress_vox10_1213_short.ply");
         let pc = read_file_to_point_cloud(&output_path).unwrap();
         assert_eq!(pc.number_of_points, 20);
-        assert_eq!(pc.points[0],  PointXyzRgba{ x: 171.0, y: 63.0, z: 255.0, r: 183, g: 165, b: 155, a: 255});
-        assert_eq!(pc.points[9],  PointXyzRgba{ x: 172.0, y: 61.0, z: 255.0, r: 161, g: 145, b: 134, a: 255});
-        assert_eq!(pc.points[19], PointXyzRgba{ x: 175.0, y: 60.0, z: 253.0, r: 161, g: 145, b: 133, a: 255});
+        assert_eq!(
+            pc.points[0],
+            PointXyzRgba {
+                x: 171.0,
+                y: 63.0,
+                z: 255.0,
+                r: 183,
+                g: 165,
+                b: 155,
+                a: 255
+            }
+        );
+        assert_eq!(
+            pc.points[9],
+            PointXyzRgba {
+                x: 172.0,
+                y: 61.0,
+                z: 255.0,
+                r: 161,
+                g: 145,
+                b: 134,
+                a: 255
+            }
+        );
+        assert_eq!(
+            pc.points[19],
+            PointXyzRgba {
+                x: 175.0,
+                y: 60.0,
+                z: 253.0,
+                r: 161,
+                g: 145,
+                b: 133,
+                a: 255
+            }
+        );
     }
 
     #[test]
     fn test_ply_to_pcd() {
         let ply_ascii_path = PathBuf::from("./test_files/ply_ascii/longdress_vox10_1213_short.ply");
-        let output_path    = PathBuf::from("./test_files/pcd_binary");
+        let output_path = PathBuf::from("./test_files/pcd_binary");
         ply_to_pcd(&output_path, PCDDataType::Binary, ply_ascii_path.clone());
         let output_path = output_path.join("longdress_vox10_1213_short.pcd");
         let pc = read_file_to_point_cloud(&output_path).unwrap();
         assert_eq!(pc.number_of_points, 20);
-        assert_eq!(pc.points[0],  PointXyzRgba{ x: 171.0, y: 63.0, z: 255.0, r: 183, g: 165, b: 155, a: 255});
-        assert_eq!(pc.points[9],  PointXyzRgba{ x: 172.0, y: 61.0, z: 255.0, r: 161, g: 145, b: 134, a: 255});
-        assert_eq!(pc.points[19], PointXyzRgba{ x: 175.0, y: 60.0, z: 253.0, r: 161, g: 145, b: 133, a: 255});
+        assert_eq!(
+            pc.points[0],
+            PointXyzRgba {
+                x: 171.0,
+                y: 63.0,
+                z: 255.0,
+                r: 183,
+                g: 165,
+                b: 155,
+                a: 255
+            }
+        );
+        assert_eq!(
+            pc.points[9],
+            PointXyzRgba {
+                x: 172.0,
+                y: 61.0,
+                z: 255.0,
+                r: 161,
+                g: 145,
+                b: 134,
+                a: 255
+            }
+        );
+        assert_eq!(
+            pc.points[19],
+            PointXyzRgba {
+                x: 175.0,
+                y: 60.0,
+                z: 253.0,
+                r: 161,
+                g: 145,
+                b: 133,
+                a: 255
+            }
+        );
 
-        let output_path    = PathBuf::from("./test_files/pcd_ascii");
+        let output_path = PathBuf::from("./test_files/pcd_ascii");
         ply_to_pcd(&output_path, PCDDataType::Ascii, ply_ascii_path);
         let output_path = output_path.join("longdress_vox10_1213_short.pcd");
         let pc = read_file_to_point_cloud(&output_path).unwrap();
         assert_eq!(pc.number_of_points, 20);
-        assert_eq!(pc.points[0],  PointXyzRgba{ x: 171.0, y: 63.0, z: 255.0, r: 183, g: 165, b: 155, a: 255});
-        assert_eq!(pc.points[9],  PointXyzRgba{ x: 172.0, y: 61.0, z: 255.0, r: 161, g: 145, b: 134, a: 255});
-        assert_eq!(pc.points[19], PointXyzRgba{ x: 175.0, y: 60.0, z: 253.0, r: 161, g: 145, b: 133, a: 255}); 
+        assert_eq!(
+            pc.points[0],
+            PointXyzRgba {
+                x: 171.0,
+                y: 63.0,
+                z: 255.0,
+                r: 183,
+                g: 165,
+                b: 155,
+                a: 255
+            }
+        );
+        assert_eq!(
+            pc.points[9],
+            PointXyzRgba {
+                x: 172.0,
+                y: 61.0,
+                z: 255.0,
+                r: 161,
+                g: 145,
+                b: 134,
+                a: 255
+            }
+        );
+        assert_eq!(
+            pc.points[19],
+            PointXyzRgba {
+                x: 175.0,
+                y: 60.0,
+                z: 253.0,
+                r: 161,
+                g: 145,
+                b: 133,
+                a: 255
+            }
+        );
     }
 
     #[test]
     fn test_pcd_to_ply() {
         let pcd_ascii_path = PathBuf::from("./test_files/pcd_ascii/longdress_vox10_1213_short.pcd");
-        let output_path    = PathBuf::from("./test_files/ply_ascii/from_pcd");
+        let output_path = PathBuf::from("./test_files/ply_ascii/from_pcd");
         pcd_to_ply(&output_path, PCDDataType::Ascii, pcd_ascii_path);
         let output_path = output_path.join("longdress_vox10_1213_short.ply");
         let pc = read_file_to_point_cloud(&output_path).unwrap();
         assert_eq!(pc.number_of_points, 20);
-        assert_eq!(pc.points[0],  PointXyzRgba{ x: 171.0, y: 63.0, z: 255.0, r: 183, g: 165, b: 155, a: 255});
-        assert_eq!(pc.points[9],  PointXyzRgba{ x: 172.0, y: 61.0, z: 255.0, r: 161, g: 145, b: 134, a: 255});
-        assert_eq!(pc.points[19], PointXyzRgba{ x: 175.0, y: 60.0, z: 253.0, r: 161, g: 145, b: 133, a: 255});
+        assert_eq!(
+            pc.points[0],
+            PointXyzRgba {
+                x: 171.0,
+                y: 63.0,
+                z: 255.0,
+                r: 183,
+                g: 165,
+                b: 155,
+                a: 255
+            }
+        );
+        assert_eq!(
+            pc.points[9],
+            PointXyzRgba {
+                x: 172.0,
+                y: 61.0,
+                z: 255.0,
+                r: 161,
+                g: 145,
+                b: 134,
+                a: 255
+            }
+        );
+        assert_eq!(
+            pc.points[19],
+            PointXyzRgba {
+                x: 175.0,
+                y: 60.0,
+                z: 253.0,
+                r: 161,
+                g: 145,
+                b: 133,
+                a: 255
+            }
+        );
     }
 
     #[test]
@@ -324,5 +505,4 @@ mod test {
         files.sort();
         println!("{:?}", files);
     }
-
 }

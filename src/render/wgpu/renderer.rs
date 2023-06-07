@@ -77,9 +77,7 @@ where
             .with_position(PhysicalPosition { x: 0, y: 0 })
             .with_resizable(true)
             .with_min_inner_size(self.size)
-            .with_max_inner_size(
-                PhysicalSize::new(2048, 2048),
-            )
+            .with_max_inner_size(PhysicalSize::new(2048, 2048))
             // .with_inner_size(self.size)
             .build(event_loop)
             .unwrap();
