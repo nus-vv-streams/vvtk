@@ -80,8 +80,6 @@ impl Play {
         }
     }
 
-    // TODO
-    fn render_point_cloud() {}
 }
 
 impl Subcommand for Play {

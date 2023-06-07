@@ -94,6 +94,7 @@ impl ExecutorBuilder {
 unsafe impl Send for Executor {}
 
 impl Executor {
+    #[allow(dead_code)]
     pub fn create(args: Vec<String>, creator: SubcommandCreator) -> (Self, Receiver<Progress>) {
         let name = args.first().expect("Should have command name").clone();
         let mut inner_args = Vec::new();

@@ -1,21 +1,15 @@
 use clap::Parser;
 use std::ffi::OsString;
-use std::path::{Path, PathBuf};
-use tempfile::tempdir;
-use vivotk::codec::decoder::{DracoDecoder, NoopDecoder};
-use vivotk::codec::Decoder;
-use vivotk::dash::fetcher::Fetcher;
-use vivotk::formats::pointxyzrgba::PointXyzRgba;
-use vivotk::formats::PointCloud;
+use std::path::{Path};
+
 use vivotk::render::wgpu::{
     builder::RenderBuilder,
     camera::Camera,
     controls::Controller,
     metrics_reader::MetricsReader,
-    reader::{FrameRequest, PcdAsyncReader, RenderReader, PointCloudFileReader},
+    reader::{RenderReader, PointCloudFileReader},
     renderer::Renderer,
 };
-use vivotk::utils::read_file_to_point_cloud;
 
 /// Plays a folder of pcd files in lexicographical order
 #[derive(Parser)]

@@ -8,7 +8,7 @@ pub fn upsample(point_cloud: PointCloud<PointXyzRgba>, factor: usize) -> PointCl
     if factor <= 1 {
         point_cloud
     } else {
-        let mut points = point_cloud.points;
+        let points = point_cloud.points;
         let neighbour_radius = factor as f32 * 2.0 * 9.0;
         let mut kd_tree = KdTree::new();
         for (i, pt) in points.iter().enumerate() {
