@@ -36,6 +36,7 @@ impl Subcommand for MetricsCalculator {
             }
             (PipelineMessage::End, _) | (_, PipelineMessage::End) => {
                 channel.send(PipelineMessage::End);
+                println!("Get `End` message, Closing metrics calculator channel");
             }
             (_, _) => {}
         }
