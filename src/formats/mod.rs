@@ -14,12 +14,12 @@ impl Debug for PointCloud<pointxyzrgba::PointXyzRgba> {
     // first print the number of points in one line
     // then for each T in the Vec, print in a new line
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        println!("PointCloud<PointXyzRgba> {{");
+        writeln!(f, "PointCloud<PointXyzRgba> {{")?;
         writeln!(f, "   number_of_points: {}", self.number_of_points)?;
         for point in &self.points {
             writeln!(f, "   {:?}", point)?;
         }
-        println!("}}");
+        writeln!(f, "}}")?;
         Ok(())
     }
 }

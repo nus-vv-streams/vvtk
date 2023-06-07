@@ -126,7 +126,7 @@ impl Pipeline {
 
         // !! skip the first argument, which is the name of the program
         for arg in args.iter().skip(1) {
-            let is_command = subcommand(&arg);
+            let is_command = subcommand(arg);
             if is_command.is_some() {
                 if let Some(creator) = command_creator.take()
                 // !! the first take is always None

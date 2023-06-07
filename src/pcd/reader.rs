@@ -91,7 +91,7 @@ impl<R: BufRead> Parser<R> {
         self.next_line()?;
         self.strip_line_prefix("DATA")?
             .parse::<PCDDataType>()
-            .map_err(|e| self.header_err("DATA", e.to_string()))
+            .map_err(|e| self.header_err("DATA", e))
     }
 
     fn parse_header_version(&mut self) -> Result<PCDVersion> {

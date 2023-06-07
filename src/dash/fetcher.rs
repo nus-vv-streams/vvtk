@@ -90,7 +90,7 @@ impl Fetcher {
 }
 
 fn generate_filename_from_url(url: &str) -> &str {
-    url.rsplit_terminator("/").nth(0).unwrap()
+    url.rsplit_terminator('/').next().unwrap()
 }
 
 #[cfg(test)]

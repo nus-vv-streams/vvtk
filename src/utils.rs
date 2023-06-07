@@ -41,7 +41,7 @@ fn check_files_existence(files: &Vec<OsString>) -> bool {
 }
 
 pub fn find_all_files(os_strings: &Vec<OsString>) -> Vec<PathBuf> {
-    if check_files_existence(os_strings) == false {
+    if !check_files_existence(os_strings) {
         panic!("Some files do not exist")
     }
     let mut files_to_convert = vec![];
@@ -124,7 +124,7 @@ pub fn ply_to_pcd(output_path: &Path, storage_type: PCDDataType, file_path: Path
     let pcd = create_pcd(&pointxyzrgba);
 
     let filename = Path::new(file_path.file_name().unwrap()).with_extension("pcd");
-    let output_file = output_path.join(filename.clone());
+    let output_file = output_path.join(filename);
     if let Err(e) = write_pcd_file(&pcd, storage_type, &output_file) {
         println!(
             "Failed to write {:?} to {:?}\n{e}",
@@ -209,7 +209,7 @@ pub fn pcd_to_ply_from_data(
         std::fs::create_dir_all(dir).unwrap();
     }
 
-    let mut file = File::create(&output_path).unwrap();
+    let mut file = File::create(output_path).unwrap();
 
     let ply_writer = writer::Writer::<ply::DefaultElement>::new();
     if let Err(e) = ply_writer.write_ply(&mut file, &mut ply) {

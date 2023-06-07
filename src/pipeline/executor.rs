@@ -41,11 +41,11 @@ impl ExecutorBuilder {
         for arg in args {
             if arg.starts_with("+input") {
                 let input_streams = arg
-                    .split("=")
+                    .split('=')
                     .nth(1)
                     .expect("Expected name of input stream");
 
-                for input_name in input_streams.split(",") {
+                for input_name in input_streams.split(',') {
                     // check if input stream name is in the set, panic if not
                     if !self.output_stream_names.contains(input_name) {
                         // get the existing output stream names, concat them with ", "
@@ -67,7 +67,7 @@ impl ExecutorBuilder {
                 has_input = true;
             } else if arg.starts_with("+output") {
                 output_name = arg
-                    .split("=")
+                    .split('=')
                     .nth(1)
                     .expect("Expected name of output stream")
                     .to_string();
@@ -110,16 +110,16 @@ impl Executor {
         for arg in args {
             if arg.starts_with("+input") {
                 let input_streams = arg
-                    .split("=")
+                    .split('=')
                     .nth(1)
                     .expect("Expected name of input stream");
                 println!("output_streams:");
-                for input_name in input_streams.split(",") {
+                for input_name in input_streams.split(',') {
                     input_stream_names.push(input_name.to_string());
                 }
             } else if arg.starts_with("+output") {
                 output_name = arg
-                    .split("=")
+                    .split('=')
                     .nth(1)
                     .expect("Expected name of output stream")
                     .to_string();

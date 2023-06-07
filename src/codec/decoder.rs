@@ -9,7 +9,7 @@ pub struct NoopDecoder {}
 
 impl NoopDecoder {
     pub fn new() -> Self {
-        return NoopDecoder {};
+        NoopDecoder {}
     }
 }
 
