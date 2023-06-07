@@ -54,6 +54,7 @@ pub struct PCDHeader {
     height: u64,
     viewpoint: [f32; 7],
     points: u64,
+    data_type: PCDDataType,
 }
 
 impl PCDHeader {
@@ -64,6 +65,7 @@ impl PCDHeader {
         height: u64,
         viewpoint: [f32; 7],
         points: u64,
+        data_type: PCDDataType,
     ) -> Result<Self, String> {
         if width.saturating_mul(height) != points {
             return Err(format!("Width * Height must be equal to number of points. Width: {width} Height: {height} Points: {points}"));
@@ -76,6 +78,7 @@ impl PCDHeader {
             height,
             viewpoint,
             points,
+            data_type,
         })
     }
 
@@ -101,6 +104,10 @@ impl PCDHeader {
 
     pub fn points(&self) -> u64 {
         self.points
+    }
+
+    pub fn data_type(&self) -> PCDDataType {
+        self.data_type
     }
 
     /// Calculates the number of bytes that should be present in the

@@ -46,8 +46,8 @@ impl Attachable for Controller {
             .with_transparent(false)
             .with_title("Controls")
             .with_inner_size(winit::dpi::PhysicalSize {
-                width: 300i32,
-                height: 150i32,
+                width: 600i32,
+                height: 300i32,
             })
             .build(event_loop)
             .unwrap();
@@ -131,6 +131,7 @@ impl ControlWindow {
                     "Camera Pitch: {:?}",
                     cgmath::Deg::from(info.camera.pitch)
                 )));
+                ui.add(Label::new(&format!("Avg fps: {:?}", info.fps)));
             }
         });
 
@@ -139,12 +140,6 @@ impl ControlWindow {
             self.prev_slider_position = self.slider_position;
         }
     }
-
-    /*
-    fn name(&self) -> &str {
-        "Control Window"
-    }
-    */
 }
 
 impl Windowed for ControlWindow {
@@ -274,14 +269,8 @@ impl ControlWindow {
                 &self.gpu.queue,
                 &full_output.textures_delta,
             )
-            .expect("should be able to add texture");
-        // self.egui_rpass.update_texture(
-        //     &self.gpu.device,
-        //     &self.gpu.queue,
-        //     &self.platform.context().font_image(),
-        // );
-        // self.egui_rpass
-        // .update_user_textures(&self.gpu.device, &self.gpu.queue);
+            .expect("Should be able to add textures to control window");
+
         self.egui_rpass.update_buffers(
             &self.gpu.device,
             &self.gpu.queue,

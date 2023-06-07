@@ -1,16 +1,20 @@
+mod channel;
 mod executor;
-mod subcommands;
+pub mod subcommands;
 
-use std::sync::mpsc::Receiver;
+use crossbeam_channel::Receiver;
 
-use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
+// use std::sync::mpsc::Receiver;
 
-use self::{
-    executor::Executor,
-    subcommands::{Metrics, Read, Subcommand, ToPng, Write},
+use crate::{
+    formats::{pointxyzrgba::PointXyzRgba, PointCloud},
+    metrics::Metrics,
 };
 
-use clearscreen;
+use self::{
+    executor::Executor, executor::ExecutorBuilder,
+    subcommands::{Downsampler, MetricsCalculator, Read, Subcommand, ToPng, Upsampler, Write, Convert, Play},
+};
 
 pub type SubcommandCreator = Box<dyn Fn(Vec<String>) -> Box<dyn Subcommand>>;
 
@@ -19,40 +23,61 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
         "write" => Some(Box::from(Write::from_args)),
         "to_png" => Some(Box::from(ToPng::from_args)),
         "read" => Some(Box::from(Read::from_args)),
-        "metrics" => Some(Box::from(Metrics::from_args)),
+        "metrics" => Some(Box::from(MetricsCalculator::from_args)),
+        "downsample" => Some(Box::from(Downsampler::from_args)),
+        "upsample" => Some(Box::from(Upsampler::from_args)),
+        "convert" => Some(Box::from(Convert::from_args)),
+        "play" => Some(Box::from(Play::from_args)),
         _ => None,
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PipelineMessage {
-    PointCloud(PointCloud<PointXyzRgba>),
+    IndexedPointCloud(PointCloud<PointXyzRgba>, u32),
+    // PointCloud(PointCloud<PointXyzRgba>),
+    Metrics(Metrics),
     End,
+    DummyForIncrement,
 }
 
 #[derive(Debug)]
 pub enum Progress {
     Incr,
-    Length(usize),
     Completed,
 }
 pub struct Pipeline;
 
 impl Pipeline {
     pub fn execute() {
-        let pipeline = Self::gather_pipeline_from_args();
+        let (mut executors, progresses) = Self::gather_pipeline_from_args();
         let mut handles = vec![];
         let mut names = vec![];
         let mut progress_recvs = vec![];
-        for (exec, progress) in pipeline {
+        let all_input_names: Vec<Vec<String>> = executors.iter().map(|e| e.input_names()).collect();
+
+        // !! set named input outputs
+        for (idx, input_names) in all_input_names.iter().enumerate() {
+            let mut inputs = vec![];
+            for input_name in input_names {
+                for executor in &mut executors {
+                    if executor.output_name().eq(input_name) {
+                        inputs.push(executor.output());
+                    }
+                }
+            }
+            executors[idx].set_inputs(inputs);
+        }
+
+        for (exec, progress) in executors.into_iter().zip(progresses) {
             names.push(exec.name());
             progress_recvs.push(progress);
             handles.push(exec.run());
         }
 
+        println!("progress_recvs.len(): {}", progress_recvs.len());
         let mut completed = 0;
         let mut progress = vec![0; progress_recvs.len()];
-        let mut length = 0;
         while completed < progress_recvs.len() {
             for (idx, recv) in progress_recvs.iter().enumerate() {
                 while let Ok(prog) = recv.try_recv() {
@@ -63,16 +88,14 @@ impl Pipeline {
                         Progress::Completed => {
                             completed += 1;
                         }
-                        Progress::Length(l) => {
-                            length = l;
-                        }
                     }
                 }
             }
-            clearscreen::clear().expect("Failed to clear screen");
+            println!("=======================");
             for i in 0..progress.len() {
-                println!("{}: {} / {}", names[i], progress[i], length)
+                println!("{}: {}", names[i], progress[i])
             }
+            println!("=======================");
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
 
@@ -81,40 +104,70 @@ impl Pipeline {
         }
     }
 
-    fn gather_pipeline_from_args() -> Vec<(Executor, Receiver<Progress>)> {
-        let args = std::env::args();
-        let mut pipeline: Vec<(Executor, Receiver<Progress>)> = vec![];
+    // !! collect all the arguments from terminal and create the pipeline
+    fn gather_pipeline_from_args() -> (Vec<Executor>, Vec<Receiver<Progress>>) {
+        let args: Vec<String> = std::env::args().collect();
+        let mut executors = vec![];
+        let mut progresses = vec![];
         let mut command_creator: Option<SubcommandCreator> = None;
         let mut accumulated_args: Vec<String> = vec![];
-        let mut prev_recv: Option<Receiver<PipelineMessage>> = None;
 
-        for arg in args.skip(1) {
+        let mut executor_builder = ExecutorBuilder::new();
+        // !! check the second argument, which is the name of the subcommand, we want at least one subcommand
+        if !Self::if_at_least_one_command(&args[1]) {
+            eprintln!("Expected at least one valid command on the first arg, got {}", args[1]);
+        }
+
+        // !! skip the first argument, which is the name of the program
+        for arg in args.iter().skip(1) {
             let is_command = subcommand(&arg);
             if is_command.is_some() {
-                if let Some(creator) = command_creator.take() {
+                if let Some(creator) = command_creator.take() 
+                // !! the first take is always None
+                {
+                    // !! enters here when there are at least two subcommands
                     let forwarded_args = accumulated_args;
                     accumulated_args = vec![];
-                    let (mut executor, recv, progress) = Executor::create(forwarded_args, creator);
-                    if let Some(recv) = prev_recv.take() {
-                        executor.set_input(recv);
-                    }
-                    prev_recv = Some(recv);
-                    pipeline.push((executor, progress));
+                    let (executor, progress) = executor_builder.create(forwarded_args, creator);
+                    executors.push(executor);
+                    progresses.push(progress);
                 }
                 command_creator = is_command;
             }
-            accumulated_args.push(arg);
+            accumulated_args.push(arg.clone());
         }
+
+        // !! the following is duplicated from the above to handle the case of only one command
+        // !! TODO: maybe better to refactor as "do while" loop
         let creator = command_creator
             .take()
             .expect("Should have at least one command");
 
-        let (mut executor, _, progress) = Executor::create(accumulated_args, creator);
-        if let Some(recv) = prev_recv.take() {
-            executor.set_input(recv);
-        }
-        pipeline.push((executor, progress));
+        let (executor, progress) = executor_builder.create(accumulated_args, creator);
+        executors.push(executor);
+        progresses.push(progress);
+        (executors, progresses)
+    }
 
-        pipeline
+    fn if_at_least_one_command(first_arg: &str) -> bool {
+        subcommand(first_arg).is_some()
     }
 }
+
+#[cfg(test)]
+mod pipeline_mod_test {
+    use super::*;
+
+    #[test]
+    fn if_at_least_one_command_test() {
+        assert!(Pipeline::if_at_least_one_command("read"));
+        assert!(Pipeline::if_at_least_one_command("write"));
+        assert!(Pipeline::if_at_least_one_command("to_png"));
+        assert!(Pipeline::if_at_least_one_command("metrics"));
+        assert!(Pipeline::if_at_least_one_command("downsample"));
+        assert!(Pipeline::if_at_least_one_command("upsample"));
+        assert!(Pipeline::if_at_least_one_command("convert"));
+        assert!(!Pipeline::if_at_least_one_command("not_a_command"));
+
+    }
+} 

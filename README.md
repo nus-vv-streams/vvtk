@@ -13,133 +13,59 @@ We follow the [official Rust coding style](https://github.com/rust-dev-tools/fmt
 
 ## Commands
 
-### `vv convert` 
+### `vivotk`
 
-Convert a volumetric video to another format.  
+Provides subcommands that can be chained together. The inputs and outputs of a subcommand must be specified with the `+input=` followed by a comma separated list of inputs or `+output=` to denote the name of its output stream.
 
-A volumetric video can be represented in 3D, in the following ways:
-- A set of ASCII PLY files (with `.ply` extensions) in a directory, in lexographical order of names
-- A set of binary PLY files (with `.ply` extensions) in a directory, in lexographical order of names
-- A set of PCD files (with `.pcd` extensions) in a directory, in lexographical order of names
-
-`vv convert` can convert the above format from one to another.
-
-The output of `vv convert` can also be in 2D format.  A volumetric video can be represented in 2D, in the following ways:
-- A set of PNG files (with `.png` extensions) in a directory, in lexographical order of names
-- An MP4 video
-
-#### Examples
-
-```
-vv convert --input indir --output outdir --out-format pcd
+**Example**
+```shell
+vivotk read ./Plys +output=plys \
+        write --pcd ascii -o ./Pcds +input=plys
 ```
 
-```
-vv convert --input indir --output movie.mp4  --height 900 -width 1600 --camera-x 0 --camera-y 0 --camera-z 0
-```
+#### `read`
 
-### `vv play`
-
-Plays a folder of pcd files in lexicographical order. A window will appear upon running the binary from which you can navigate using your mouse and keyboard. Controls are described further below.
+Reads in one of our supported file formats. Files can be of the type `.pcd` `.ply` `.metrics`
 
 ```shell
-Plays a folder of pcd files in lexicographical order
-
-USAGE:
-    vv play [OPTIONS] <DIRECTORY>
-
-ARGS:
-    <DIRECTORY>    Directory with all the pcd files in lexicographical order
-
-OPTIONS:
-    -b, --buffer-size <BUFFER_SIZE>    [default: 1]
-        --controls
-    -f, --fps <FPS>                    [default: 30]
-    -h, --height <HEIGHT>              [default: 900]
-        --help                         Print help information
-        --pitch <CAMERA_PITCH>         [default: -20]
-    -w, --width <WIDTH>                [default: 1600]
-    -x, --camera-x <CAMERA_X>          [default: 0]
-    -y, --camera-y <CAMERA_Y>          [default: 0]
-        --yaw <CAMERA_YAW>             [default: -90]
-    -z, --camera-z <CAMERA_Z>          [default: 0]
+vivotk read ./Ply +output=plys
 ```
 
-### Controls
+#### `to_png`
 
-With the main screen focused, 
-
-1. `W` Key - Moves your position to the front
-2. `A` Key - Moves your position to the left
-3. `S` Key - Moves your position to the back
-4. `D` Key - Moves your position to the right
-5. 'Q' Key - Moves your position up
-6. `E` Key - Moves your position down
-7. `Space` Key - Toggles Play/Pause
-8. `LeftArrow` Key - Rewinds by 1 frame
-9. `RightArrow` Key - Advances by 1 frame
-10. `Mouse` Drag - Adjusts camera yaw / pitch (Hold right click on Mac, left click on Windows)
-
-With the secondary window focused,
-
-![Playback Controls Secondary Window](docs/images/playback_controls.png)
-
-The Play/Pause button toggles between play and pause. The slider allows you to navigate to any frame you wish.
-
-The information displayed in the window are:
-
-1. Current Frame / Total Frames
-2. Camera Information - Useful to recreate a certain view through command line arguments
-
-### Example
-
-The following command will play all `.pcd` files in the `./pcds/` directory.
+Writes point clouds from the input stream into images
 
 ```shell
-vv play ./pcds
+vivotk read ./Ply +output=plys \
+        to_png -o ./Pngs +input=plys
 ```
 
-You can buffer the render with a set number of frames using `-b`
+#### `metrics`
+
+Calculates the metrics given two input streams where the first input stream is the original and the second is the reconstructed one.
 
 ```shell
-vv play ./pcds -b 100
+vivotk read ./original +output=original \
+        read ./reconstructed +output=reconstructed \
+        metrics +input=original,reconstructed
 ```
 
-## Old Binaries
-### `ply_to_pcd`
+#### `write`
 
-Converts ply files that are in Point_XYZRGBA format to pcd files
+Writes from input stream into a file
 
+**Writing metrics**
 ```shell
-Converts ply files that are in Point_XYZRGBA format to pcd files
-
-This assumes that the given ply files contain vertices and that the vertices are the first field in
-the ply file.
-
-USAGE:
-    ply_to_pcd.exe [OPTIONS] --output-dir <OUTPUT_DIR> [FILES]...
-
-ARGS:
-    <FILES>...
-            Files, glob patterns, directories
-
-OPTIONS:
-    -h, --help
-            Print help information
-
-    -o, --output-dir <OUTPUT_DIR>
-
-
-    -s, --storage-type <STORAGE_TYPE>
-            Storage type can be either "ascii" or "binary" [default: binary]
+vivotk read ./original +output=original \
+        read ./reconstructed +output=reconstructed \
+        metrics +input=original,reconstructed +output=metrics \
+        write +input=metrics 
 ```
 
-### Example
-
-The following command will convert all `.ply` files in the `./plys/` directory to binary `.pcd` format and place them in `./converted_pcds/`.
-
+**Writing pcds**
 ```shell
-ply_to_pcd -o ./converted_pcds -s binary ./plys/*
+vivotk read ./Plys +output=plys \
+        write -o ./Pcds +input=plys
 ```
 
 ### `ply_play`
@@ -207,38 +133,6 @@ You can buffer the render with a set number of frames using `-b`
 
 ```shell
 ply_play ./pcds -b 100
-```
-
-### `pcd_to_png`
-
-Converts a folder of .pcd files to a folder of .png images
-
-```shell
-Converts a folder of .pcd files to a folder of .png images
-
-USAGE:
-    pcd_to_png.exe [OPTIONS] --pcds <PCDS> --output-dir <OUTPUT_DIR>
-
-OPTIONS:
-    -h, --height <HEIGHT>            [default: 900]
-        --help                       Print help information
-    -n, --frames <FRAMES>            Number of pcd files to convert
-    -o, --output-dir <OUTPUT_DIR>    Directory to store output png images
-        --pcds <PCDS>                Directory with all the pcd files in lexicographical order
-        --pitch <CAMERA_PITCH>       [default: 0]
-    -w, --width <WIDTH>              [default: 1600]
-    -x, --camera-x <CAMERA_X>        [default: 0]
-    -y, --camera-y <CAMERA_Y>        [default: 0]
-        --yaw <CAMERA_YAW>           [default: -90]
-    -z, --camera-z <CAMERA_Z>        [default: 1.3]
-```
-
-### Example
-
-The following command will convert 20 `.pcd` files in `./pcds/` to `.png` images in `./pngs/`
-
-```shell
-pcd_to_png --pcds ./pcds/ -o ./pngs/ -n 20
 ```
 
 ### `vvdash`

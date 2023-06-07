@@ -1,14 +1,22 @@
 use std::ffi::OsString;
-use std::sync::mpsc::Sender;
-
 use clap::Parser;
 
 use super::Subcommand;
-use crate::pipeline::{PipelineMessage, Progress};
+use crate::pipeline::channel::Channel;
+use crate::pipeline::PipelineMessage;
 use crate::utils::{find_all_files, read_file_to_point_cloud};
+
+#[derive(clap::ValueEnum, Clone, Copy)]
+enum FileType {
+    All,
+    Ply,
+    Pcd,
+}
 
 #[derive(Parser)]
 struct Args {
+    #[clap(short = 't', long, value_enum, default_value_t = FileType::All)]
+    filetype: FileType,
     /// Files, glob patterns, directories
     files: Vec<OsString>,
 }
@@ -26,35 +34,35 @@ impl Read {
 }
 
 impl Subcommand for Read {
-    fn handle(
-        &mut self,
-        message: PipelineMessage,
-        out: &Sender<PipelineMessage>,
-        progress: &Sender<Progress>,
-    ) {
-        if let PipelineMessage::End = message {
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
+        if messages.is_empty() {
             let mut files = find_all_files(&self.args.files);
-            progress
-                .send(Progress::Length(files.len()))
-                .expect("should be able to send");
             files.sort();
-            for file in files {
+            for (i, file) in files.iter().enumerate() {
+                match &self.args.filetype {
+                    FileType::All => {}
+                    FileType::Pcd => {
+                        if file.extension().and_then(|ext| ext.to_str()) != Some("pcd") {
+                            continue;
+                        }
+                    }
+                    FileType::Ply => {
+                        if file.extension().and_then(|ext| ext.to_str()) != Some("ply") {
+                            continue;
+                        }
+                    }
+                }
+
                 let point_cloud = read_file_to_point_cloud(&file);
                 if let Some(pc) = point_cloud {
-                    out.send(PipelineMessage::PointCloud(pc))
-                        .expect("should be able to send");
+                    channel.send(PipelineMessage::IndexedPointCloud(pc, i as u32));
                 }
-                progress
-                    .send(Progress::Incr)
-                    .expect("should be able to send");
             }
-            progress
-                .send(Progress::Completed)
-                .expect("should be able to send");
-            out.send(PipelineMessage::End)
-                .expect("should be able to send");
+            channel.send(PipelineMessage::End);
         } else {
-            out.send(message).expect("should be able to send");
+            for message in messages {
+                channel.send(message);
+            }
         }
     }
 }

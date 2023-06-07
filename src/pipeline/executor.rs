@@ -1,38 +1,153 @@
-use std::sync::mpsc::{Receiver, Sender};
-
-use super::{subcommands::Subcommand, PipelineMessage, Progress, SubcommandCreator};
+use crossbeam_channel::{unbounded, Receiver};
+use std::collections::HashSet;
+use super::{
+    channel::Channel, subcommands::Subcommand, PipelineMessage, Progress, SubcommandCreator,
+};
 
 pub struct Executor {
     name: String,
-    input: Option<Receiver<PipelineMessage>>,
-    output: Sender<PipelineMessage>,
-    progress: Sender<Progress>,
+    input_stream_names: Vec<String>,
+    output_name: String,
+    inputs: Vec<Receiver<PipelineMessage>>,
+    channel: Channel,
     handler: Box<dyn Subcommand>,
+}
+
+pub struct ExecutorBuilder {
+    output_stream_names: HashSet<String>,
+}
+
+impl ExecutorBuilder {
+    pub fn new() -> Self {
+        ExecutorBuilder {
+            output_stream_names: HashSet::new(),
+        }
+    }
+
+    pub fn create(&mut self, args: Vec<String>, creator: SubcommandCreator) -> (Executor, Receiver<Progress>) {
+        let name = args.first().expect("Should have command name").clone();
+        let mut inner_args = Vec::new();
+        let mut input_stream_names = Vec::new();
+        let mut output_name = "".to_string();
+
+        let cmd = args[0].clone();
+
+        let mut has_input = false;
+        println!("args: {:?}", args);
+        for arg in args {
+            if arg.starts_with("+input") {
+                let input_streams = arg
+                    .split("=")
+                    .nth(1)
+                    .expect("Expected name of input stream"); 
+
+                for input_name in input_streams.split(",") {
+                    // check if input stream name is in the set, panic if not
+                    if !self.output_stream_names.contains(input_name) {
+                        // get the existing output stream names, concat them with ", "
+                        let existing_output_stream_names = self.output_stream_names
+                            .iter()
+                            .map(|s| format!("`{}`", s))
+                            .collect::<Vec<String>>()
+                            .join(", ");
+
+                        panic!("No output stream with name `{}` found, existing outputs are {}", input_streams, existing_output_stream_names);
+                    }
+                    else {
+                        input_stream_names.push(input_name.to_string());
+                    }
+                }
+                has_input = true;
+            } else if arg.starts_with("+output") {
+                output_name = arg
+                    .split("=")
+                    .nth(1)
+                    .expect("Expected name of output stream")
+                    .to_string();
+                self.output_stream_names.insert(output_name.clone());
+            } else {
+                inner_args.push(arg);
+            }
+        }
+
+        if has_input || cmd.as_str() == "read" || cmd.as_str() == "convert" {} 
+        else {
+            panic!("`{}` needs to consume an input, but no named input is found, specify it using `+input=input_name`", cmd.as_str())
+        }
+
+        let handler = creator(inner_args);
+
+        let (progress_tx, progress_rx) = unbounded();
+        let channel = Channel::new(progress_tx);
+        let executor = Executor {
+            name,
+            input_stream_names,
+            output_name,
+            inputs: vec![],
+            channel,
+            handler,
+        };
+        (executor, progress_rx) 
+    }
 }
 
 unsafe impl Send for Executor {}
 
 impl Executor {
-    pub fn create(
-        args: Vec<String>,
-        creator: SubcommandCreator,
-    ) -> (Self, Receiver<PipelineMessage>, Receiver<Progress>) {
+    pub fn create(args: Vec<String>, creator: SubcommandCreator) -> (Self, Receiver<Progress>) {
         let name = args.first().expect("Should have command name").clone();
-        let handler = creator(args);
-        let (pipeline_tx, pipeline_rx) = std::sync::mpsc::channel();
-        let (progress_tx, progress_rx) = std::sync::mpsc::channel();
+        let mut inner_args = Vec::new();
+        let mut input_stream_names = Vec::new();
+        let mut output_name = "".to_string();
+        for arg in args {
+            if arg.starts_with("+input") {
+                let input_streams = arg
+                    .split("=")
+                    .nth(1)
+                    .expect("Expected name of input stream");
+                println!("output_streams:");
+                for input_name in input_streams.split(",") {
+                    input_stream_names.push(input_name.to_string());
+                }
+            } else if arg.starts_with("+output") {
+                output_name = arg
+                    .split("=")
+                    .nth(1)
+                    .expect("Expected name of output stream")
+                    .to_string();
+            } else {
+                inner_args.push(arg);
+            }
+        }
+        let handler = creator(inner_args);
+
+        let (progress_tx, progress_rx) = unbounded();
+        let channel = Channel::new(progress_tx);
         let executor = Self {
             name,
-            input: None,
-            output: pipeline_tx,
-            progress: progress_tx,
+            input_stream_names,
+            output_name,
+            inputs: vec![],
+            channel,
             handler,
         };
-        (executor, pipeline_rx, progress_rx)
+        (executor, progress_rx)
     }
 
-    pub fn set_input(&mut self, recv: Receiver<PipelineMessage>) {
-        self.input = Some(recv);
+    pub fn input_names(&self) -> Vec<String> {
+        self.input_stream_names.clone()
+    }
+
+    pub fn output_name(&self) -> &str {
+        &self.output_name
+    }
+
+    pub fn output(&mut self) -> Receiver<PipelineMessage> {
+        self.channel.subscribe()
+    }
+
+    pub fn set_inputs(&mut self, inputs: Vec<Receiver<PipelineMessage>>) {
+        self.inputs = inputs;
     }
 
     pub fn run(self) -> std::thread::JoinHandle<()> {
@@ -44,20 +159,25 @@ impl Executor {
     }
 
     fn start(mut self) {
-        if self.input.is_none() {
-            self.handler
-                .handle(PipelineMessage::End, &self.output, &self.progress);
+        if self.inputs.is_empty() {
+            self.handler.handle(vec![], &self.channel);
             return;
         }
-        let input = self.input.unwrap();
-        while let Ok(message) = input.recv() {
-            let should_break = if let PipelineMessage::End = message {
-                true
-            } else {
-                false
-            };
+        while let Ok(messages) = self
+            .inputs
+            .iter()
+            .map(|recv| recv.recv())
+            .collect::<Result<Vec<PipelineMessage>, _>>()
+        {
+            let should_break = messages.iter().any(|message| {
+                if let PipelineMessage::End = message {
+                    true
+                } else {
+                    false
+                }
+            });
 
-            self.handler.handle(message, &self.output, &self.progress);
+            self.handler.handle(messages, &self.channel);
 
             if should_break {
                 break;

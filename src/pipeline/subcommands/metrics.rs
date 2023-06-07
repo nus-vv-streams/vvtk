@@ -1,86 +1,43 @@
-use std::{
-    ffi::OsString,
-    fs::File,
-    io::BufWriter,
-    path::{Path, PathBuf},
-};
-
 use clap::Parser;
 
 use crate::{
     metrics::calculate_metrics,
-    pipeline::{PipelineMessage, Progress},
-    utils::{find_all_files, read_file_to_point_cloud},
+    pipeline::{channel::Channel, PipelineMessage},
 };
 
 use super::Subcommand;
 
 #[derive(Parser)]
-struct Args {
-    #[clap(short, long)]
-    reference: Vec<OsString>,
+struct Args {}
 
-    #[clap(short, long)]
-    output_dir: OsString,
-}
+pub struct MetricsCalculator;
 
-pub struct Metrics {
-    files: Vec<PathBuf>,
-    output_path: OsString,
-    count: usize,
-}
-
-impl Metrics {
+impl MetricsCalculator {
     pub fn from_args(args: Vec<String>) -> Box<dyn Subcommand> {
-        let args: Args = Args::parse_from(args);
-        std::fs::create_dir_all(Path::new(&args.output_dir))
-            .expect("Failed to create output directory");
-        let mut files = find_all_files(&args.reference);
-        files.sort();
-        Box::new(Metrics {
-            files,
-            count: 0,
-            output_path: args.output_dir,
-        })
+        let _args: Args = Args::parse_from(args);
+        Box::new(MetricsCalculator {})
     }
 }
 
-impl Subcommand for Metrics {
-    fn handle(
-        &mut self,
-        message: crate::pipeline::PipelineMessage,
-        out: &std::sync::mpsc::Sender<crate::pipeline::PipelineMessage>,
-        progress: &std::sync::mpsc::Sender<crate::pipeline::Progress>,
-    ) {
-        match &message {
-            PipelineMessage::PointCloud(pc) => {
-                let original = read_file_to_point_cloud(&self.files[self.count]).expect(&format!(
-                    "Failed to read file {:?}",
-                    self.files[self.count].as_os_str()
-                ));
-                let metrics = calculate_metrics(&original, &pc);
-                let output_path = Path::new(&self.output_path);
-                let file_name = format!("{}.metrics", self.count);
-                self.count += 1;
-                let file_name = Path::new(&file_name);
-                let output_file = output_path.join(file_name);
-                let file = File::create(&output_file).expect(&format!(
-                    "Failed to open file {:?}",
-                    output_file.as_os_str()
-                ));
-                let mut writer = BufWriter::new(file);
-                metrics
-                    .write_to(&mut writer)
-                    .expect("should be able to write");
+impl Subcommand for MetricsCalculator {
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
+        let mut messages_iter = messages.into_iter();
+        let message_one = messages_iter
+            .next()
+            .expect("Expecting two input streams for metrics");
+        let message_two = messages_iter
+            .next()
+            .expect("Expecting two input streams for metrics");
 
-                progress
-                    .send(Progress::Incr)
-                    .expect("should be able to send");
+        match (&message_one, &message_two) {
+            (PipelineMessage::IndexedPointCloud(original, _), PipelineMessage::IndexedPointCloud(reconstructed, _)) => {
+                let metrics = calculate_metrics(original, reconstructed);
+                channel.send(PipelineMessage::Metrics(metrics));
             }
-            PipelineMessage::End => progress
-                .send(Progress::Completed)
-                .expect("should be able to send"),
+            (PipelineMessage::End, _) | (_, PipelineMessage::End) => {
+                channel.send(PipelineMessage::End);
+            }
+            (_, _) => {}
         }
-        out.send(message).expect("should be able to send")
     }
 }

@@ -1,25 +1,30 @@
+use cgmath::num_traits::pow;
 use clap::Parser;
 
-use crate::formats::pointxyzrgba::PointXyzRgba;
-use crate::formats::PointCloud;
+
 use crate::pcd::{
-    write_pcd_file, PCDDataType, PCDField, PCDFieldSize, PCDFieldType, PCDHeader, PCDVersion,
-    PointCloudData,
+    write_pcd_file, PCDDataType, create_pcd
 };
-use crate::pipeline::{PipelineMessage, Progress};
+use crate::pipeline::channel::Channel;
+use crate::pipeline::PipelineMessage;
+use std::fs::File;
 use std::path::Path;
-use std::sync::mpsc::Sender;
+use crate::utils::{ConvertOutputFormat, pcd_to_ply_from_data};
 
 use super::Subcommand;
-
 #[derive(Parser)]
 struct Args {
     #[clap(short, long)]
     output_dir: String,
 
-    #[clap(long)]
-    pcd: Option<PCDDataType>,
-    // TODO: Add option to write as ply
+    #[clap(long, default_value = "pcd")]
+    output_format: ConvertOutputFormat,
+
+    #[clap(short, long, default_value = "binary")]
+    storage_type: Option<PCDDataType>,
+
+    #[clap(long, default_value_t = 5)]
+    name_length: usize,
 }
 pub struct Write {
     args: Args,
@@ -29,9 +34,6 @@ pub struct Write {
 impl Write {
     pub fn from_args(args: Vec<String>) -> Box<dyn Subcommand> {
         let args = Args::parse_from(args);
-        if args.pcd.is_none() {
-            panic!("PCD output type should be specified");
-        }
         std::fs::create_dir_all(Path::new(&args.output_dir))
             .expect("Failed to create output directory");
         Box::from(Write { args, count: 0 })
@@ -39,66 +41,65 @@ impl Write {
 }
 
 impl Subcommand for Write {
-    fn handle(
-        &mut self,
-        message: PipelineMessage,
-        out: &Sender<PipelineMessage>,
-        progress: &Sender<Progress>,
-    ) {
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         let output_path = Path::new(&self.args.output_dir);
-        let pcd_data_type = self.args.pcd.expect("PCD data type should be provided");
-        match &message {
-            PipelineMessage::PointCloud(pc) => {
-                let pcd = create_pcd(pc);
-                let file_name = format!("{}.pcd", self.count);
-                self.count += 1;
-                let file_name = Path::new(&file_name);
-                let output_file = output_path.join(file_name);
-                if let Err(e) = write_pcd_file(&pcd, pcd_data_type, &output_file) {
-                    println!("Failed to write {:?}\n{e}", output_file);
-                }
-                progress
-                    .send(Progress::Incr)
-                    .expect("should be able to send");
-            }
-            PipelineMessage::End => {
-                progress
-                    .send(Progress::Completed)
-                    .expect("should be able to send");
-            }
-        }
-        out.send(message).expect("should be able to send");
-    }
-}
+        let max_count = pow(10, self.args.name_length);
+        for message in messages {
+            match &message {
+                PipelineMessage::IndexedPointCloud(pc, i) => {
+                    println!("Writing point cloud with point num {}", pc.points.len());
+                    let pcd_data_type = self.args.storage_type.expect("PCD data type should be provided");
+                    let output_format = self.args.output_format.to_string();
+                    
+                    // !! use index(i) instead of count to make sure the order of files
+                    let padded_count = format!("{:0width$}", i, width = self.args.name_length);
+                    let file_name = format!("{}.{}", padded_count, output_format);
+                    self.count += 1;
+                    if self.count >= max_count {
+                        channel.send(PipelineMessage::End);
+                        panic!("Too many files, please increase the name length by setting --name-length")
+                    }
 
-fn create_pcd(point_cloud: &PointCloud<PointXyzRgba>) -> PointCloudData {
-    let header = PCDHeader::new(
-        PCDVersion::V0_7,
-        vec![
-            PCDField::new("x".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
-            PCDField::new("y".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
-            PCDField::new("z".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
-            PCDField::new(
-                "rgb".to_string(),
-                PCDFieldSize::Four,
-                PCDFieldType::Float,
-                1,
-            )
-            .unwrap(),
-        ],
-        point_cloud.number_of_points as u64,
-        1,
-        [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-        point_cloud.number_of_points as u64,
-    )
-    .unwrap();
-    let bytes = unsafe {
-        let mut points = std::mem::ManuallyDrop::new(point_cloud.points.clone());
-        Vec::from_raw_parts(
-            points.as_mut_ptr() as *mut u8,
-            point_cloud.number_of_points * std::mem::size_of::<PointXyzRgba>(),
-            points.capacity() * std::mem::size_of::<PointXyzRgba>(),
-        )
-    };
-    PointCloudData::new(header, bytes).unwrap()
+                    let file_name = Path::new(&file_name);
+                    let output_file = output_path.join(file_name);
+                    if !output_path.exists() {
+                        std::fs::create_dir_all(output_path).expect("Failed to create output directory");
+                    }
+
+                    // use pcd format as a trasition format now
+                    let pcd = create_pcd(pc);
+
+                    match output_format.as_str() {
+                        "pcd" => {
+                            if let Err(e) = write_pcd_file(&pcd, pcd_data_type, &output_file) {
+                                println!("Failed to write {:?}\n{e}", output_file);
+                            }
+                        }
+                        "ply" => {
+                            if let Err(e) = pcd_to_ply_from_data(&output_file, pcd_data_type, pcd) {
+                                println!("Failed to write {:?}\n{e}", output_file);
+                            }
+                        }
+                        _ => {
+                            println!("Unsupported output format {}", output_format);
+                            continue;
+                        }
+                    }
+
+
+                }
+                PipelineMessage::Metrics(metrics) => {
+                    let file_name = format!("{}.metrics", self.count);
+                    self.count += 1;
+                    let file_name = Path::new(&file_name);
+                    let output_file = output_path.join(file_name);
+                    File::create(output_file)
+                        .and_then(|mut f| metrics.write_to(&mut f))
+                        .expect("Should be able to create file to write metrics to");
+                }
+                PipelineMessage::End | PipelineMessage::DummyForIncrement => {}
+            }
+            channel.send(message);
+        }
+    }
 }

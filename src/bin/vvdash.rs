@@ -9,7 +9,7 @@ use std::path::PathBuf;
 // then output files of varying qualities into output folder
 #[derive(Parser)]
 struct Args {
-    #[clap(parse(from_os_str))]
+    // #[clap(parse(from_os_str))]
     input_path: PathBuf,
     output_path: PathBuf,
     network_path: PathBuf,

@@ -1,12 +1,29 @@
+use std::fmt::Debug;
+
 use crate::pcd::PointCloudData;
 
 pub mod pointxyzrgba;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct PointCloud<T> {
     pub number_of_points: usize,
     pub points: Vec<T>,
 }
+
+impl Debug for PointCloud<pointxyzrgba::PointXyzRgba> {
+    // first print the number of points in one line
+    // then for each T in the Vec, print in a new line
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        println!("PointCloud<PointXyzRgba> {{");
+        writeln!(f, "   number_of_points: {}", self.number_of_points)?;
+        for point in &self.points {
+            writeln!(f, "   {:?}", point)?;
+        }
+        println!("}}");
+        Ok(())
+    }
+}
+
 
 impl<T> From<PointCloudData> for PointCloud<T> {
     fn from(pcd: PointCloudData) -> Self {
