@@ -252,8 +252,6 @@ fn set_encoding() -> Encoding {
 #[cfg(test)]
 mod test {
 
-    use std::ops::Range;
-
     use super::*;
 
     #[test]
