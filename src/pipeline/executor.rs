@@ -37,7 +37,7 @@ impl ExecutorBuilder {
         let cmd = args[0].clone();
 
         let mut has_input = false;
-        let mut has_help  = false;
+        let mut has_help = false;
         println!("args: {:?}", args);
         for arg in args {
             if arg.eq("--help") || arg.eq("-h") {
