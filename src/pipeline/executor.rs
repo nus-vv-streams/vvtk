@@ -37,8 +37,13 @@ impl ExecutorBuilder {
         let cmd = args[0].clone();
 
         let mut has_input = false;
+        let mut has_help  = false;
         println!("args: {:?}", args);
         for arg in args {
+            if arg.eq("--help") || arg.eq("-h") {
+                has_help = true;
+            }
+
             if arg.starts_with("+input") {
                 let input_streams = arg
                     .split('=')
@@ -77,7 +82,7 @@ impl ExecutorBuilder {
             }
         }
 
-        if has_input || cmd.as_str() == "read" || cmd.as_str() == "convert" {
+        if has_input || cmd.as_str() == "read" || cmd.as_str() == "convert" || has_help {
         } else {
             panic!("`{}` needs to consume an input, but no named input is found, specify it using `+input=input_name`", cmd.as_str())
         }

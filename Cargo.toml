@@ -57,7 +57,7 @@ crossbeam-channel = "0.5.6"
 criterion = "0.3"
 
 [[bin]]
-name = "ply_play"
+name = "render"
 required-features = ["render", "dash"]
 
 # [[bin]]

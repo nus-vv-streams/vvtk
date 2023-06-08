@@ -58,4 +58,24 @@ cargo run --release --bin vivotk -- read ./8i_dataset/red_black/pcd_b      +outp
                                     read ./8i_dataset/red_black/pcd_b      +output=pcdb    \
                                     read ./8i_dataset/red_black/pcd_b      +output=pcdb    \
                                     write --output-dir ./tmp/ +input=pcdb
+
+cargo run --release --bin vivotk -- read ./8i_dataset/red_black/ply_a/redandblack_vox10_1510.ply        +output=plya \
+                                    write --output-dir ./tmp/ --output-format pcd --storage-type binary +input=plya
+
+
+cargo run --release --bin vivotk -- read ./8i_dataset/red_black/ply_b/redandblack_vox10_1510.ply +output=plyb \
+                                    to_png +input=plyb --output-dir ./tmp/
+
+cargo run --release --bin vivotk -- read ./8i_dataset/red_black/ply_b/redandblack_vox10_1510.ply +output=pcdb \
+                                    read ./8i_dataset/red_black/pcd_b_down/00000.pcd +output=pcd_comp \
+                                    downsample -p 5 +input=pcdb      +output=pcdb_down \
+                                    upsample   -f 1 +input=pcdb_down +output=pcdb_down_up \
+                                    metrics +input=pcd_comp,pcdb_down_up +output=metric \
+                                    write --output-dir ./tmp/metrics +input=metric \
+                                    write --output-dir ./tmp/down_up +input=pcdb_down_up \
+                                    to_png +input=pcdb_down_up  --output-dir ./tmp/down_up
+
+
+
+
 rm -rf tmp
