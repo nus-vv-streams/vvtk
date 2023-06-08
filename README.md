@@ -13,14 +13,14 @@ We follow the [official Rust coding style](https://github.com/rust-dev-tools/fmt
 
 ## Commands
 
-### `vivotk`
+### `vv`
 
 Provides subcommands that can be chained together. The inputs and outputs of a subcommand must be specified with the `+input=` followed by a comma separated list of inputs or `+output=` to denote the name of its output stream. Note that `+input` must be specified for commands other than `read`.
 
 **Example**
 
 ```shell
-vivotk read ./ply_ascii +output=ply_a \
+vv read ./ply_ascii +output=ply_a \
         write --output-format pcd --storage-type binary \
         --output-dir ./pcd_binary +input=ply_a
 ```
@@ -41,7 +41,7 @@ Options:
 ```
 
 ```shell
-vivotk read ./Ply +output=plys
+vv read ./Ply +output=plys
 ```
 
 #### `to_png`
@@ -67,7 +67,7 @@ Options:
 **to_png example**
 
 ```shell
-vivotk read ./Ply +output=plys \
+vv read ./Ply +output=plys \
         to_png --output-dir ./Pngs +input=plys
 ```
 
@@ -76,7 +76,7 @@ vivotk read ./Ply +output=plys \
 Calculates the metrics given two input streams where the first input stream is the original and the second is the reconstructed one. Then uses `write` command to write the metrics into a text file.
 
 ```shell
-vivotk read ./original +output=original \
+vv read ./original +output=original \
         read ./reconstructed +output=reconstructed \
         metrics +input=original,reconstructed +output=metrics \
         write --output-dir ./metrics +input=metrics
@@ -100,7 +100,7 @@ Options:
 **Writing metrics**
 
 ```shell
-vivotk read ./original +output=original \
+vv read ./original +output=original \
         read ./reconstructed +output=reconstructed \
         metrics +input=original,reconstructed +output=metrics \
         write +input=metrics 
@@ -123,7 +123,7 @@ Options:
 Upsamples pcd files and write as ply binary
 
 ```shell
-vivotk read ./pcd +output=pcdb \
+vv read ./pcd +output=pcdb \
        upsample --factor 2 +input=pcdb +output=pcdb_up \
        write +input=pcdb_up \
              --output-dir ./pcd_up \
@@ -148,7 +148,7 @@ Options:
 Downsamples pcd files and write as ply binary
 
 ```shell
-vivotk read ./pcd +output=pcdb \
+vv read ./pcd +output=pcdb \
        downsample -p 2 +input=pcdb +output=pcdb_down \
        write +input=pcdb_up \
              --output-dir ./pcdb_down \
@@ -159,7 +159,7 @@ vivotk read ./pcd +output=pcdb \
 **Complex Example**
 
 ```shell
-vivotk read ./pcd                       +output=pcdb \
+vv read ./pcd                       +output=pcdb \
        read ./pcd_compressed            +output=pcd_comp \
        downsample -p 5 +input=pcdb      +output=pcdb_down \
        upsample   -f 2 +input=pcdb_down +output=pcdb_down_up \
@@ -187,22 +187,22 @@ Options:
 **convert** from ply to pcd(binary)
 
 ```shell
-vivotk convert --input ./ply_a --output ./pcd_b
+vv convert --input ./ply_a --output ./pcd_b
 ```
 
 **convert** from pcd to ply(ascii)
 
 ```shell
-vivotk convert --input ./pcd_b --output ./ply_a --storage-type ascii --output-format ply
+vv convert --input ./pcd_b --output ./ply_a --storage-type ascii --output-format ply
 ```
 
 **convert** from pcd(binary) to pcd(ascii)
 
 ```shell
-vivotk convert --input ./pcd_b --output ./pcd_a --storage-type ascii --output-format pcd
+vv convert --input ./pcd_b --output ./pcd_a --storage-type ascii --output-format pcd
 ```
 
-### `render`
+### `vvplay`
 
 Plays a folder of pcd/ply files in lexicographical order. A window will appear upon running the binary from which you can navigate using your mouse and keyboard. Controls are described further below.
 
@@ -210,7 +210,7 @@ Plays a folder of pcd/ply files in lexicographical order. A window will appear u
 Plays a folder of pcd files in lexicographical order
 
 USAGE:
-    render.exe [OPTIONS] <DIRECTORY>
+    vvplay.exe [OPTIONS] <DIRECTORY>
 
 ARGS:
     <DIRECTORY>    Directory with all the pcd files in lexicographical order
@@ -260,13 +260,13 @@ The information displayed in the window are:
 The following command will play all `.pcd` files in the `./pcds/` directory.
 
 ```shell
-render ./pcds
+vvplay ./pcds
 ```
 
 You can buffer the render with a set number of frames using `-b`
 
 ```shell
-render ./pcds -b 100
+vvplay ./pcds -b 100
 ```
 
 ### `vvdash`
