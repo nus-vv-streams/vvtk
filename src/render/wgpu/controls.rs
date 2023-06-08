@@ -46,8 +46,8 @@ impl Attachable for Controller {
             .with_transparent(false)
             .with_title("Controls")
             .with_inner_size(winit::dpi::PhysicalSize {
-                width: 600i32,
-                height: 300i32,
+                width: 500i32,
+                height: 400i32,
             })
             .build(event_loop)
             .unwrap();
@@ -132,6 +132,28 @@ impl ControlWindow {
                     cgmath::Deg::from(info.camera.pitch)
                 )));
                 ui.add(Label::new(format!("Avg fps: {:?}", info.fps)));
+
+                ui.scope(|ui| {
+                    ui.style_mut().override_text_style = Some(egui::TextStyle::Heading);
+                    ui.visuals_mut().override_text_color = Some(egui::Color32::YELLOW);
+                    ui.label("\nHow to control?");
+                });
+
+                ui.scope(|ui| {
+                    ui.style_mut().override_text_style   = Some(egui::TextStyle::Body);
+                    ui.visuals_mut().override_text_color = Some(egui::Color32::LIGHT_YELLOW);
+                    ui.style_mut().override_text_style   = Some(egui::TextStyle::Monospace);
+                    ui.label("W          Key - Moves your position to the front");
+                    ui.label("A          Key - Moves your position to the left");
+                    ui.label("S          Key - Moves your position to the back");
+                    ui.label("D          Key - Moves your position to the right");
+                    ui.label("Q          Key - Moves your position up");
+                    ui.label("E          Key - Moves your position down");
+                    ui.label("Space      Key - Toggles  Play / Pause");
+                    ui.label("LeftArrow  Key - Rewinds  by 1 frame");
+                    ui.label("RightArrow Key - Advances by 1 frame");
+                    ui.label("Adjusts camera yaw/picth with mouse \n(Hold right click on Mac, left click on Windows)");
+                });
             }
         });
 
