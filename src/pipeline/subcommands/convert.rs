@@ -45,7 +45,7 @@ impl Convert {
 impl Subcommand for Convert {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         if messages.is_empty() {
-            println!("Start converting...");
+            // println!("Start converting...");
             let mut files = find_all_files(&self.args.input);
             files.sort();
 
@@ -65,7 +65,7 @@ impl Subcommand for Convert {
                     ("ply", "pcd") => ply_to_pcd(output_path, self.args.storage_type, file),
                     ("pcd", "ply") => pcd_to_ply(output_path, self.args.storage_type, file),
                     ("pcd", "pcd") => pcd_to_pcd(output_path, self.args.storage_type, file),
-                    _ => println!("unsupported file type"),
+                    _ => eprintln!("unsupported file type"),
                 }
 
                 channel.send(PipelineMessage::DummyForIncrement);

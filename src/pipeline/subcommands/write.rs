@@ -13,7 +13,7 @@ use super::Subcommand;
 /// Writes from input stream into a file, input stream can be pointcloud data or metrics
 #[derive(Parser)]
 pub struct Args {
-    #[clap(short, long)]
+    /// output directory to store point cloud files or metrics
     output_dir: String,
 
     #[clap(long, default_value = "pcd")]

@@ -249,7 +249,6 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         }
 
         loop {
-            println!("{} looping...", index);
             if let Ok((req, data)) = self.rx.recv() {
                 if req.frame_offset == index {
                     println!("get_at returned from channel ... {}", req.frame_offset);

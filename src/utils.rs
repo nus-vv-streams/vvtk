@@ -202,7 +202,7 @@ pub fn pcd_to_ply_from_data(
     ply.header = ply_header;
     ply.payload = pay_load;
 
-    println!("Writing to {:?}", output_path);
+    // println!("Writing to {:?}", output_path);
     // get dir part and check existence, create if not exist
     let dir = output_path.parent().unwrap();
     if !dir.exists() {

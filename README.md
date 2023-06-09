@@ -11,18 +11,49 @@ Use Rust 1.69
 
 We follow the [official Rust coding style](https://github.com/rust-dev-tools/fmt-rfcs/blob/master/guide/guide.md).  You can use `rustfmt` (or run `cargo fmt`) to automatically format your code.
 
+## How to Install?
+1. Install the latest Rust compiler from the [official website](https://www.rust-lang.org/tools/install)
+2. Verify if `cargo` and `rustc` have been installed successfully using `cargo --version` and `rustc --version`
+3. Compile and build the binaries with `cargo build --release --bins`
+4. Install the binaries if you want to use it anywhere you want. `cargo install --path .`
+5. Use `vv` and `vvplay` in other directory.
+
 ## Commands
 
 ### `vv`
 
-Provides subcommands that can be chained together. The inputs and outputs of a subcommand must be specified with the `+input=` followed by a comma separated list of inputs or `+output=` to denote the name of its output stream. Note that `+input` must be specified for commands other than `read`.
+Provides subcommands that can be chained together. The inputs and outputs of a subcommand must be specified with the `+input=` followed by a comma separated list of inputs or `+output=` to denote the name of its output stream. Note that `+input` must be specified for commands other than `read`. 
+
+```shell
+Usage: vv <COMMAND>
+
+Commands:
+  convert     Converts a pointcloud file from one format to another.
+                  Supported formats are .pcd and .ply.
+                  Supported storage types are binary and ascii.
+  write       Writes from input stream into a file, input stream can be pointcloud data or metrics
+  read        Reads in one of our supported file formats. 
+                  Files can be of the type .pcd .ply. 
+                  The path can be a file path or a directory path contains these files.
+  to_png      Writes point clouds from the input stream into images
+  metrics     Calculates the metrics given two input streams.
+                  First input stream is the original.
+                  Second is the reconstructed.
+                  Then uses write command to write the metrics into a text file.
+  downsample  Downsample a pointcloud from the stream
+  upsample    Upsamples a pointcloud from the stream
+  help        Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
 
 **Example**
 
 ```shell
 vv read ./ply_ascii +output=ply_a \
         write --output-format pcd --storage-type binary \
-        --output-dir ./pcd_binary +input=ply_a
+        ./pcd_binary +input=ply_a
 ```
 
 #### `read`
@@ -49,10 +80,12 @@ vv read ./Ply +output=plys
 Writes point clouds from the input stream into images.
 
 ```shell
-Usage: to_png [OPTIONS] --output-dir <OUTPUT_DIR>
+Usage: to_png [OPTIONS] <OUTPUT_DIR> 
+
+Arguments:
+  <OUTPUT_DIR>  Directory to store output png images
 
 Options:
-  -o, --output-dir <OUTPUT_DIR>    Directory to store output png images
   -x, --camera-x <CAMERA_X>        [default: 0]
   -y, --camera-y <CAMERA_Y>        [default: 0]
   -z, --camera-z <CAMERA_Z>        [default: 1.3]
@@ -68,7 +101,7 @@ Options:
 
 ```shell
 vv read ./Ply +output=plys \
-        to_png --output-dir ./Pngs +input=plys
+        to_png ./Pngs +input=plys
 ```
 
 #### `metrics`
@@ -76,10 +109,18 @@ vv read ./Ply +output=plys \
 Calculates the metrics given two input streams where the first input stream is the original and the second is the reconstructed one. Then uses `write` command to write the metrics into a text file.
 
 ```shell
+Usage: metrics [OPTIONS]
+
+Options:
+  -m, --metric <METRIC>  [default: psnr] [possible values: psnr]
+  -h, --help             Print help
+```
+
+```shell
 vv read ./original +output=original \
         read ./reconstructed +output=reconstructed \
         metrics +input=original,reconstructed +output=metrics \
-        write --output-dir ./metrics +input=metrics
+        write ./metrics +input=metrics
 ```
 
 #### `write`
@@ -87,10 +128,12 @@ vv read ./original +output=original \
 Writes from input stream into a file, input stream can be pointcloud data or metrics
 
 ```shell
-Usage: write [OPTIONS] --output-dir <OUTPUT_DIR>
+Usage: write [OPTIONS] <OUTPUT_DIR>
+
+Arguments:
+  <OUTPUT_DIR>  output directory to store point cloud files or metrics
 
 Options:
-  -o, --output-dir <OUTPUT_DIR>        
       --output-format <OUTPUT_FORMAT>  [default: pcd]
   -s, --storage-type <STORAGE_TYPE>    [default: binary]
       --name-length <NAME_LENGTH>      [default: 5]
@@ -103,7 +146,7 @@ Options:
 vv read ./original +output=original \
         read ./reconstructed +output=reconstructed \
         metrics +input=original,reconstructed +output=metrics \
-        write +input=metrics 
+        write ./metrics +input=metrics 
 ```
 
 #### `upsample`
@@ -125,8 +168,8 @@ Upsamples pcd files and write as ply binary
 ```shell
 vv read ./pcd +output=pcdb \
        upsample --factor 2 +input=pcdb +output=pcdb_up \
-       write +input=pcdb_up \
-             --output-dir ./pcd_up \
+       write ./pcd_up \
+             +input=pcdb_up \
              --storage-type binary \
              --output-format ply
 ```
@@ -150,8 +193,8 @@ Downsamples pcd files and write as ply binary
 ```shell
 vv read ./pcd +output=pcdb \
        downsample -p 2 +input=pcdb +output=pcdb_down \
-       write +input=pcdb_up \
-             --output-dir ./pcdb_down \
+       write ./pcdb_down \
+             +input=pcdb_up \
              --storage-type binary \
              --output-format ply
 ```
@@ -164,9 +207,9 @@ vv read ./pcd                       +output=pcdb \
        downsample -p 5 +input=pcdb      +output=pcdb_down \
        upsample   -f 2 +input=pcdb_down +output=pcdb_down_up \
        metrics +input=pcd_comp,pcdb_down_up +output=metric \
-       write --output-dir ./metrics +input=metric \
-       write --output-dir ./down_up +input=pcdb_down_up \
-       to_png +input=pcdb_down_up  --output-dir ./tmp/down_up
+       write  ./metrics     +input=metric \
+       write  ./down_up     +input=pcdb_down_up \
+       to_png ./tmp/down_up +input=pcdb_down_up 
 ```
 
 #### `convert`

@@ -10,7 +10,6 @@ use std::ffi::OsString;
 #[derive(Parser)]
 pub struct Args {
     /// Directory to store output png images
-    #[clap(short, long)]
     output_dir: OsString,
     #[clap(short = 'x', long, default_value_t = 0.0)]
     camera_x: f32,

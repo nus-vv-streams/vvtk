@@ -7,14 +7,21 @@ use crate::{
 
 use super::Subcommand;
 
-/// Calculates the metrics given two input streams where the first input stream is the original
-/// and the second is the reconstructed one. Then uses write command to write the metrics into
-/// a text file.
+#[derive(clap::ValueEnum, Clone, Copy)]
+pub enum SupoportedMetrics {
+    Psnr,
+}
+
+
 #[derive(Parser)]
 #[clap(
-    about = "Calculates the metrics given two input streams.\nFirst input stream is the original.\nSecond is the reconstructed.\nThen uses write command to write the metrics into a text file."
+    about = "Calculates the metrics given two input streams.\nFirst input stream is the original.\nSecond is the reconstructed.\nThen uses write command to write the metrics into a text file.",
+    override_usage = format!("\x1B[1m{}\x1B[0m [OPTIONS] +input=original,reconstructure +output=metrics", "metrics")
 )]
-pub struct Args {}
+pub struct Args {
+    #[clap(short, long, value_enum, default_value_t = SupoportedMetrics::Psnr)]
+    metric: SupoportedMetrics,
+}
 
 pub struct MetricsCalculator;
 
@@ -45,7 +52,7 @@ impl Subcommand for MetricsCalculator {
             }
             (PipelineMessage::End, _) | (_, PipelineMessage::End) => {
                 channel.send(PipelineMessage::End);
-                println!("Get `End` message, Closing metrics calculator channel");
+                // println!("Get `End` message, Closing metrics calculator channel");
             }
             (_, _) => {}
         }
