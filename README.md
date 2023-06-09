@@ -1,15 +1,8 @@
-# The Vivo Toolkit (VivoTk)
+# VVTk: A Toolkit for Volumetric Video Researchers
 
 ![format badge](https://github.com/nus-vv-streams/vivotk/actions/workflows/format.yml/badge.svg)
 ![build badge](https://github.com/nus-vv-streams/vivotk/actions/workflows/build.yml/badge.svg)
 
-### Rust version
-
-Use Rust 1.69
-
-### Coding Style
-
-We follow the [official Rust coding style](https://github.com/rust-dev-tools/fmt-rfcs/blob/master/guide/guide.md).  You can use `rustfmt` (or run `cargo fmt`) to automatically format your code.
 
 ## How to Install?
 1. Install the latest Rust compiler from the [official website](https://www.rust-lang.org/tools/install)
@@ -151,7 +144,7 @@ vv read ./original +output=original \
 
 #### `upsample`
 
-Upsamples a pointcloud.
+Upsamples a point cloud.
 
 ```shell
 Usage: upsample --factor <FACTOR>
@@ -176,7 +169,7 @@ vv read ./pcd +output=pcdb \
 
 #### `downsample`
 
-downsamples a pointcloud.
+downsamples a point cloud.
 
 ```shell
 Usage: downsample --points-per-voxel <POINTS_PER_VOXEL>
@@ -323,3 +316,14 @@ The following command will send 300 frames of varying `"hi"` or `"lo"` qualities
 ```shell
 vvdash ./input ./output ./simulated_network.txt 300
 ```
+
+## For Developers
+
+### Rust version
+
+Use Rust 1.69
+
+### Coding Style
+
+We follow the [official Rust coding style](https://github.com/rust-dev-tools/fmt-rfcs/blob/master/guide/guide.md).  You can use `rustfmt` (or run `cargo fmt`) to automatically format your code.
+
