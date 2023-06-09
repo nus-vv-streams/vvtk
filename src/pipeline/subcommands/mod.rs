@@ -1,8 +1,8 @@
 pub mod convert;
-mod downsample;
-mod metrics;
+pub mod downsample;
+pub mod metrics;
 pub mod play;
-mod read;
+pub mod read;
 pub mod to_png;
 pub mod upsample;
 pub mod write;

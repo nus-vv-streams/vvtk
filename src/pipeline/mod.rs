@@ -1,7 +1,7 @@
 mod channel;
 mod executor;
 pub mod subcommands;
-
+use clap::Parser;
 use crossbeam_channel::Receiver;
 
 // use std::sync::mpsc::Receiver;
@@ -15,7 +15,8 @@ use self::{
     executor::Executor,
     executor::ExecutorBuilder,
     subcommands::{
-        Convert, Downsampler, MetricsCalculator, Play, Read, Subcommand, ToPng, Upsampler, Write,
+        convert, downsample, metrics, read, to_png, upsample, write, Convert, Downsampler,
+        MetricsCalculator, Read, Subcommand, ToPng, Upsampler, Write,
     },
 };
 
@@ -30,7 +31,7 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
         "downsample" => Some(Box::from(Downsampler::from_args)),
         "upsample" => Some(Box::from(Upsampler::from_args)),
         "convert" => Some(Box::from(Convert::from_args)),
-        "play" => Some(Box::from(Play::from_args)),
+        // "play" => Some(Box::from(Play::from_args)),
         _ => None,
     }
 }
@@ -78,7 +79,7 @@ impl Pipeline {
             handles.push(exec.run());
         }
 
-        println!("progress_recvs.len(): {}", progress_recvs.len());
+        // println!("progress_recvs.len(): {}", progress_recvs.len());
         let mut completed = 0;
         let mut progress = vec![0; progress_recvs.len()];
         while completed < progress_recvs.len() {
@@ -116,6 +117,19 @@ impl Pipeline {
         let mut accumulated_args: Vec<String> = vec![];
 
         let mut executor_builder = ExecutorBuilder::new();
+        // !! check argument length
+        if args.len() < 2 {
+            display_main_help_msg();
+            eprintln!(
+                "Expected at least one valid command, got {}",
+                args.len() - 1
+            );
+        }
+
+        if args[1] == "--help" || args[1] == "-h" || args[1] == "help" {
+            display_main_help_msg();
+        }
+
         // !! check the second argument, which is the name of the subcommand, we want at least one subcommand
         if !Self::if_at_least_one_command(&args[1]) {
             eprintln!(
@@ -158,6 +172,28 @@ impl Pipeline {
     fn if_at_least_one_command(first_arg: &str) -> bool {
         subcommand(first_arg).is_some()
     }
+}
+
+#[derive(Parser)]
+enum VVSubCommand {
+    #[clap(name = "convert")]
+    Convert(convert::Args),
+    #[clap(name = "write")]
+    Write(write::Args),
+    #[clap(name = "read")]
+    Read(read::Args),
+    #[clap(name = "to_png")]
+    ToPng(to_png::Args),
+    #[clap(name = "metrics")]
+    Metrics(metrics::Args),
+    #[clap(name = "downsample")]
+    Downsample(downsample::Args),
+    #[clap(name = "upsample")]
+    Upsample(upsample::Args),
+}
+
+fn display_main_help_msg() {
+    let _subcommand = VVSubCommand::parse_from(&["vv", "--help"]);
 }
 
 #[cfg(test)]

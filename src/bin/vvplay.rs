@@ -108,7 +108,7 @@ fn main() {
     let play_format = infer_format(&args.src);
     let path = Path::new(&args.src);
 
-    println!("Playing files in {:?} with format {}", path, play_format);
+    // println!("Playing files in {:?} with format {}", path, play_format);
 
     let reader = PointCloudFileReader::from_directory(path, &play_format);
 

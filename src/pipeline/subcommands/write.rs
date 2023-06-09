@@ -9,8 +9,10 @@ use std::fs::File;
 use std::path::Path;
 
 use super::Subcommand;
+
+/// Writes from input stream into a file, input stream can be pointcloud data or metrics
 #[derive(Parser)]
-struct Args {
+pub struct Args {
     #[clap(short, long)]
     output_dir: String,
 
@@ -44,7 +46,7 @@ impl Subcommand for Write {
         for message in messages {
             match &message {
                 PipelineMessage::IndexedPointCloud(pc, i) => {
-                    println!("Writing point cloud with point num {}", pc.points.len());
+                    // println!("Writing point cloud with point num {}", pc.points.len());
                     let pcd_data_type = self
                         .args
                         .storage_type

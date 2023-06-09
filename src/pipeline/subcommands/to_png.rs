@@ -6,9 +6,9 @@ use cgmath::num_traits::pow;
 use clap::Parser;
 use std::ffi::OsString;
 
-/// Converts a folder of .pcd files to a folder of .png images
+/// Writes point clouds from the input stream into images.
 #[derive(Parser)]
-struct Args {
+pub struct Args {
     /// Directory to store output png images
     #[clap(short, long)]
     output_dir: OsString,

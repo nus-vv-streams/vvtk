@@ -13,7 +13,10 @@ use crate::utils::{
 };
 
 #[derive(Parser, Debug)]
-struct Args {
+#[clap(
+    about = "Converts a pointcloud file from one format to another.\nSupported formats are .pcd and .ply.\nSupported storage types are binary and ascii."
+)]
+pub struct Args {
     #[clap(short, long)]
     output: String,
 

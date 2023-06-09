@@ -7,8 +7,9 @@ use crate::{
 
 use super::Subcommand;
 
+/// Upsamples a pointcloud from the stream.
 #[derive(Parser)]
-struct Args {
+pub struct Args {
     #[clap(short, long)]
     factor: usize,
 }

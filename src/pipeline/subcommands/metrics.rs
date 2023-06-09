@@ -7,8 +7,14 @@ use crate::{
 
 use super::Subcommand;
 
+/// Calculates the metrics given two input streams where the first input stream is the original
+/// and the second is the reconstructed one. Then uses write command to write the metrics into
+/// a text file.
 #[derive(Parser)]
-struct Args {}
+#[clap(
+    about = "Calculates the metrics given two input streams.\nFirst input stream is the original.\nSecond is the reconstructed.\nThen uses write command to write the metrics into a text file."
+)]
+pub struct Args {}
 
 pub struct MetricsCalculator;
 

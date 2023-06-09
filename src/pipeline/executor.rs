@@ -38,7 +38,7 @@ impl ExecutorBuilder {
 
         let mut has_input = false;
         let mut has_help = false;
-        println!("args: {:?}", args);
+        // println!("args: {:?}", args);
         for arg in args {
             if arg.eq("--help") || arg.eq("-h") {
                 has_help = true;
@@ -118,7 +118,6 @@ impl Executor {
                     .split('=')
                     .nth(1)
                     .expect("Expected name of input stream");
-                println!("output_streams:");
                 for input_name in input_streams.split(',') {
                     input_stream_names.push(input_name.to_string());
                 }

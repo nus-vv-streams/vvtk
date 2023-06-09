@@ -14,7 +14,10 @@ enum FileType {
 }
 
 #[derive(Parser)]
-struct Args {
+#[clap(
+    about = "Reads in one of our supported file formats. \nFiles can be of the type .pcd .ply. \nThe path can be a file path or a directory path contains these files."
+)]
+pub struct Args {
     #[clap(short = 't', long, value_enum, default_value_t = FileType::All)]
     filetype: FileType,
     /// Files, glob patterns, directories
