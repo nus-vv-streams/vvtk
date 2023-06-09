@@ -15,7 +15,8 @@ enum FileType {
 
 #[derive(Parser)]
 #[clap(
-    about = "Reads in one of our supported file formats. \nFiles can be of the type .pcd .ply. \nThe path can be a file path or a directory path contains these files."
+    about = "Reads in one of our supported file formats. \nFiles can be of the type .pcd .ply. \nThe path can be a file path or a directory path contains these files.",
+    override_usage = format!("\x1B[1m{}\x1B[0m [OPTIONS] <FILES>... +output=plys", "read")
 )]
 pub struct Args {
     #[clap(short = 't', long, value_enum, default_value_t = FileType::All)]

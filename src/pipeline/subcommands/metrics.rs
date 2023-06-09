@@ -12,7 +12,6 @@ pub enum SupoportedMetrics {
     Psnr,
 }
 
-
 #[derive(Parser)]
 #[clap(
     about = "Calculates the metrics given two input streams.\nFirst input stream is the original.\nSecond is the reconstructed.\nThen uses write command to write the metrics into a text file.",

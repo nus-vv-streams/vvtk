@@ -10,8 +10,11 @@ use std::path::Path;
 
 use super::Subcommand;
 
-/// Writes from input stream into a file, input stream can be pointcloud data or metrics
 #[derive(Parser)]
+#[clap(
+    about = "Writes from input stream into a file, input stream can be pointcloud data or metrics",
+    override_usage = format!("\x1B[1m{}\x1B[0m [OPTIONS] <output_dir> +input=plys", "write")
+)]
 pub struct Args {
     /// output directory to store point cloud files or metrics
     output_dir: String,
