@@ -25,7 +25,7 @@ pub type SubcommandCreator = Box<dyn Fn(Vec<String>) -> Box<dyn Subcommand>>;
 fn subcommand(s: &str) -> Option<SubcommandCreator> {
     match s {
         "write" => Some(Box::from(Write::from_args)),
-        "to_png" => Some(Box::from(ToPng::from_args)),
+        "render" => Some(Box::from(ToPng::from_args)),
         "read" => Some(Box::from(Read::from_args)),
         "metrics" => Some(Box::from(MetricsCalculator::from_args)),
         "downsample" => Some(Box::from(Downsampler::from_args)),
@@ -182,7 +182,7 @@ enum VVSubCommand {
     Write(write::Args),
     #[clap(name = "read")]
     Read(read::Args),
-    #[clap(name = "to_png")]
+    #[clap(name = "render")]
     ToPng(to_png::Args),
     #[clap(name = "metrics")]
     Metrics(metrics::Args),
@@ -204,7 +204,7 @@ mod pipeline_mod_test {
     fn if_at_least_one_command_test() {
         assert!(Pipeline::if_at_least_one_command("read"));
         assert!(Pipeline::if_at_least_one_command("write"));
-        assert!(Pipeline::if_at_least_one_command("to_png"));
+        assert!(Pipeline::if_at_least_one_command("render"));
         assert!(Pipeline::if_at_least_one_command("metrics"));
         assert!(Pipeline::if_at_least_one_command("downsample"));
         assert!(Pipeline::if_at_least_one_command("upsample"));

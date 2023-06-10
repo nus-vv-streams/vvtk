@@ -28,7 +28,7 @@ Commands:
   read        Reads in one of our supported file formats. 
                   Files can be of the type .pcd .ply. 
                   The path can be a file path or a directory path contains these files.
-  to_png      Writes point clouds from the input stream into images
+  render      Writes point clouds from the input stream into images
   metrics     Calculates the metrics given two input streams.
                   First input stream is the original.
                   Second is the reconstructed.
@@ -68,12 +68,12 @@ Options:
 vv read ./Ply +output=plys
 ```
 
-#### `to_png`
+#### `render`
 
 Writes point clouds from the input stream into images.
 
 ```shell
-Usage: to_png [OPTIONS] <OUTPUT_DIR> 
+Usage: render [OPTIONS] <OUTPUT_DIR> 
 
 Arguments:
   <OUTPUT_DIR>  Directory to store output png images
@@ -90,11 +90,11 @@ Options:
   -h, --help                       Print help
 ```
 
-**to_png example**
+**render example**
 
 ```shell
 vv read ./Ply +output=plys \
-        to_png ./Pngs +input=plys
+        render ./Pngs +input=plys
 ```
 
 #### `metrics`
@@ -202,7 +202,7 @@ vv read ./pcd                       +output=pcdb \
        metrics +input=pcd_comp,pcdb_down_up +output=metric \
        write  ./metrics     +input=metric \
        write  ./down_up     +input=pcdb_down_up \
-       to_png ./tmp/down_up +input=pcdb_down_up 
+       render ./tmp/down_up +input=pcdb_down_up 
 ```
 
 #### `convert`
