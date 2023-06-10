@@ -1,12 +1,19 @@
 [package]
-name = "vivotk"
+name = "vvtk"
 version = "0.1.0"
-authors = ["weitsang <weitsang@nus.edu.sg>", "hungkhoaitay <e0550385@u.nus.edu>", "giterator <e0552200@u.nus.edu>"]
+authors = [
+   "weitsang <weitsang@nus.edu.sg>", 
+   "YoungHS-NUS <hhhh@u.nus.edu>",
+   "tankangliang <tankangliang@u.nus.edu>",
+   "benclmnt <bennett.clement@u.nus.edu>",
+   "hungkhoaitay <e0550385@u.nus.edu>", 
+   "giterator <e0552200@u.nus.edu>"
+   ]
 edition = "2021"
 
-description = "This project aims to design and develop a set of robust and high performance Unix CLI tools for analyzing, processing, debugging, and viewing 3D point clouds using Rust"
+description = "This project aims to design and develop a set of robust and high performance CLI tools for analyzing, processing, debugging, and viewing 3D point clouds using Rust"
 readme = "README.md"
-repository = "https://github.com/nus-mmsys/vivotk"
+repository = "https://github.com/nus-vv-stream/vvtk"
 
 license = "Apache-2.0"
 keywords = ["3D", "Point Cloud", "Volumetric Video"]
