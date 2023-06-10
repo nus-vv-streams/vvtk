@@ -95,11 +95,13 @@ impl Pipeline {
                     }
                 }
             }
+            /*
             println!("=======================");
             for i in 0..progress.len() {
                 println!("{}: {}", names[i], progress[i])
             }
             println!("=======================");
+            */
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
 
