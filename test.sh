@@ -64,7 +64,7 @@ cargo run --release --bin vv -- read ./8i_dataset/red_black/ply_a/redandblack_vo
 
 
 cargo run --release --bin vv -- read ./8i_dataset/red_black/ply_b/redandblack_vox10_1510.ply +output=plyb \
-                                    to_png +input=plyb --output-dir ./tmp/
+                                    render +input=plyb --output-dir ./tmp/
 
 cargo run --release --bin vv -- read ./8i_dataset/red_black/ply_b/redandblack_vox10_1510.ply +output=pcdb \
                                     read ./8i_dataset/red_black/pcd_b_down/00000.pcd +output=pcd_comp \
@@ -73,7 +73,7 @@ cargo run --release --bin vv -- read ./8i_dataset/red_black/ply_b/redandblack_vo
                                     metrics +input=pcd_comp,pcdb_down_up +output=metric \
                                     write --output-dir ./tmp/metrics +input=metric \
                                     write --output-dir ./tmp/down_up +input=pcdb_down_up \
-                                    to_png +input=pcdb_down_up  --output-dir ./tmp/down_up
+                                    render +input=pcdb_down_up  --output-dir ./tmp/down_up
 
 
 cargo run --bin vv -- read ./8i_dataset/red_black/ply_b/redandblack_vox10_1510.ply +output=pcdb \
