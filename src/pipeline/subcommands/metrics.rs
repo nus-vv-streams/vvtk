@@ -1,4 +1,5 @@
 use clap::Parser;
+use std::ffi::OsString;
 
 use crate::{
     metrics::calculate_metrics,
@@ -9,7 +10,9 @@ use super::Subcommand;
 
 #[derive(clap::ValueEnum, Clone, Copy)]
 pub enum SupoportedMetrics {
-    Psnr,
+    Acd,
+    Cd,
+    CdPsnr,
 }
 
 #[derive(Parser)]
@@ -18,16 +21,25 @@ pub enum SupoportedMetrics {
     override_usage = format!("\x1B[1m{}\x1B[0m [OPTIONS] +input=original,reconstructure +output=metrics", "metrics")
 )]
 pub struct Args {
-    #[clap(short, long, value_enum, default_value_t = SupoportedMetrics::Psnr)]
+    #[clap(short, long, value_enum, default_value_t = SupoportedMetrics::CdPsnr)]
     metric: SupoportedMetrics,
+
+    #[clap(long, num_args = 1.., value_delimiter = ' ', default_value = "all")]
+    metrics: Vec<OsString>,
 }
 
-pub struct MetricsCalculator;
+pub struct MetricsCalculator {
+    metrics: Vec<OsString>,
+}
 
 impl MetricsCalculator {
     pub fn from_args(args: Vec<String>) -> Box<dyn Subcommand> {
-        let _args: Args = Args::parse_from(args);
-        Box::new(MetricsCalculator {})
+        println!("args: {:?}", args);
+        let args: Args = Args::parse_from(args);
+        let metrics = args.metrics;
+        println!("metrics: {:?}", metrics);
+
+        Box::new(MetricsCalculator { metrics })
     }
 }
 
@@ -46,7 +58,7 @@ impl Subcommand for MetricsCalculator {
                 PipelineMessage::IndexedPointCloud(original, _),
                 PipelineMessage::IndexedPointCloud(reconstructed, _),
             ) => {
-                let metrics = calculate_metrics(original, reconstructed);
+                let metrics = calculate_metrics(original, reconstructed, &self.metrics);
                 channel.send(PipelineMessage::Metrics(metrics));
             }
             (PipelineMessage::End, _) | (_, PipelineMessage::End) => {
