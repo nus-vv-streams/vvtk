@@ -120,8 +120,7 @@ impl ControlWindow {
 
             if let Some(info) = self.info {
                 ui.add(Label::new(format!(
-                    "Camera Position: {:?}",
-                    info.camera.position
+                    "Camera Position: PointXyz [{:.2}, {:.2}, {:.2}]", info.camera.position.x, info.camera.position.y, info.camera.position.z
                 )));
                 ui.add(Label::new(format!(
                     "Camera Yaw: {:?}",

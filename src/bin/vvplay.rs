@@ -61,6 +61,8 @@ struct Args {
     decoder_type: DecoderType,
     #[clap(long)]
     decoder_path: Option<OsString>,
+    #[clap(long, default_value = "rgb(255,255,255)")]
+    bg_color: OsString,
 }
 
 #[derive(clap::ValueEnum, Clone, Copy)]

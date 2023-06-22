@@ -399,6 +399,7 @@ pub struct PointCloudRenderer<T: Renderable> {
     vertex_buffer: Buffer,
     num_vertices: usize,
     _data: PhantomData<T>,
+    bg_color: Color,
 }
 
 impl<T> PointCloudRenderer<T>
