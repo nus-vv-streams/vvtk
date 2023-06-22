@@ -161,6 +161,7 @@ impl ControlWindow {
                         ui.label("D          Key - Moves your position to the right");
                         ui.label("Q          Key - Moves your position up");
                         ui.label("E          Key - Moves your position down");
+                        ui.label("0          Key - Resets your position to the initial position");
                         ui.label("Space      Key - Toggles  Play / Pause");
                         ui.label("LeftArrow  Key - Rewinds  by 1 frame");
                         ui.label("RightArrow Key - Advances by 1 frame");
