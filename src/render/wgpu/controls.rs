@@ -6,6 +6,7 @@ use egui::{Button, CentralPanel, Context, FontDefinitions, Label, Slider};
 use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
 use epi::Frame;
+use std::fmt::format;
 use std::iter;
 use std::sync::Arc;
 use std::time::Instant;
@@ -84,6 +85,7 @@ impl Attachable for Controller {
             slider_end: self.slider_end,
             info: None,
             listeners: Vec::new(),
+            display_help: false,
         };
 
         (object, window)
@@ -103,6 +105,7 @@ pub struct ControlWindow {
     slider_end: usize,
     info: Option<RenderInformation>,
     listeners: Vec<WindowId>,
+    display_help: bool,
 }
 
 impl ControlWindow {
@@ -132,27 +135,38 @@ impl ControlWindow {
                 )));
                 ui.add(Label::new(format!("Avg fps: {:?}", info.fps)));
 
-                ui.scope(|ui| {
-                    ui.style_mut().override_text_style = Some(egui::TextStyle::Heading);
-                    ui.visuals_mut().override_text_color = Some(egui::Color32::YELLOW);
-                    ui.label("\nHow to control?");
-                });
+                let display_or_hide = if self.display_help {
+                    "Hide"
+                } else {
+                    "Display"
+                };
+                if ui.add(Button::new(format!("{} Control Help", display_or_hide))).clicked() {
+                    self.display_help = !self.display_help;
+                };
 
-                ui.scope(|ui| {
-                    ui.style_mut().override_text_style   = Some(egui::TextStyle::Body);
-                    ui.visuals_mut().override_text_color = Some(egui::Color32::LIGHT_YELLOW);
-                    ui.style_mut().override_text_style   = Some(egui::TextStyle::Monospace);
-                    ui.label("W          Key - Moves your position to the front");
-                    ui.label("A          Key - Moves your position to the left");
-                    ui.label("S          Key - Moves your position to the back");
-                    ui.label("D          Key - Moves your position to the right");
-                    ui.label("Q          Key - Moves your position up");
-                    ui.label("E          Key - Moves your position down");
-                    ui.label("Space      Key - Toggles  Play / Pause");
-                    ui.label("LeftArrow  Key - Rewinds  by 1 frame");
-                    ui.label("RightArrow Key - Advances by 1 frame");
-                    ui.label("Adjusts camera yaw/picth with mouse \n(Hold right click on Mac, left click on Windows)");
-                });
+                if self.display_help {
+                    ui.scope(|ui| {
+                        ui.style_mut().override_text_style = Some(egui::TextStyle::Heading);
+                        ui.visuals_mut().override_text_color = Some(egui::Color32::YELLOW);
+                        ui.label("\nHow to control?");
+                    });
+
+                    ui.scope(|ui| {
+                        ui.style_mut().override_text_style   = Some(egui::TextStyle::Body);
+                        ui.visuals_mut().override_text_color = Some(egui::Color32::LIGHT_YELLOW);
+                        ui.style_mut().override_text_style   = Some(egui::TextStyle::Monospace);
+                        ui.label("W          Key - Moves your position to the front");
+                        ui.label("A          Key - Moves your position to the left");
+                        ui.label("S          Key - Moves your position to the back");
+                        ui.label("D          Key - Moves your position to the right");
+                        ui.label("Q          Key - Moves your position up");
+                        ui.label("E          Key - Moves your position down");
+                        ui.label("Space      Key - Toggles  Play / Pause");
+                        ui.label("LeftArrow  Key - Rewinds  by 1 frame");
+                        ui.label("RightArrow Key - Advances by 1 frame");
+                        ui.label("Adjusts camera yaw/picth with mouse \n(Hold right click on Mac, left click on Windows)");
+                    });
+                }
             }
         });
 
