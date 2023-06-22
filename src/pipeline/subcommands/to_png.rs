@@ -27,6 +27,8 @@ pub struct Args {
     height: u32,
     #[clap(long, default_value_t = 5)]
     name_length: u32,
+    #[clap(long, default_value = "rgb(255,255,255)")]
+    bg_color: OsString,
 }
 
 pub struct ToPng<'a> {
@@ -47,6 +49,7 @@ impl<'a> ToPng<'a> {
             width,
             height,
             name_length,
+            bg_color,
         }: Args = Args::parse_from(args);
 
         Box::from(ToPng {
@@ -59,6 +62,7 @@ impl<'a> ToPng<'a> {
                 camera_pitch,
                 width,
                 height,
+                bg_color.to_str().unwrap(),
             ),
             name_length,
             count: 0,

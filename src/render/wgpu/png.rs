@@ -1,12 +1,13 @@
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
 use crate::render::wgpu::camera::{Camera, CameraState};
-use crate::render::wgpu::renderer::PointCloudRenderer;
+use crate::render::wgpu::renderer::{PointCloudRenderer, parse_bg_color};
 use std::ffi::OsString;
 use std::num::NonZeroU32;
 use std::path::Path;
 use wgpu::{Buffer, Device, Queue, Texture, TextureDescriptor, TextureView};
 use winit::dpi::PhysicalSize;
+use color_space::Rgb;
 
 pub struct PngWriter<'a> {
     output_dir: OsString,
@@ -20,6 +21,7 @@ pub struct PngWriter<'a> {
     output_buffer: Buffer,
     camera_state: CameraState,
     point_renderer: Option<PointCloudRenderer<PointCloud<PointXyzRgba>>>,
+    bg_color: Rgb,
 }
 
 impl<'a> PngWriter<'a> {
@@ -32,6 +34,7 @@ impl<'a> PngWriter<'a> {
         camera_pitch: f32,
         width: u32,
         height: u32,
+        bg_color: &str,
     ) -> Self {
         let output_path = Path::new(&output_dir);
 
@@ -94,6 +97,7 @@ impl<'a> PngWriter<'a> {
             output_buffer,
             camera_state,
             point_renderer: None,
+            bg_color: parse_bg_color(bg_color),
         }
     }
 
@@ -105,6 +109,7 @@ impl<'a> PngWriter<'a> {
                 pc,
                 self.size,
                 &self.camera_state,
+                self.bg_color,
             ));
         }
 

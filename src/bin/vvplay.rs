@@ -135,6 +135,7 @@ fn main() {
         camera,
         (args.width, args.height),
         metrics,
+        args.bg_color.to_str().unwrap(),
     ));
 
     if args.show_controls {
