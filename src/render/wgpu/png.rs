@@ -97,7 +97,7 @@ impl<'a> PngWriter<'a> {
             output_buffer,
             camera_state,
             point_renderer: None,
-            bg_color: parse_bg_color(bg_color),
+            bg_color: parse_bg_color(bg_color).unwrap(),
         }
     }
 
