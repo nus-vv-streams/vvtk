@@ -28,7 +28,8 @@ impl CameraState {
             PROJECTION_ZNEAR,
             PROJECTION_ZFAR,
         );
-        let camera_controller = CameraController::new(CAMERA_SPEED, CAMERA_SENSITIVITY, camera.position.clone());
+        let camera_controller =
+            CameraController::new(CAMERA_SPEED, CAMERA_SENSITIVITY, camera.position.clone());
         let mut camera_uniform = CameraUniform::default();
         camera_uniform.update_view_proj(&camera, &projection);
 

@@ -18,7 +18,7 @@
 
 ### `vv`
 
-Provides subcommands that can be chained together. The inputs and outputs of a subcommand must be specified with the `+input=` followed by a comma separated list of inputs or `+output=` to denote the name of its output stream. Note that `+input` must be specified for commands other than `read`. 
+Provides subcommands that can be chained together. The inputs and outputs of a subcommand must be specified with the `+input=` or `+in` followed by a comma separated list of inputs or `+output=` or `+out` to denote the name of its output stream. Note that `+input` must be specified for commands other than `read`. 
 
 ```shell
 Usage: vv <COMMAND>
@@ -50,6 +50,14 @@ Options:
 vv read ./ply_ascii +output=ply_a \
         write --output-format pcd --storage-type binary \
         ./pcd_binary +input=ply_a
+```
+
+Alternatively, you can use `+in` and `+out` as a shortcut to `+input` and `+output`.
+
+```shell
+vv read ./ply_ascii +out=ply_a \
+        write --output-format pcd --storage-type binary \
+        ./pcd_binary +in=ply_a
 ```
 
 #### `read`

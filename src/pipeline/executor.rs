@@ -44,7 +44,7 @@ impl ExecutorBuilder {
                 has_help = true;
             }
 
-            if arg.starts_with("+input") {
+            if arg.starts_with("+input") || arg.starts_with("+in") {
                 let input_streams = arg
                     .split('=')
                     .nth(1)
@@ -70,7 +70,7 @@ impl ExecutorBuilder {
                     }
                 }
                 has_input = true;
-            } else if arg.starts_with("+output") {
+            } else if arg.starts_with("+output") || arg.starts_with("+out") {
                 output_name = arg
                     .split('=')
                     .nth(1)
@@ -113,7 +113,7 @@ impl Executor {
         let mut input_stream_names = Vec::new();
         let mut output_name = "".to_string();
         for arg in args {
-            if arg.starts_with("+input") {
+            if arg.starts_with("+input") || arg.starts_with("+in") {
                 let input_streams = arg
                     .split('=')
                     .nth(1)
@@ -121,7 +121,7 @@ impl Executor {
                 for input_name in input_streams.split(',') {
                     input_stream_names.push(input_name.to_string());
                 }
-            } else if arg.starts_with("+output") {
+            } else if arg.starts_with("+output") || arg.starts_with("+out") {
                 output_name = arg
                     .split('=')
                     .nth(1)

@@ -1,13 +1,13 @@
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
 use crate::render::wgpu::camera::{Camera, CameraState};
-use crate::render::wgpu::renderer::{PointCloudRenderer, parse_bg_color};
+use crate::render::wgpu::renderer::{parse_bg_color, PointCloudRenderer};
+use color_space::Rgb;
 use std::ffi::OsString;
 use std::num::NonZeroU32;
 use std::path::Path;
 use wgpu::{Buffer, Device, Queue, Texture, TextureDescriptor, TextureView};
 use winit::dpi::PhysicalSize;
-use color_space::Rgb;
 
 pub struct PngWriter<'a> {
     output_dir: OsString,
