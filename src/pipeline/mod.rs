@@ -16,7 +16,7 @@ use self::{
     executor::ExecutorBuilder,
     subcommands::{
         convert, downsample, metrics, read, to_png, upsample, write, Convert, Downsampler,
-        MetricsCalculator, Read, Subcommand, ToPng, Upsampler, Write,
+        MetricsCalculator, Read, Subcommand, ToPng, Upsampler, Write, reconstruct, Reconstructer,
     },
 };
 
@@ -32,6 +32,7 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
         "upsample" => Some(Box::from(Upsampler::from_args)),
         "convert" => Some(Box::from(Convert::from_args)),
         // "play" => Some(Box::from(Play::from_args)),
+        "reconstruct" => Some(Box::from(Reconstructer::from_args)),
         _ => None,
     }
 }
@@ -192,6 +193,9 @@ enum VVSubCommand {
     Downsample(downsample::Args),
     #[clap(name = "upsample")]
     Upsample(upsample::Args),
+    #[clap(name = "reconstruct")]
+    Reconstruct(reconstruct::Args),
+
 }
 
 fn display_main_help_msg() {
@@ -212,5 +216,6 @@ mod pipeline_mod_test {
         assert!(Pipeline::if_at_least_one_command("upsample"));
         assert!(Pipeline::if_at_least_one_command("convert"));
         assert!(!Pipeline::if_at_least_one_command("not_a_command"));
+        assert!(Pipeline::if_at_least_one_command("reconstruct"));
     }
 }
