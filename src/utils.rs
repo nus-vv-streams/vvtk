@@ -2,6 +2,7 @@ use crate::{
     formats::{pointxyzrgba::PointXyzRgba, PointCloud},
     pcd::{create_pcd, read_pcd_file, write_pcd_file, PCDDataType, PointCloudData},
     ply::read_ply,
+    velodyne::read_velodyn_bin_file,
 };
 use ply_rs::{
     parser, ply,
@@ -21,6 +22,7 @@ pub fn read_file_to_point_cloud(file: &PathBuf) -> Option<PointCloud<PointXyzRgb
         let point_cloud = match ext {
             "ply" => read_ply(file),
             "pcd" => read_pcd_file(file).map(PointCloud::from).ok(),
+            "bin" => read_velodyn_bin_file(file).map(PointCloud::from).ok(),
             _ => None,
         };
         return point_cloud;
@@ -108,6 +110,15 @@ pub fn ply_to_ply(output_path: &Path, storage_type: PCDDataType, file_path: Path
 
 pub fn pcd_to_pcd(output_path: &Path, storage_type: PCDDataType, file_path: PathBuf) {
     let pcd = read_pcd_file(file_path.clone()).unwrap();
+    create_file_write_pcd_helper(&pcd, output_path, storage_type, file_path);
+}
+
+pub fn create_file_write_pcd_helper(
+    pcd: &PointCloudData,
+    output_path: &Path,
+    storage_type: PCDDataType,
+    file_path: PathBuf,
+) {
     let filename = Path::new(file_path.file_name().unwrap()).with_extension("pcd");
     let output_file = output_path.join(filename);
     if let Err(e) = write_pcd_file(&pcd, storage_type, &output_file) {
@@ -122,16 +133,7 @@ pub fn pcd_to_pcd(output_path: &Path, storage_type: PCDDataType, file_path: Path
 pub fn ply_to_pcd(output_path: &Path, storage_type: PCDDataType, file_path: PathBuf) {
     let pointxyzrgba = read_ply(file_path.clone()).unwrap();
     let pcd = create_pcd(&pointxyzrgba);
-
-    let filename = Path::new(file_path.file_name().unwrap()).with_extension("pcd");
-    let output_file = output_path.join(filename);
-    if let Err(e) = write_pcd_file(&pcd, storage_type, &output_file) {
-        println!(
-            "Failed to write {:?} to {:?}\n{e}",
-            file_path.into_os_string(),
-            output_file.into_os_string()
-        );
-    }
+    create_file_write_pcd_helper(&pcd, output_path, storage_type, file_path);
 }
 
 pub fn pcd_to_ply_from_data(
@@ -230,6 +232,28 @@ pub fn pcd_to_ply(output_path: &Path, storage_type: PCDDataType, file_path: Path
             output_file.to_str(),
         );
     }
+}
+
+pub fn velodyne_bin_to_ply(output_path: &Path, storage_type: PCDDataType, file_path: PathBuf) {
+    let vbd = read_velodyn_bin_file(&file_path).unwrap();
+    let pc: PointCloud<PointXyzRgba> = vbd.into();
+    let pcd: PointCloudData = create_pcd(&pc);
+    let filename = Path::new(file_path.file_name().unwrap()).with_extension("ply");
+    let output_file = output_path.join(filename);
+    if let Err(e) = pcd_to_ply_from_data(&output_file, storage_type, pcd) {
+        println!(
+            "Failed to write {:?} to {:?}\n{e}",
+            file_path.into_os_string(),
+            output_file.to_str(),
+        );
+    }
+}
+
+pub fn velodyne_bin_to_pcd(output_path: &Path, storage_type: PCDDataType, file_path: PathBuf) {
+    let vbd = read_velodyn_bin_file(&file_path).unwrap();
+    let pointxyzrgba: PointCloud<PointXyzRgba> = vbd.into();
+    let pcd: PointCloudData = create_pcd(&pointxyzrgba);
+    create_file_write_pcd_helper(&pcd, output_path, storage_type, file_path);
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
