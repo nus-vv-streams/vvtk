@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use crate::pcd::PointCloudData;
+use crate::velodyne::{VelodynPoint, VelodyneBinData};
 
 pub mod pointxyzrgba;
 
@@ -37,6 +38,32 @@ impl<T> From<PointCloudData> for PointCloud<T> {
         Self {
             number_of_points,
             points,
+        }
+    }
+}
+
+impl From<VelodyneBinData> for PointCloud<pointxyzrgba::PointXyzRgba> {
+    // type T: pointxyzrgba::PointXyzRgba;
+    fn from(value: VelodyneBinData) -> Self {
+        let number_of_points = value.data.len();
+        let points = value.data.into_iter().map(|point| point.into()).collect();
+        Self {
+            number_of_points,
+            points,
+        }
+    }
+}
+
+impl From<VelodynPoint> for pointxyzrgba::PointXyzRgba {
+    fn from(value: VelodynPoint) -> Self {
+        Self {
+            x: value.x,
+            y: value.y,
+            z: value.z,
+            r: (value.intensity * 255.0) as u8,
+            g: (value.intensity * 255.0) as u8,
+            b: (value.intensity * 255.0) as u8,
+            a: 255,
         }
     }
 }

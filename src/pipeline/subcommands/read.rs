@@ -11,6 +11,7 @@ enum FileType {
     All,
     Ply,
     Pcd,
+    Bin,
 }
 
 #[derive(Parser)]
@@ -52,6 +53,11 @@ impl Subcommand for Read {
                     }
                     FileType::Ply => {
                         if file.extension().and_then(|ext| ext.to_str()) != Some("ply") {
+                            continue;
+                        }
+                    }
+                    FileType::Bin => {
+                        if file.extension().and_then(|ext| ext.to_str()) != Some("bin") {
                             continue;
                         }
                     }
