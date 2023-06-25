@@ -6,6 +6,7 @@ pub mod read;
 pub mod to_png;
 pub mod upsample;
 pub mod write;
+pub mod normal_estimation;
 
 pub use convert::Convert;
 pub use downsample::Downsampler;
@@ -15,6 +16,7 @@ pub use read::Read;
 pub use to_png::ToPng;
 pub use upsample::Upsampler;
 pub use write::Write;
+pub use normal_estimation::NormalEstimation;
 
 use super::{channel::Channel, PipelineMessage};
 

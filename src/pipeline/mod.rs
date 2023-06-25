@@ -16,7 +16,7 @@ use self::{
     executor::ExecutorBuilder,
     subcommands::{
         convert, downsample, metrics, read, to_png, upsample, write, Convert, Downsampler,
-        MetricsCalculator, Read, Subcommand, ToPng, Upsampler, Write,
+        MetricsCalculator, Read, Subcommand, ToPng, Upsampler, Write, NormalEstimation,
     },
 };
 
@@ -31,6 +31,7 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
         "downsample" => Some(Box::from(Downsampler::from_args)),
         "upsample" => Some(Box::from(Upsampler::from_args)),
         "convert" => Some(Box::from(Convert::from_args)),
+        "normal_estimation" => Some(Box::from(NormalEstimation::from_args)),
         // "play" => Some(Box::from(Play::from_args)),
         _ => None,
     }
