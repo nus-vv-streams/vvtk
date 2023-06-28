@@ -1,19 +1,11 @@
 use clap::Parser;
-use std::ffi::OsString;
 
 use crate::{
-    metrics::calculate_metrics,
+    metrics::{calculate_metrics, SupoportedMetrics},
     pipeline::{channel::Channel, PipelineMessage},
 };
 
 use super::Subcommand;
-
-#[derive(clap::ValueEnum, Clone, Copy)]
-pub enum SupoportedMetrics {
-    Acd,
-    Cd,
-    CdPsnr,
-}
 
 #[derive(Parser)]
 #[clap(
@@ -21,24 +13,18 @@ pub enum SupoportedMetrics {
     override_usage = format!("\x1B[1m{}\x1B[0m [OPTIONS] +input=original,reconstructure +output=metrics", "metrics")
 )]
 pub struct Args {
-    #[clap(short, long, value_enum, default_value_t = SupoportedMetrics::CdPsnr)]
-    metric: SupoportedMetrics,
-
     #[clap(long, num_args = 1.., value_delimiter = ' ', default_value = "all")]
-    metrics: Vec<OsString>,
+    metrics: Vec<SupoportedMetrics>,
 }
 
 pub struct MetricsCalculator {
-    metrics: Vec<OsString>,
+    metrics: Vec<SupoportedMetrics>,
 }
 
 impl MetricsCalculator {
     pub fn from_args(args: Vec<String>) -> Box<dyn Subcommand> {
-        println!("args: {:?}", args);
         let args: Args = Args::parse_from(args);
         let metrics = args.metrics;
-        println!("metrics: {:?}", metrics);
-
         Box::new(MetricsCalculator { metrics })
     }
 }
@@ -63,7 +49,6 @@ impl Subcommand for MetricsCalculator {
             }
             (PipelineMessage::End, _) | (_, PipelineMessage::End) => {
                 channel.send(PipelineMessage::End);
-                // println!("Get `End` message, Closing metrics calculator channel");
             }
             (_, _) => {}
         }

@@ -44,8 +44,8 @@ impl CdPsnr {
             .unwrap();
 
         let mr: f64 = mr.0.into();
-        let mr: f64 = -mr;
-        let cd_psnr = 10.0 * ((mr * mr) / cd.unwrap()).log10();
+        let mr: f64 = mr.abs();
+        let cd_psnr = 10.0 * ((mr) / cd.unwrap()).log10();
         Some(cd_psnr)
     }
 }

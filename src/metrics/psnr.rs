@@ -38,7 +38,10 @@ impl Psnr {
         let n = original.len() as f64;
         let drms = drms as f64 / n;
         let psnr_drms = get_psnr(drms, RESOLUTION, 3.0);
-        metrics.insert("drms".to_string(), format!("{:.5}", drms));
-        metrics.insert("psnr_drms".to_string(), format!("{:.5}", psnr_drms));
+        // metrics.insert("drms".to_string(), format!("{:.5}", drms));
+        metrics.insert(
+            "psnr_drms(fix resolution 1024)".to_string(),
+            format!("{:.5}", psnr_drms),
+        );
     }
 }

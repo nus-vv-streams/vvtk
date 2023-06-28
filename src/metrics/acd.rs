@@ -7,8 +7,8 @@ pub struct Acd;
 impl Acd {
     pub fn calculate_metric(
         p1: &Vec<PointXyzRgba>,
-        p1_tree: &KdTree<f32, usize, 3>,
-        p2: &Vec<PointXyzRgba>,
+        _p1_tree: &KdTree<f32, usize, 3>,
+        _p2: &Vec<PointXyzRgba>,
         p2_tree: &KdTree<f32, usize, 3>,
     ) -> f64 {
         let acd_sum: f32 = p1

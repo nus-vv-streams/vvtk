@@ -13,7 +13,7 @@ pub struct LcPsnr;
 impl LcPsnr {
     pub fn calculate_metric(
         orginal: &Vec<PointXyzRgba>,
-        original_tree: &KdTree<f32, usize, 3>,
+        _original_tree: &KdTree<f32, usize, 3>,
         reconstructed: &Vec<PointXyzRgba>,
         reconstructed_tree: &KdTree<f32, usize, 3>,
     ) -> f64 {

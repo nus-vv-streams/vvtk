@@ -1,6 +1,5 @@
 use crate::formats::pointxyzrgba::PointXyzRgba;
-use kiddo::{distance::squared_euclidean, KdTree};
-use rayon::prelude::*;
+use kiddo::KdTree;
 
 use super::acd::Acd;
 
