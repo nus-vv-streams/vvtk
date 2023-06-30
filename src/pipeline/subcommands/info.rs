@@ -122,13 +122,13 @@ impl DirInfo {
             ));
         }
 
-        if if_print_all || args.num_of_points {
+        if if_print_all || args.num_of_frames {
             info_string.push_str(&format!("number of frames: {}\n", self.num_of_frames));
         }
 
         if if_print_all || args.num_of_points {
             info_string.push_str(&format!(
-                "number of points: {:.2}\n",
+                "average number of points: {:.2}\n",
                 self.avg_num_of_points
             ));
         }
