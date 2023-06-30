@@ -211,6 +211,7 @@ pub fn pcd_to_ply_from_data(
         std::fs::create_dir_all(dir).unwrap();
     }
 
+    println!("Writing to {:?}", output_path);
     let mut file = File::create(output_path).unwrap();
 
     let ply_writer = writer::Writer::<ply::DefaultElement>::new();

@@ -1,5 +1,6 @@
 pub mod convert;
 pub mod downsample;
+pub mod info;
 pub mod metrics;
 pub mod play;
 pub mod read;
@@ -9,6 +10,7 @@ pub mod write;
 
 pub use convert::Convert;
 pub use downsample::Downsampler;
+pub use info::Info;
 pub use metrics::MetricsCalculator;
 pub use play::Play;
 pub use read::Read;

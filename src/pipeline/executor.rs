@@ -86,7 +86,12 @@ impl ExecutorBuilder {
             }
         }
 
-        if has_input || cmd.as_str() == "read" || cmd.as_str() == "convert" || has_help {
+        if has_input
+            || cmd.as_str() == "read"
+            || cmd.as_str() == "convert"
+            || cmd.as_str() == "info"
+            || has_help
+        {
         } else {
             return Err(format!(
                 "`{}` needs to consume an input, but no named input is found, specify it using `+input=input_name`",

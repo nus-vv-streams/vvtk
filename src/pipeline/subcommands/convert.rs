@@ -9,8 +9,7 @@ use crate::pipeline::PipelineMessage;
 use crate::pipeline::Subcommand;
 
 use crate::utils::{
-    find_all_files, pcd_to_pcd, pcd_to_ply, ply_to_pcd, ply_to_ply, velodyne_bin_to_pcd,
-    velodyne_bin_to_ply, ConvertOutputFormat,
+    find_all_files, pcd_to_pcd, pcd_to_ply, ply_to_pcd, ply_to_ply, ConvertOutputFormat,
 };
 
 #[derive(Parser, Debug)]
@@ -66,12 +65,6 @@ impl Subcommand for Convert {
                     ("ply", "pcd") => ply_to_pcd(output_path, self.args.storage_type, file),
                     ("pcd", "ply") => pcd_to_ply(output_path, self.args.storage_type, file),
                     ("pcd", "pcd") => pcd_to_pcd(output_path, self.args.storage_type, file),
-                    ("bin", "ply") => {
-                        velodyne_bin_to_ply(output_path, self.args.storage_type, file)
-                    }
-                    ("bin", "pcd") => {
-                        velodyne_bin_to_pcd(output_path, self.args.storage_type, file)
-                    }
                     _ => eprintln!("unsupported file type"),
                 }
 
