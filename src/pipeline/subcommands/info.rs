@@ -122,13 +122,13 @@ impl DirInfo {
             ));
         }
 
-        if if_print_all || args.num_of_points {
+        if if_print_all || args.num_of_frames {
             info_string.push_str(&format!("number of frames: {}\n", self.num_of_frames));
         }
 
         if if_print_all || args.num_of_points {
             info_string.push_str(&format!(
-                "number of points: {:.2}\n",
+                "average number of points: {:.2}\n",
                 self.avg_num_of_points
             ));
         }
@@ -207,7 +207,7 @@ impl Info {
 impl Subcommand for Info {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         if messages.is_empty() {
-            println!("self.args {:?}", self.args);
+            // println!("self.args {:?}", self.args);
             let path = Path::new(&self.args.path);
 
             if path.is_file() {

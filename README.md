@@ -38,6 +38,9 @@ Commands:
                   Then uses write command to write the metrics into a text file.
   downsample  Downsample a pointcloud from the stream
   upsample    Upsamples a pointcloud from the stream
+  info        Get the info of a pointcloud file or directory.
+                  Supported formats are .pcd and .ply.
+                  If no option is specified, all info will be printed.
   help        Print this message or the help of the given subcommand(s)
 
 Options:
@@ -110,15 +113,18 @@ vv read ./Ply +output=plys \
 
 #### `metrics`
 
-Calculates the metrics given two input streams where the first input stream is the original and the second is the reconstructed one. Then uses `write` command to write the metrics into a text file.
+Calculates the metrics given two input streams where the first input stream is the original and the second is the reconstructed one. Then uses `write` command to write the metrics into a text file. Currently we support a number of commanly used metrics such as `ACD(Asymmetric Chamfer Distance)`, `CD(Chamfer Distance)`, `CD-PSNR`, `HD(Hausdorff Distance)`, `L-CPSNR(Luminance Color PSNR)`, `VQoE(Viola et al.’s QoE)`.
+If no metric is specified, all metrics will be outputed.
 
 ```shell
 Usage: metrics [OPTIONS]
 
 Options:
-  -m, --metric <METRIC>  [default: psnr] [possible values: psnr]
+  -m, --metrics <METRICS>...  [default: all] [possible values: acd, cd, cd-psnr, hd, lc-psnr, v-qoe, all]
   -h, --help             Print help
 ```
+
+The following command will write all metrics.
 
 ```shell
 vv read ./original +output=original \
@@ -126,6 +132,16 @@ vv read ./original +output=original \
         metrics +input=original,reconstructed +output=metrics \
         write ./metrics +input=metrics
 ```
+
+Specify the metrics by using --metrics, use space ',' as a delimiter for more than one metric.
+
+```shell
+vv read ./original +output=original \
+        read ./reconstructed +output=reconstructed \
+        metrics +input=original,reconstructed +output=metrics --metrics acd,cd,hd \
+        write ./metrics +input=metrics
+```
+
 
 #### `write`
 
@@ -218,7 +234,7 @@ vv read ./pcd                       +output=pcdb \
 
 #### `convert`
 
-We recognize that some users may just want to convert a file from one format to another. So `convert` is provided as a shortcut for `read` and `write`. Currently we support any conversion between ply and pcd. For `convert`, named input-ouput is not needed.
+We recognize that some users may just want to convert a file from one format to another. So `convert` is provided as a shortcut for `read` and `write`. Currently we support any conversion between ply and pcd. We also support converting files from velodyne's bin file to ply/pcd. For `convert`, named input-ouput is not needed.
 
 ```shell
 Usage: convert [OPTIONS] --output <OUTPUT>
@@ -249,31 +265,105 @@ vv convert --input ./pcd_b --output ./ply_a --storage-type ascii --output-format
 vv convert --input ./pcd_b --output ./pcd_a --storage-type ascii --output-format pcd
 ```
 
-### `vvplay`
-
-Plays a folder of pcd/ply files in lexicographical order. A window will appear upon running the binary from which you can navigate using your mouse and keyboard. Controls are described further below.
+#### `info`
+Get the info of a pointcloud file or directory. Supported formats are .pcd and .ply. If no option is specified, all info will be printed.
 
 ```shell
-Plays a folder of pcd files in lexicographical order
+Usage: info [OPTIONS] <PATH>
 
-USAGE:
-    vvplay.exe [OPTIONS] <DIRECTORY>
+Arguments:
+  <PATH>  
 
-ARGS:
-    <DIRECTORY>    Directory with all the pcd files in lexicographical order
+Options:
+      --num-of-points  Get the number of points in a file
+      --format         Get the format of a file
+      --num-of-frames  Get the number of frames in a directory
+  -h, --help           Print help
+```
 
-OPTIONS:
-    -b, --buffer-size <BUFFER_SIZE>    [default: 1]
-        --controls
-    -f, --fps <FPS>                    [default: 30]
-    -h, --height <HEIGHT>              [default: 900]
-        --help                         Print help information
-        --pitch <CAMERA_PITCH>         [default: 0]
-    -w, --width <WIDTH>                [default: 1600]
-    -x, --camera-x <CAMERA_X>          [default: 0]
-    -y, --camera-y <CAMERA_Y>          [default: 0]
-        --yaw <CAMERA_YAW>             [default: -90]
-    -z, --camera-z <CAMERA_Z>          [default: 1.3]
+***Examples***  
+**info** for a pointcloud file
+
+```shell
+vv info foo.ply
+```
+
+The encoding format(ascii or binary) of the file, the number of points will be printed.
+
+```shell
+format: pcd ASCII
+number of points: 693899
+```
+
+**info** for a directory that contains pointcloud file
+
+```shell
+vv info ./longdress/Ply
+```
+
+The encoding format(ascii or binary) of the file in the directory, the number frames and the adverage of points will be printed.
+
+```shell
+format: pcd BINARY
+number of frames: 240
+average number of points: 728297.04
+```
+
+If more than one file format exists in the given directory, the summary of respective type will be printed.
+
+```shell
+vv info ./longdress/all_types
+```
+
+will output
+
+```shell
+format: pcd ASCII
+number of frames: 2
+average number of points: 688515.00
+
+format: ply BINARY
+number of frames: 2
+average number of points: 649491.00
+
+format: pcd BINARY
+number of frames: 2
+average number of points: 671719.00
+
+format: ply ASCII
+number of frames: 2
+average number of points: 688515.00
+```
+
+### `vvplay`
+
+Plays a folder of pcd/ply/bin files in lexicographical order. A window will appear upon running the binary from which you can navigate using your mouse and keyboard. Controls are described further below.
+
+```shell
+Plays a folder of point cloud files in lexicographical order
+
+Usage: vvplay [OPTIONS] <SRC>
+
+Arguments:
+  <SRC>  src can be: 1. Directory with all the pcd files in lexicographical order 2. location of the mpd file
+
+Options:
+  -q, --quality <QUALITY>            [default: 0]
+  -f, --fps <FPS>                    [default: 30]
+  -x, --camera-x <CAMERA_X>          [default: 0]
+  -y, --camera-y <CAMERA_Y>          [default: 0]
+  -z, --camera-z <CAMERA_Z>          [default: 1.3]
+      --yaw <CAMERA_YAW>             [default: -90]
+      --pitch <CAMERA_PITCH>         [default: 0]
+  -W, --width <WIDTH>                [default: 1600]
+  -H, --height <HEIGHT>              [default: 900]
+      --controls                     
+  -b, --buffer-size <BUFFER_SIZE>    
+  -m, --metrics <METRICS>            
+      --decoder <DECODER_TYPE>       [default: noop] [possible values: noop, draco]
+      --decoder-path <DECODER_PATH>  
+      --bg-color <BG_COLOR>          [default: rgb(255,255,255)]
+  -h, --help                         Print help
 ```
 
 ### Controls
@@ -284,12 +374,13 @@ With the main screen focused,
 2. `A` Key - Moves your position to the left
 3. `S` Key - Moves your position to the back
 4. `D` Key - Moves your position to the right
-5. 'Q' Key - Moves your position up
+5. `Q` Key - Moves your position up
 6. `E` Key - Moves your position down
-7. `Space` Key - Toggles Play/Pause
-8. `LeftArrow` Key - Rewinds by 1 frame
-9. `RightArrow` Key - Advances by 1 frame
-10. `Mouse` Drag - Adjusts camera yaw / pitch (Hold right click on Mac, left click on Windows)
+7. `0` Key - Resets your position to the initial position
+8. `Space` Key - Toggles Play/Pause
+9. `LeftArrow` Key - Rewinds by 1 frame
+10. `RightArrow` Key - Advances by 1 frame
+11. `Mouse` Drag - Adjusts camera yaw / pitch (Hold right click on Mac, left click on Windows)
 
 With the secondary window focused,
 
@@ -314,6 +405,15 @@ You can buffer the render with a set number of frames using `-b`
 
 ```shell
 vvplay ./pcds -b 100
+```
+
+You can specify the background color using `--bg-color` in the following two ways.
+1. use rgb value: rgb(r,g,b)
+2. use hex rgb number: #RRGGBB
+
+```shell
+vvplay ./pcds --bg-color "#9ef244"
+vvplay ./pcds --bg-color "rgb(10,23,189)"
 ```
 
 ### `vvdash`

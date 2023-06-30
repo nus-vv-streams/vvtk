@@ -13,7 +13,7 @@ use super::Subcommand;
     override_usage = format!("\x1B[1m{}\x1B[0m [OPTIONS] +input=original,reconstructure +output=metrics", "metrics")
 )]
 pub struct Args {
-    #[clap(long, num_args = 1.., value_delimiter = ' ', default_value = "all")]
+    #[clap(short, long, num_args = 1.., value_delimiter = ',', default_value = "all")]
     metrics: Vec<SupoportedMetrics>,
 }
 
