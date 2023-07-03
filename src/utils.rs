@@ -19,9 +19,6 @@ use std::{
 
 use crate::{
     dash::{ThroughputPrediction, ViewportPrediction},
-    formats::{pointxyzrgba::PointXyzRgba, PointCloud},
-    pcd::read_pcd_file,
-    ply::read_ply,
 };
 
 #[cfg(feature = "render")]

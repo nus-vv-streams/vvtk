@@ -57,6 +57,7 @@ where
             1,
             [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
             point_cloud.number_of_points as u64,
+            PCDDataType::Binary,
         )
         .unwrap();
         // bincode makes use of serde to serialize the data into bytes

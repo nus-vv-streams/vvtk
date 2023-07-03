@@ -86,6 +86,10 @@ required-features = ["render", "dash"]
 [[bin]]
 name = "vv"
 
+[[bin]]
+name = "ply_play"
+required-features = ["render", "dash"]
+
 [features]
 default = ["render", "dash"]
 render = ["dep:winit", "dep:wgpu", "dep:wgpu_glyph", "dep:egui", "dep:egui_winit_platform", "dep:egui_wgpu_backend", "dep:epi"]

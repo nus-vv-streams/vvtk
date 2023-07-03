@@ -8,7 +8,7 @@ use self::pointxyzrgba::PointXyzRgba;
 
 pub mod pointxyzrgba;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct PointCloud<T>
 where
     T: Clone + Serialize,
@@ -38,17 +38,6 @@ impl Debug for PointCloud<pointxyzrgba::PointXyzRgba> {
         }
         writeln!(f, "}}")?;
         Ok(())
-    }
-}
-
-
-impl<T> PointCloud<T>
-where
-    T: Clone + Serialize,
-{
-    pub(crate) fn combine(&mut self, other: &Self) {
-        self.points.extend_from_slice(&other.points);
-        self.number_of_points += other.number_of_points;
     }
 }
 
