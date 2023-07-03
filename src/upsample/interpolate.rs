@@ -9,7 +9,7 @@ pub fn upsample(point_cloud: PointCloud<PointXyzRgba>, factor: usize) -> PointCl
     if factor <= 1 {
         point_cloud
     } else {
-        let mut points = point_cloud.points;
+        let points = point_cloud.points;
         let neighbour_radius = factor as f32 * 2.0 * 9.0;
         let mut kd_tree = KdTree::new();
         for (i, pt) in points.iter().enumerate() {
@@ -80,10 +80,35 @@ pub fn upsample(point_cloud: PointCloud<PointXyzRgba>, factor: usize) -> PointCl
                 }
             }
         }
-        points.extend(new_points);
+        new_points.extend(points);
         PointCloud {
-            number_of_points: points.len(),
-            points,
+            number_of_points: new_points.len(),
+            points: new_points,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{
+        pcd::{create_pcd, write_pcd_file},
+        utils::read_file_to_point_cloud,
+    };
+
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_upsample() {
+        let pcd_path = PathBuf::from("./test_files/pcd_ascii/longdress_vox10_1213_short.pcd");
+        let pcd = read_file_to_point_cloud(&pcd_path).unwrap();
+        println!("before: {:?}", pcd);
+        let upsampled = upsample(pcd, 2);
+        println!("Upsampled: {:?}", upsampled);
+        // write pcd
+        let out_path =
+            PathBuf::from("./test_files/pcd_ascii/longdress_vox10_1213_short_upsampled.pcd");
+        let pcd = create_pcd(&upsampled);
+        write_pcd_file(&pcd, crate::pcd::PCDDataType::Ascii, &out_path).unwrap();
     }
 }

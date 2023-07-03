@@ -1,7 +1,8 @@
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
 use crate::render::wgpu::camera::{Camera, CameraState};
-use crate::render::wgpu::renderer::PointCloudRenderer;
+use crate::render::wgpu::renderer::{parse_bg_color, PointCloudRenderer};
+use color_space::Rgb;
 use std::ffi::OsString;
 use std::num::NonZeroU32;
 use std::path::Path;
@@ -20,7 +21,7 @@ pub struct PngWriter<'a> {
     output_buffer: Buffer,
     camera_state: CameraState,
     point_renderer: Option<PointCloudRenderer<PointCloud<PointXyzRgba>>>,
-    count: usize,
+    bg_color: Rgb,
 }
 
 impl<'a> PngWriter<'a> {
@@ -33,6 +34,7 @@ impl<'a> PngWriter<'a> {
         camera_pitch: f32,
         width: u32,
         height: u32,
+        bg_color: &str,
     ) -> Self {
         let output_path = Path::new(&output_dir);
 
@@ -95,11 +97,11 @@ impl<'a> PngWriter<'a> {
             output_buffer,
             camera_state,
             point_renderer: None,
-            count: 0,
+            bg_color: parse_bg_color(bg_color).unwrap(),
         }
     }
 
-    pub fn write_to_png(&mut self, pc: &PointCloud<PointXyzRgba>) {
+    pub fn write_to_png(&mut self, pc: &PointCloud<PointXyzRgba>, filename: &str) {
         if self.point_renderer.is_none() {
             self.point_renderer = Some(PointCloudRenderer::new(
                 &self.device,
@@ -107,6 +109,7 @@ impl<'a> PngWriter<'a> {
                 pc,
                 self.size,
                 &self.camera_state,
+                self.bg_color,
             ));
         }
 
@@ -147,8 +150,6 @@ impl<'a> PngWriter<'a> {
                 ImageBuffer::<Rgba<u8>, _>::from_raw(self.size.width, self.size.height, data)
                     .unwrap();
 
-            let filename = format!("{}.png", self.count);
-            self.count += 1;
             let output_path = Path::new(&self.output_dir);
             buffer.save(output_path.join(Path::new(&filename))).unwrap();
         }

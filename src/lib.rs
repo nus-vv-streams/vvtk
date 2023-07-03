@@ -15,6 +15,8 @@ pub mod ply;
 pub mod render;
 pub mod upsample;
 pub mod utils;
+pub mod velodyne;
+
 
 use formats::{pointxyzrgba::PointXyzRgba, PointCloud};
 

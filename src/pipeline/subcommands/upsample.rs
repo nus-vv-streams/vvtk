@@ -7,8 +7,9 @@ use crate::{
 
 use super::Subcommand;
 
+/// Upsamples a pointcloud from the stream.
 #[derive(Parser)]
-struct Args {
+pub struct Args {
     #[clap(short, long)]
     factor: usize,
 }
@@ -30,14 +31,15 @@ impl Subcommand for Upsampler {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         for message in messages {
             match message {
-                PipelineMessage::PointCloud(pc) => {
+                PipelineMessage::IndexedPointCloud(pc, i) => {
                     let upsampled_pc = upsample(pc, self.factor);
-                    channel.send(PipelineMessage::PointCloud(upsampled_pc));
+                    channel.send(PipelineMessage::IndexedPointCloud(upsampled_pc, i));
                 }
                 PipelineMessage::Metrics(_) => {}
                 PipelineMessage::End => {
                     channel.send(message);
                 }
+                PipelineMessage::DummyForIncrement => {}
             };
         }
     }

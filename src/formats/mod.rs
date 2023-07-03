@@ -1,6 +1,8 @@
 use serde::Serialize;
+use std::fmt::Debug;
 
 use crate::pcd::PointCloudData;
+use crate::velodyne::{VelodynPoint, VelodyneBinData};
 
 use self::pointxyzrgba::PointXyzRgba;
 
@@ -25,7 +27,33 @@ where
     }
 }
 
-impl<T> From<PointCloudData> for PointCloud<T>
+impl Debug for PointCloud<pointxyzrgba::PointXyzRgba> {
+    // first print the number of points in one line
+    // then for each T in the Vec, print in a new line
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "PointCloud<PointXyzRgba> {{")?;
+        writeln!(f, "   number_of_points: {}", self.number_of_points)?;
+        for point in &self.points {
+            writeln!(f, "   {:?}", point)?;
+        }
+        writeln!(f, "}}")?;
+        Ok(())
+    }
+}
+
+
+impl<T> PointCloud<T>
+where
+    T: Clone + Serialize,
+{
+    pub(crate) fn combine(&mut self, other: &Self) {
+        self.points.extend_from_slice(&other.points);
+        self.number_of_points += other.number_of_points;
+    }
+}
+
+
+impl<T> From<PointCloudData> for PointCloud<T> 
 where
     T: Clone + Serialize,
 {
@@ -66,6 +94,32 @@ impl From<tmc2rs::codec::PointSet3> for PointCloud<PointXyzRgba> {
         Self {
             number_of_points,
             points,
+        }
+    }
+}
+
+impl From<VelodyneBinData> for PointCloud<pointxyzrgba::PointXyzRgba> {
+    // type T: pointxyzrgba::PointXyzRgba;
+    fn from(value: VelodyneBinData) -> Self {
+        let number_of_points = value.data.len();
+        let points = value.data.into_iter().map(|point| point.into()).collect();
+        Self {
+            number_of_points,
+            points,
+        }
+    }
+}
+
+impl From<VelodynPoint> for pointxyzrgba::PointXyzRgba {
+    fn from(value: VelodynPoint) -> Self {
+        Self {
+            x: value.x,
+            y: value.y,
+            z: value.z,
+            r: (value.intensity * 255.0) as u8,
+            g: (value.intensity * 255.0) as u8,
+            b: (value.intensity * 255.0) as u8,
+            a: 255,
         }
     }
 }

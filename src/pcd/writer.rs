@@ -1,4 +1,8 @@
-use crate::pcd::{PCDDataType, PCDFieldDataType, PCDFieldSize, PCDFieldType, PointCloudData};
+use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
+use crate::pcd::{
+    PCDDataType, PCDField, PCDFieldDataType, PCDFieldSize, PCDFieldType, PCDHeader, PCDVersion,
+    PointCloudData,
+};
 use byteorder::{NativeEndian, ReadBytesExt};
 use std::fs::File;
 use std::io::{BufWriter, Cursor, Write};
@@ -211,6 +215,7 @@ mod tests {
                 1,
                 [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
                 1,
+                "ascii".parse().unwrap(),
             )
             .unwrap(),
             data,
@@ -252,6 +257,7 @@ mod tests {
                 1,
                 [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
                 1,
+                "binary".parse().unwrap(),
             )
             .unwrap(),
             data,
@@ -266,4 +272,37 @@ mod tests {
         assert_eq!(new_pcd.header(), pcd.header());
         assert_eq!(new_pcd.data(), pcd.data());
     }
+}
+
+pub fn create_pcd(point_cloud: &PointCloud<PointXyzRgba>) -> PointCloudData {
+    let header = PCDHeader::new(
+        PCDVersion::V0_7,
+        vec![
+            PCDField::new("x".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
+            PCDField::new("y".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
+            PCDField::new("z".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
+            PCDField::new(
+                "rgba".to_string(),
+                PCDFieldSize::Four,
+                PCDFieldType::Unsigned,
+                1,
+            )
+            .unwrap(),
+        ],
+        point_cloud.number_of_points as u64,
+        1,
+        [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+        point_cloud.number_of_points as u64,
+        PCDDataType::Ascii, // this is a placeholder value, it will be overwritten accoradingly in write_pcd_file()
+    )
+    .unwrap();
+    let bytes = unsafe {
+        let mut points = std::mem::ManuallyDrop::new(point_cloud.points.clone());
+        Vec::from_raw_parts(
+            points.as_mut_ptr() as *mut u8,
+            point_cloud.number_of_points * std::mem::size_of::<PointXyzRgba>(),
+            points.capacity() * std::mem::size_of::<PointXyzRgba>(),
+        )
+    };
+    PointCloudData::new(header, bytes).unwrap()
 }

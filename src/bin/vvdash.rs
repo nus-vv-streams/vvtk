@@ -14,7 +14,7 @@ use vivotk::abr::{RateAdapter, MCKP};
 // then output binary files of varying qualities into output folder (should decoding be done here?)
 #[derive(Parser)]
 struct Args {
-    #[clap(parse(from_os_str))]
+    // #[clap(parse(from_os_str))]
     input_path: PathBuf,
     output_path: PathBuf,
     network_path: PathBuf,

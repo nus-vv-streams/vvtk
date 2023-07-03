@@ -1,8 +1,9 @@
-use crate::pcd::data_types::{PCDField, PCDFieldDataType, PCDHeader, PCDVersion, PointCloudData};
+use crate::pcd::data_types::{
+    PCDDataType, PCDField, PCDFieldDataType, PCDHeader, PCDVersion, PointCloudData,
+};
 use std::convert::TryInto;
 use std::fmt::Debug;
 
-use crate::pcd::PCDDataType;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
@@ -16,6 +17,13 @@ pub fn read_pcd_file<P: AsRef<Path>>(p: P) -> Result<PointCloudData> {
     let file = File::open(p).map_err(PCDReadError::IOError)?;
     let reader = BufReader::new(file);
     Parser::new(reader).parse()
+}
+
+/// Reads [PCDHeader] directly from a file given the path
+pub fn read_pcd_header<P: AsRef<Path>>(p: P) -> Result<PCDHeader> {
+    let file = File::open(p).map_err(PCDReadError::IOError)?;
+    let reader = BufReader::new(file);
+    Parser::new(reader).parse_header()
 }
 
 /// Parses a [PointCloudData] from the reader
@@ -80,9 +88,17 @@ impl<R: BufRead> Parser<R> {
         let (width, height) = self.parse_width_and_height()?;
         let viewpoint = self.parse_viewpoint()?;
         let points = self.parse_points()?;
+        let data_type = self.parse_data_type()?;
 
-        PCDHeader::new(version, fields, width, height, viewpoint, points)
+        PCDHeader::new(version, fields, width, height, viewpoint, points, data_type)
             .map_err(|s| self.header_err("", s))
+    }
+
+    fn parse_data_type(&mut self) -> Result<PCDDataType> {
+        self.next_line()?;
+        self.strip_line_prefix("DATA")?
+            .parse::<PCDDataType>()
+            .map_err(|e| self.header_err("DATA", e))
     }
 
     fn parse_header_version(&mut self) -> Result<PCDVersion> {
@@ -181,7 +197,7 @@ impl<R: BufRead> Parser<R> {
     }
 
     fn parse_data(mut self, header: PCDHeader) -> Result<PointCloudData> {
-        self.next_line()?;
+        // self.next_line()?;
         let data_type_str = self.strip_line_prefix("DATA")?;
         let data_type =
             PCDDataType::from_str(data_type_str).map_err(|s| self.header_err("DATA", s))?;
@@ -337,6 +353,7 @@ mod tests {
             1,
             [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
             213,
+            crate::pcd::PCDDataType::Ascii,
         )
         .unwrap()
     }
@@ -600,6 +617,7 @@ mod tests {
                HEIGHT 1 \n\
                VIEWPOINT 0 0 0 1 0 0 0 \n\
                POINTS 213 \n\
+               DATA ascii \n\
         ";
 
         let mut parser = Parser::new(BufReader::new(header_str.as_bytes()));
@@ -628,6 +646,8 @@ mod tests {
                VIEWPOINT 0 0 0 1 0 0 0 \n\
                # I am another comment\n\
                POINTS 213 \n\
+               # I am another comment\n\
+               DATA ascii \n\
                # I am another comment\n\
         ";
 

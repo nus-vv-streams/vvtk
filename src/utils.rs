@@ -1,3 +1,17 @@
+use crate::{
+    formats::{pointxyzrgba::PointXyzRgba, PointCloud},
+    pcd::{create_pcd, read_pcd_file, write_pcd_file, PCDDataType, PointCloudData},
+    ply::read_ply,
+    velodyne::read_velodyn_bin_file,
+};
+use ply_rs::{
+    parser, ply,
+    ply::DefaultElement,
+    ply::{Encoding, Payload},
+    writer,
+};
+use std::fs::File;
+use std::str::FromStr;
 use std::{
     ffi::OsString,
     path::{Path, PathBuf},
@@ -20,6 +34,7 @@ pub fn read_file_to_point_cloud(file: &PathBuf) -> Option<PointCloud<PointXyzRgb
         let point_cloud = match ext {
             "ply" => read_ply(file),
             "pcd" => read_pcd_file(file).map(PointCloud::from).ok(),
+            "bin" => read_velodyn_bin_file(file).map(PointCloud::from).ok(),
             _ => None,
         };
         return point_cloud;
@@ -27,7 +42,22 @@ pub fn read_file_to_point_cloud(file: &PathBuf) -> Option<PointCloud<PointXyzRgb
     None
 }
 
+fn check_files_existence(files: &Vec<OsString>) -> bool {
+    let mut flag = true;
+    for file_str in files {
+        let path = Path::new(&file_str);
+        if !path.exists() {
+            println!("File {:?} does not exist", path);
+            flag = false;
+        }
+    }
+    flag
+}
+
 pub fn find_all_files(os_strings: &Vec<OsString>) -> Vec<PathBuf> {
+    if !check_files_existence(os_strings) {
+        panic!("Some files do not exist")
+    }
     let mut files_to_convert = vec![];
     for file_str in os_strings {
         let path = Path::new(&file_str);
@@ -47,6 +77,16 @@ pub fn expand_directory(p: &Path) -> Vec<PathBuf> {
         let entry = entry.unwrap().path();
         if !entry.is_file() {
             // We do not recursively search
+            continue;
+        }
+        // ignore file start with .
+        if entry
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .starts_with('.')
+        {
             continue;
         }
         ply_files.push(entry);

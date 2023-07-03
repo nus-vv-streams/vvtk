@@ -29,7 +29,8 @@ impl CameraState {
             PROJECTION_ZNEAR,
             PROJECTION_ZFAR,
         );
-        let camera_controller = CameraController::new(CAMERA_SPEED, CAMERA_SENSITIVITY);
+        let camera_controller =
+            CameraController::new(CAMERA_SPEED, CAMERA_SENSITIVITY, camera.position.clone());
         let mut camera_uniform = CameraUniform::default();
         camera_uniform.update_view_proj(&camera, &projection);
 
@@ -282,10 +283,12 @@ pub struct CameraController {
     speed: f32,
     sensitivity: f32,
     reset_view_requested: bool,
+    if_reset: bool,
+    initial_position: Point3<f32>,
 }
 
 impl CameraController {
-    pub fn new(speed: f32, sensitivity: f32) -> Self {
+    pub fn new(speed: f32, sensitivity: f32, initial_position: Point3<f32>) -> Self {
         Self {
             amount_left: 0.0,
             amount_right: 0.0,
@@ -299,6 +302,8 @@ impl CameraController {
             speed,
             sensitivity,
             reset_view_requested: false,
+            if_reset: false,
+            initial_position,
         }
     }
 
@@ -337,6 +342,10 @@ impl CameraController {
                 self.reset_view_requested = true;
                 true
             }
+            VirtualKeyCode::Key0 => {
+                self.if_reset = true;
+                true
+            }
             _ => false,
         }
     }
@@ -359,6 +368,11 @@ impl CameraController {
             self.reset_view_requested = false;
             return;
         }
+        if self.if_reset {
+            camera.position = self.initial_position.clone();
+            self.if_reset = false;
+        }
+
         let dt = dt.as_secs_f32();
 
         // Move forward/backward and left/right
