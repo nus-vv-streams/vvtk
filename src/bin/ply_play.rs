@@ -53,12 +53,12 @@ struct Args {
     /// Set the screen width.
     ///
     /// To enable rendering at full screen, compile with `--features fullscreen` (depends on device gpu support)
-    #[clap(short, long, default_value_t = 1600)]
+    #[clap(short = 'W', long, default_value_t = 1600)]
     width: u32,
     /// Set the screen height.
     ///
     /// To enable rendering at full screen, compile with `--features fullscreen` (depends on device gpu support)
-    #[clap(short, long, default_value_t = 900)]
+    #[clap(short = 'H', long, default_value_t = 900)]
     height: u32,
     #[clap(long = "controls", action = clap::ArgAction::SetTrue, default_value_t = true)]
     show_controls: bool,
@@ -69,7 +69,7 @@ struct Args {
     metrics: Option<OsString>,
     #[clap(long = "abr", value_enum, default_value_t = AbrType::Quetra)]
     abr_type: AbrType,
-    #[clap(long = "decoder", value_enum, default_value_t = DecoderType::Tmc2rs)]
+    #[clap(long = "decoder", value_enum, default_value_t = DecoderType::Noop)]
     decoder_type: DecoderType,
     /// Set this flag if each view is encoded separately, i.e. multiview
     #[clap(long, action = clap::ArgAction::SetTrue)]
@@ -99,6 +99,8 @@ struct Args {
     /// 1. Not fetching when file has been previously downloaded.
     #[clap(long, action = clap::ArgAction::SetTrue)]
     enable_fetcher_optimizations: bool,
+    #[clap(long, default_value = "rgb(255,255,255)")]
+    bg_color: OsString,
 }
 
 #[derive(clap::ValueEnum, Clone, Copy)]
@@ -716,7 +718,7 @@ fn main() {
                 let mut dir = tokio::fs::read_dir(path).await.unwrap();
                 while let Some(entry) = dir.next_entry().await.unwrap() {
                     let f = entry.path();
-                    if !f.extension().map(|f| "ply".eq(f)).unwrap_or(false) {
+                    if !f.extension().map(|f| "pcd".eq(f)).unwrap_or(false) {
                         continue;
                     }
                     ply_files.push(f);
@@ -872,6 +874,7 @@ fn main() {
             camera,
             (args.width, args.height),
             metrics,
+            args.bg_color.to_str().unwrap()
         ));
     // };
     if args.show_controls {

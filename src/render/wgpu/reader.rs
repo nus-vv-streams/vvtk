@@ -4,7 +4,7 @@ use crate::pcd::read_pcd_file;
 use crate::BufMsg;
 
 use crate::utils::read_file_to_point_cloud;
-use std::collections::HashMap;
+// use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
@@ -12,6 +12,14 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use super::camera::CameraPosition;
 use super::renderable::Renderable;
+
+pub trait RenderReaderLegacy<T: Renderable> {
+    fn start(&mut self) -> Option<T>;
+    fn get_at(&mut self, index: usize) -> Option<T>;
+    fn len(&self) -> usize;
+    fn is_empty(&self) -> bool;
+    fn set_len(&mut self, len: usize);
+}
 
 pub trait RenderReader<T: Renderable> {
     /// Initialize the input reader for our renderer. Returns the first frame, if any.
@@ -84,13 +92,17 @@ impl PointCloudFileReader {
 }
 
 impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
-    fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
+    fn start(&mut self) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
         self.get_at(0, None)
     }
 
-    fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-        let file_path = self.files.get(index)?;
-        read_file_to_point_cloud(file_path)
+    fn get_at(
+        &mut self, 
+        index: usize, 
+        _camera_pos: Option<CameraPosition>
+    ) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
+        let file_path = self.files.get(index).unwrap();
+        (None, read_file_to_point_cloud(file_path))
     }
 
     fn len(&self) -> usize {
@@ -104,23 +116,19 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
     fn set_len(&mut self, _len: usize) {}
 }
 
-impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
-    fn start(&mut self) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
-        self.get_at(0, None)
+impl RenderReaderLegacy<PointCloud<PointXyzRgba>> for PcdFileReader {
+    fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
+        self.get_at(0)
     }
 
     fn get_at(
         &mut self,
         index: usize,
-        _camera_pos: Option<CameraPosition>,
-    ) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
-        (
-            None,
-            self.files
-                .get(index)
-                .and_then(|f| read_pcd_file(f).ok())
-                .map(PointCloud::from),
-        )
+    ) -> Option<PointCloud<PointXyzRgba>> {
+        self.files
+            .get(index)
+            .and_then(|f| read_pcd_file(f).ok())
+            .map(PointCloud::from)
     }
 
     fn len(&self) -> usize {
@@ -144,13 +152,13 @@ impl PcdMemoryReader {
     }
 }
 
-impl RenderReader<PointCloud<PointXyzRgba>> for PcdMemoryReader {
+impl RenderReaderLegacy<PointCloud<PointXyzRgba>> for PcdMemoryReader {
     fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
         self.points.get(index).cloned()
     }
 
     fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
-        self.get_at(0, None)
+        self.get_at(0)
     }
 
     fn len(&self) -> usize {
@@ -205,6 +213,7 @@ impl PcdAsyncReader {
             total_frames: 30, // default number of frames. Use `set_len` to overwrite this value
         }
     }
+
 }
 
 #[cfg(feature = "dash")]
