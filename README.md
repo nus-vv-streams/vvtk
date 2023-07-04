@@ -3,7 +3,6 @@
 ![format badge](https://github.com/nus-vv-streams/vivotk/actions/workflows/format.yml/badge.svg)
 ![build badge](https://github.com/nus-vv-streams/vivotk/actions/workflows/build.yml/badge.svg)
 
-
 ## How to Install?
 
 1. Install the latest Rust compiler from the [official website](https://www.rust-lang.org/tools/install)
@@ -18,7 +17,7 @@
 
 ### `vv`
 
-Provides subcommands that can be chained together. The inputs and outputs of a subcommand must be specified with the `+input=` or `+in` followed by a comma separated list of inputs or `+output=` or `+out` to denote the name of its output stream. Note that `+input` must be specified for commands other than `read`. 
+Provides subcommands that can be chained together. The inputs and outputs of a subcommand must be specified with the `+input=` or `+in` followed by a comma separated list of inputs or `+output=` or `+out` to denote the name of its output stream. Note that `+input` must be specified for commands other than `read`.
 
 ```shell
 Usage: vv <COMMAND>
@@ -141,7 +140,6 @@ vv read ./original +output=original \
         metrics +input=original,reconstructed +output=metrics --metrics acd,cd,hd \
         write ./metrics +input=metrics
 ```
-
 
 #### `write`
 
@@ -266,6 +264,7 @@ vv convert --input ./pcd_b --output ./pcd_a --storage-type ascii --output-format
 ```
 
 #### `info`
+
 Get the info of a pointcloud file or directory. Supported formats are .pcd and .ply. If no option is specified, all info will be printed.
 
 ```shell
@@ -408,24 +407,13 @@ vvplay ./pcds -b 100
 ```
 
 You can specify the background color using `--bg-color` in the following two ways.
+
 1. use rgb value: rgb(r,g,b)
 2. use hex rgb number: #RRGGBB
 
 ```shell
 vvplay ./pcds --bg-color "#9ef244"
 vvplay ./pcds --bg-color "rgb(10,23,189)"
-```
-
-### `vvdash`
-
-Simulates DASH streaming by sending input files to an output directory over simulated network conditions
-
-### Example
-
-The following command will send 300 frames of varying `"hi"` or `"lo"` qualities from `./input` to `./output`, depending on the simulated network conditions specified in `./simulated_network.txt`, which is a `.txt` file containing bandwidth conditions specified in KB/s, separated by newline characters `(\n)`.
-
-```shell
-vvdash ./input ./output ./simulated_network.txt 300
 ```
 
 ## For Developers
@@ -437,4 +425,3 @@ Use Rust 1.69
 ### Coding Style
 
 We follow the [official Rust coding style](https://github.com/rust-dev-tools/fmt-rfcs/blob/master/guide/guide.md).  You can use `rustfmt` (or run `cargo fmt`) to automatically format your code.
-
