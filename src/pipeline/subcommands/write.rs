@@ -2,7 +2,7 @@ use cgmath::num_traits::pow;
 use clap::Parser;
 // use log::warn;
 
-use crate::pcd::{write_pcd_file, PCDDataType, create_pcd};
+use crate::pcd::{create_pcd, write_pcd_file, PCDDataType};
 use crate::pipeline::channel::Channel;
 use crate::pipeline::PipelineMessage;
 use crate::utils::{pcd_to_ply_from_data, ConvertOutputFormat};

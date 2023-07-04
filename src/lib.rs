@@ -17,7 +17,6 @@ pub mod upsample;
 pub mod utils;
 pub mod velodyne;
 
-
 use formats::{pointxyzrgba::PointXyzRgba, PointCloud};
 
 #[cfg(feature = "render")]

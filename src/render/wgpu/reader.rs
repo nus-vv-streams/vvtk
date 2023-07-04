@@ -97,9 +97,9 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
     }
 
     fn get_at(
-        &mut self, 
-        index: usize, 
-        _camera_pos: Option<CameraPosition>
+        &mut self,
+        index: usize,
+        _camera_pos: Option<CameraPosition>,
     ) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
         let file_path = self.files.get(index).unwrap();
         (None, read_file_to_point_cloud(file_path))
@@ -121,10 +121,7 @@ impl RenderReaderLegacy<PointCloud<PointXyzRgba>> for PcdFileReader {
         self.get_at(0)
     }
 
-    fn get_at(
-        &mut self,
-        index: usize,
-    ) -> Option<PointCloud<PointXyzRgba>> {
+    fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
         self.files
             .get(index)
             .and_then(|f| read_pcd_file(f).ok())
@@ -213,7 +210,6 @@ impl PcdAsyncReader {
             total_frames: 30, // default number of frames. Use `set_len` to overwrite this value
         }
     }
-
 }
 
 #[cfg(feature = "dash")]

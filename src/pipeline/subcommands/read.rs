@@ -68,9 +68,6 @@ impl Subcommand for Read {
                 if let Some(pc) = point_cloud {
                     channel.send(PipelineMessage::IndexedPointCloud(pc, i as u32));
                 }
-                
-
-                
             }
             channel.send(PipelineMessage::End);
         } else {

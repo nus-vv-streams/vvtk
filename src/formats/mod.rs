@@ -41,8 +41,7 @@ impl Debug for PointCloud<pointxyzrgba::PointXyzRgba> {
     }
 }
 
-
-impl<T> From<PointCloudData> for PointCloud<T> 
+impl<T> From<PointCloudData> for PointCloud<T>
 where
     T: Clone + Serialize,
 {

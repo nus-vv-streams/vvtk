@@ -3,7 +3,7 @@ use crate::render::wgpu::builder::{
 };
 use crate::render::wgpu::camera::{Camera, CameraState, CameraUniform};
 use crate::render::wgpu::gpu::WindowGpu;
-use crate::render::wgpu::reader::{RenderReader, RenderReaderLegacy};
+use crate::render::wgpu::reader::{RenderReader};
 use log::debug;
 use std::iter;
 use std::marker::PhantomData;

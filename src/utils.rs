@@ -17,9 +17,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{
-    dash::{ThroughputPrediction, ViewportPrediction},
-};
+use crate::dash::{ThroughputPrediction, ViewportPrediction};
 
 #[cfg(feature = "render")]
 use crate::render::wgpu::camera::CameraPosition;
@@ -628,7 +626,6 @@ fn set_encoding() -> Encoding {
     Encoding::BinaryBigEndian
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -711,6 +708,7 @@ mod tests {
         assert!((lpema.predict().unwrap() - 4.250925).abs() < EPSILON);
     }
 
+    #[test]
     fn test_read_ply() {
         let ply_ascii_path = PathBuf::from("./test_files/ply_ascii/longdress_vox10_1213_short.ply");
         let pc = read_ply(&ply_ascii_path).unwrap();

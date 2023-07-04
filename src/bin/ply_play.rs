@@ -25,7 +25,7 @@ use vivotk::render::wgpu::{
     renderer::Renderer,
 };
 use vivotk::utils::{
-    get_cosines, predict_quality, read_file_to_point_cloud, ExponentialMovingAverage, LastValue,
+    get_cosines, predict_quality, ExponentialMovingAverage, LastValue,
     SimpleRunningAverage, GAEMA, LPEMA,
 };
 use vivotk::{BufMsg, PCMetadata};
