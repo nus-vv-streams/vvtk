@@ -18,7 +18,7 @@
 
 ### `vv`
 
-Provides subcommands that can be chained together. The inputs and outputs of a subcommand must be specified with the `+input=` or `+in` followed by a comma separated list of inputs or `+output=` or `+out` to denote the name of its output stream. Note that `+input` must be specified for commands other than `read`. 
+Provides subcommands that can be chained together. The inputs and outputs of a subcommand must be specified with the `+input=` or `+in` followed by a comma separated list of inputs or `+output=` or `+out` to denote the name of its output stream. Note that `+input` must be specified for commands other than `read`.
 
 ```shell
 Usage: vv <COMMAND>
@@ -75,6 +75,7 @@ Arguments:
 
 Options:
   -t, --filetype <FILETYPE>  [default: all] [possible values: all, ply, pcd]
+  -n, --num <NUM>            read previous n files after sorting lexicalgraphically
   -h, --help                 Print help
 ```
 
@@ -82,9 +83,16 @@ Options:
 vv read ./Ply +output=plys
 ```
 
+Read only 10 files from a folder, specifying `--num` is useful to check the command is working as expected.
+
+```shell
+vv read ./Ply --num 10 +output=plys
+```
+
 #### `render`
 
-Writes point clouds from the input stream into images.
+Writes point clouds from the input stream into images(png) or videos(mp4).
+To render point clouds into mp4, you need to make sure `ffmepg` is installed.
 
 ```shell
 Usage: render [OPTIONS] <OUTPUT_DIR> 
@@ -95,20 +103,34 @@ Arguments:
 Options:
   -x, --camera-x <CAMERA_X>        [default: 0]
   -y, --camera-y <CAMERA_Y>        [default: 0]
-  -z, --camera-z <CAMERA_Z>        [default: 1.3]
+  -z, --camera-z <CAMERA_Z>        [default: 1.8]
       --yaw <CAMERA_YAW>           [default: -90]
       --pitch <CAMERA_PITCH>       [default: 0]
       --width <WIDTH>              [default: 1600]
       --height <HEIGHT>            [default: 900]
       --name-length <NAME_LENGTH>  [default: 5]
+      --bg-color <BG_COLOR>        [default: rgb(255,255,255)]
+      --format <RENDER_FORMAT>     [default: png] [possible values: png, mp4]
+      --fps <FPS>                  [default: 30]
+      --verbose
   -h, --help                       Print help
 ```
 
-**render example**
+**render to png example**
 
 ```shell
 vv read ./Ply +output=plys \
         render ./Pngs +input=plys
+```
+
+**render to mp4 example**
+
+Read 60 frames of pointcloud and render them into a mp4 video with fps=20. This is done by first render them into png files, and then use `ffmpeg` to convert the images into a mp4 video.
+
+```shell
+vv read -n 60 ./pcd +output=pcd \
+    render ./mp4 \
+    +input=f --format mp4 --fps 20
 ```
 
 #### `metrics`

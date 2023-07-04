@@ -1,10 +1,12 @@
 use super::Subcommand;
 use crate::pipeline::channel::Channel;
 use crate::pipeline::PipelineMessage;
-use crate::render::wgpu::png::PngWriter;
+use crate::render::wgpu::png::{PngWriter, RenderFormat};
 use cgmath::num_traits::pow;
 use clap::Parser;
 use std::ffi::OsString;
+use std::path::Path;
+use std::process::{Command, Stdio};
 
 /// Writes point clouds from the input stream into images.
 #[derive(Parser)]
@@ -15,7 +17,7 @@ pub struct Args {
     camera_x: f32,
     #[clap(short = 'y', long, default_value_t = 0.0)]
     camera_y: f32,
-    #[clap(short = 'z', long, default_value_t = 1.3)]
+    #[clap(short = 'z', long, default_value_t = 1.8)]
     camera_z: f32,
     #[clap(long = "yaw", default_value_t = -90.0, allow_hyphen_values = true)]
     camera_yaw: f32,
@@ -29,15 +31,23 @@ pub struct Args {
     name_length: u32,
     #[clap(long, default_value = "rgb(255,255,255)")]
     bg_color: OsString,
+    #[clap(long = "format", default_value_t = RenderFormat::Png)]
+    render_format: RenderFormat,
+    #[clap(long, default_value_t = false)]
+    verbose: bool,
+    #[clap(long, default_value_t = 30.0)]
+    fps: f32,
 }
 
-pub struct ToPng<'a> {
+pub struct Render<'a> {
     writer: PngWriter<'a>,
     name_length: u32,
     count: u32,
+    verbose: bool,
+    fps: f32,
 }
 
-impl<'a> ToPng<'a> {
+impl<'a> Render<'a> {
     pub fn from_args(args: Vec<String>) -> Box<dyn Subcommand> {
         let Args {
             output_dir,
@@ -50,9 +60,46 @@ impl<'a> ToPng<'a> {
             height,
             name_length,
             bg_color,
+            render_format,
+            verbose,
+            fps,
         }: Args = Args::parse_from(args);
 
-        Box::from(ToPng {
+        let mut output_dir = output_dir;
+        if render_format == RenderFormat::Mp4 {
+            // check ffmpeg existence first
+            let _ffmpeg_check = Command::new("ffmpeg")
+                .arg("-version")
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .expect("Failed to check ffmpeg existence. Please install ffmpeg first.");
+
+            output_dir = (output_dir.into_string().unwrap() + "/.tmp_mp4").into();
+            // create the directory if it doesn't exist
+            // if exists, check if it's empty
+            // if not empty, panic
+
+            let checked_path = Path::new(&output_dir);
+            if !checked_path.exists() {
+                std::fs::create_dir_all(checked_path).expect("Failed to create output directory");
+            } else {
+                if checked_path.read_dir().unwrap().next().is_some() {
+                    panic!(
+                        "Temp png directory({}) is not empty, please backup and remove the files",
+                        output_dir.to_str().unwrap()
+                    )
+                }
+                if checked_path.is_file() {
+                    panic!(
+                        "Temp png directory({}) is a file, please rename this file",
+                        output_dir.to_str().unwrap()
+                    );
+                }
+            }
+        }
+
+        Box::from(Render {
             writer: PngWriter::new(
                 output_dir,
                 camera_x,
@@ -63,14 +110,17 @@ impl<'a> ToPng<'a> {
                 width,
                 height,
                 bg_color.to_str().unwrap(),
+                render_format,
             ),
             name_length,
             count: 0,
+            verbose,
+            fps,
         })
     }
 }
 
-impl Subcommand for ToPng<'_> {
+impl Subcommand for Render<'_> {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         let max_count = pow(10, self.name_length as usize);
 
@@ -90,6 +140,17 @@ impl Subcommand for ToPng<'_> {
             }
             channel.send(message);
         }
+    }
+}
+
+impl Drop for Render<'_> {
+    fn drop(&mut self) {
+        if self.writer.render_format() == RenderFormat::Mp4 {
+            self.writer
+                .write_to_mp4(self.name_length, self.fps, self.verbose);
+        }
+        // drop writer
+        drop(&self.writer);
     }
 }
 
