@@ -35,7 +35,7 @@ impl Subcommand for Downsampler {
                     let downsampled_pc = downsample(pc, self.points_per_voxel);
                     channel.send(PipelineMessage::IndexedPointCloud(downsampled_pc, i));
                 }
-                PipelineMessage::Metrics(_) | PipelineMessage::DummyForIncrement => {}
+                PipelineMessage::Metrics(_) | PipelineMessage::IndexedPointCloudNormal(_, _) | PipelineMessage::DummyForIncrement => {}
                 PipelineMessage::End => {
                     channel.send(message);
                 }

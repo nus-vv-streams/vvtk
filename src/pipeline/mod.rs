@@ -7,7 +7,7 @@ use crossbeam_channel::Receiver;
 // use std::sync::mpsc::Receiver;
 
 use crate::{
-    formats::{pointxyzrgba::PointXyzRgba, PointCloud},
+    formats::{pointxyzrgbanormal::PointXyzRgbaNormal, pointxyzrgba::PointXyzRgba, PointCloud},
     metrics::Metrics,
 };
 
@@ -15,7 +15,7 @@ use self::{
     executor::Executor,
     executor::ExecutorBuilder,
     subcommands::{
-        convert, downsample, metrics, read, to_png, upsample, write, Convert, Downsampler,
+        convert, downsample, metrics, read, to_png, upsample, write, normal_estimation, Convert, Downsampler,
         MetricsCalculator, Read, Subcommand, ToPng, Upsampler, Write, NormalEstimation,
     },
 };
@@ -31,7 +31,7 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
         "downsample" => Some(Box::from(Downsampler::from_args)),
         "upsample" => Some(Box::from(Upsampler::from_args)),
         "convert" => Some(Box::from(Convert::from_args)),
-        "normal_estimation" => Some(Box::from(NormalEstimation::from_args)),
+        "normal" => Some(Box::from(NormalEstimation::from_args)),
         // "play" => Some(Box::from(Play::from_args)),
         _ => None,
     }
@@ -40,6 +40,7 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
 #[derive(Debug, Clone)]
 pub enum PipelineMessage {
     IndexedPointCloud(PointCloud<PointXyzRgba>, u32),
+    IndexedPointCloudNormal(PointCloud<PointXyzRgbaNormal>, u32),
     // PointCloud(PointCloud<PointXyzRgba>),
     Metrics(Metrics),
     End,
@@ -193,6 +194,8 @@ enum VVSubCommand {
     Downsample(downsample::Args),
     #[clap(name = "upsample")]
     Upsample(upsample::Args),
+    #[clap(name = "normal_estimation")]
+    NormalEstimation(normal_estimation::Args),
 }
 
 fn display_main_help_msg() {

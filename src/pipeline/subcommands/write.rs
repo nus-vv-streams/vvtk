@@ -101,7 +101,7 @@ impl Subcommand for Write {
                         .and_then(|mut f| metrics.write_to(&mut f))
                         .expect("Should be able to create file to write metrics to");
                 }
-                PipelineMessage::End | PipelineMessage::DummyForIncrement => {}
+                PipelineMessage::End | PipelineMessage::IndexedPointCloudNormal(_, _) | PipelineMessage::DummyForIncrement => {}
             }
             channel.send(message);
         }
