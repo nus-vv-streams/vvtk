@@ -44,6 +44,9 @@ impl ply_rs::ply::PropertyAccess for PointXyzRgba {
             g: 0,
             b: 0,
             a: 255,
+            nx: 0.0,
+            ny: 0.0,
+            nz: 0.0,
         }
     }
 
@@ -59,6 +62,12 @@ impl ply_rs::ply::PropertyAccess for PointXyzRgba {
             ("green", Property::UChar(v)) => self.g = v,
             ("blue", Property::UChar(v)) => self.b = v,
             ("alpha", Property::UChar(v)) => self.a = v,
+            ("nx", Property::Double(v)) => self.nx = v as f32,
+            ("ny", Property::Double(v)) => self.ny = v as f32,
+            ("nz", Property::Double(v)) => self.nz = v as f32,
+            ("nx", Property::Float(v)) => self.nx = v,
+            ("ny", Property::Float(v)) => self.ny = v,
+            ("nz", Property::Float(v)) => self.nz = v,
             _ => {}
         }
     }

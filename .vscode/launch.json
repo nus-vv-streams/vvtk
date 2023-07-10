@@ -25,6 +25,24 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Debug vv test",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=vv",
+                    "--package=vvtk"
+                ],
+                "filter": {
+                    "name": "vv",
+                    "kind": "bin"
+                }
+            },
+            "args": ["read", "./Ply", "+output=ply", "\\", "downsample", "-p", "2", "+input=ply", "+output=ply1",],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug unit tests in library 'iswr'",
             "cargo": {
                 "args": [
