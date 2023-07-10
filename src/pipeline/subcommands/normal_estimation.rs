@@ -49,8 +49,8 @@ fn perform_normal_estimation(pc: &PointCloud<PointXyzRgba>, radius: f64) -> Poin
     // Select Neighboring Points
     let neighbors = select_neighboring_points(pc, radius);
 
-    // // Compute Covariance Matrix
-    // let covariance_matrices = compute_covariance_matrices(&cleaned_cloud, &neighbors);
+    // Compute Covariance Matrix
+    let covariance_matrices = compute_covariance_matrices(&pc, &neighbors);
 
     // // Compute Eigenvalues and Eigenvectors
     // let eigen_results = compute_eigenvalues_and_eigenvectors(&covariance_matrices);
@@ -117,10 +117,85 @@ where
     (dx * dx + dy * dy + dz * dz).sqrt()
 }
 
-// fn compute_covariance_matrices(pc: &PointCloud<PointXyzRgba>, neighbors: &[Vec<usize>]) -> Vec<CovarianceMatrix> {
-//     // Compute the covariance matrix for each point and its neighbors
-//     // Return a vector containing the covariance matrices
-// }
+#[derive(Debug, PartialEq)]
+pub struct CovarianceMatrix {
+    xx: f32,
+    xy: f32,
+    xz: f32,
+    yy: f32,
+    yz: f32,
+    zz: f32,
+}
+
+impl CovarianceMatrix {
+    fn zeros() -> Self {
+        CovarianceMatrix {
+            xx: 0.0,
+            xy: 0.0,
+            xz: 0.0,
+            yy: 0.0,
+            yz: 0.0,
+            zz: 0.0,
+        }
+    }
+}
+
+fn compute_covariance_matrices(pc: &PointCloud<PointXyzRgba>, neighbors: &[Vec<usize>]) -> Vec<CovarianceMatrix> {
+    let mut covariance_matrices = Vec::with_capacity(pc.number_of_points);
+
+    for (i, point_neighbors) in neighbors.iter().enumerate() {
+        let num_neighbors = point_neighbors.len();
+
+        if num_neighbors < 3 {
+            // Insufficient neighbors to compute covariance matrix, set it as all zeros
+            covariance_matrices.push(CovarianceMatrix::zeros());
+            continue;
+        }
+
+        let mut cov_xx = 0.0;
+        let mut cov_xy = 0.0;
+        let mut cov_xz = 0.0;
+        let mut cov_yy = 0.0;
+        let mut cov_yz = 0.0;
+        let mut cov_zz = 0.0;
+
+        for &neighbor_index in point_neighbors {
+            let neighbor = &pc.points[neighbor_index];
+            let dx = neighbor.x - pc.points[i].x;
+            let dy = neighbor.y - pc.points[i].y;
+            let dz = neighbor.z - pc.points[i].z;
+
+            cov_xx += dx * dx;
+            cov_xy += dx * dy;
+            cov_xz += dx * dz;
+            cov_yy += dy * dy;
+            cov_yz += dy * dz;
+            cov_zz += dz * dz;
+        }
+
+        let inv_num_neighbors = 1.0 / (num_neighbors as f32);
+
+        cov_xx *= inv_num_neighbors;
+        cov_xy *= inv_num_neighbors;
+        cov_xz *= inv_num_neighbors;
+        cov_yy *= inv_num_neighbors;
+        cov_yz *= inv_num_neighbors;
+        cov_zz *= inv_num_neighbors;
+
+        covariance_matrices.push(CovarianceMatrix {
+            xx: cov_xx,
+            xy: cov_xy,
+            xz: cov_xz,
+            yy: cov_yy,
+            yz: cov_yz,
+            zz: cov_zz,
+        });
+    }
+
+    covariance_matrices
+}
+
+
 
 // fn compute_eigenvalues_and_eigenvectors(covariance_matrices: &[CovarianceMatrix]) -> Vec<EigenResult> {
 //     // Compute the eigenvalues and eigenvectors for each covariance matrix
@@ -183,6 +258,52 @@ mod test {
     
         // Point 4 should have neighbors 3
         assert_eq!(neighbors[4], vec![3]);
-    }    
+    }
+
+    #[test]
+    fn test_compute_covariance_matrices() {
+        // Create a sample point cloud
+        let points = vec![
+            PointXyzRgba { x: 0.0, y: 0.0, z: 0.0, r: 0, g: 0, b: 0, a: 255 },
+            PointXyzRgba { x: 1.0, y: 1.0, z: 1.0, r: 255, g: 255, b: 255, a: 255 },
+            PointXyzRgba { x: 2.0, y: 2.0, z: 2.0, r: 255, g: 0, b: 0, a: 255 },
+            PointXyzRgba { x: 3.0, y: 3.0, z: 3.0, r: 0, g: 255, b: 0, a: 255 },
+            PointXyzRgba { x: 3.0, y: 3.0, z: 3.0, r: 0, g: 255, b: 0, a: 255 },
+        ];
+    
+        let pc = PointCloud {
+            number_of_points: points.len(),
+            points,
+        };
+    
+        let radius = 2.0; // Example radius value
+    
+        let neighbors = select_neighboring_points(&pc, radius);
+        let covariance_matrices = compute_covariance_matrices(&pc, &neighbors);
+
+        // Assert the expected covariance matrices
+    
+        // Point 0 does not have sufficient neighbors, covariance matrix should be all zeros
+        assert_eq!(covariance_matrices[0], CovarianceMatrix::zeros());
+    
+        // Point 1 does not have sufficient neighbors, covariance matrix should be all zeros
+        assert_eq!(covariance_matrices[1], CovarianceMatrix::zeros());
+    
+        // Point 2 has sufficient neighbors
+        let expected_covariance_2 = CovarianceMatrix {
+            xx: 1.0,
+            xy: 1.0,
+            xz: 1.0,
+            yy: 1.0,
+            yz: 1.0,
+            zz: 1.0,
+        };
+        assert_eq!(covariance_matrices[2], expected_covariance_2);
+    
+        // Point 3 does not have sufficient neighbors, covariance matrix should be all zeros
+        assert_eq!(covariance_matrices[3], CovarianceMatrix::zeros());
+    }
+    
+    
 }
 
