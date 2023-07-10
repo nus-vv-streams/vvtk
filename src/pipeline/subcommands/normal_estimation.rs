@@ -1,4 +1,5 @@
 use clap::Parser;
+use std::ops::Sub;
 use crate::pipeline::channel::Channel;
 use crate::pipeline::PipelineMessage;
 use crate::formats::{PointCloud, pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal};
@@ -10,7 +11,8 @@ use super::Subcommand;
     about = "Performs normal estimation on point clouds.",
 )]
 pub struct Args {
-    //TODO: Add any necessary arguments for the normal estimation
+    #[clap(short, long, default_value = "1.0")]
+    radius: f64,
 }
 
 pub struct NormalEstimation {
@@ -31,7 +33,7 @@ impl Subcommand for NormalEstimation {
         for message in messages {
             match message {
                 PipelineMessage::IndexedPointCloud(pc, i) => {
-                    let normal_estimation_result = perform_normal_estimation(&pc);
+                    let normal_estimation_result = perform_normal_estimation(&pc, self.args.radius);
                     channel.send(PipelineMessage::IndexedPointCloudNormal(normal_estimation_result, i));
                 }
                 PipelineMessage::Metrics(_) | PipelineMessage::IndexedPointCloudNormal(_, _) | PipelineMessage::DummyForIncrement => {}
@@ -43,12 +45,9 @@ impl Subcommand for NormalEstimation {
     }
 }
 
-fn perform_normal_estimation(pc: &PointCloud<PointXyzRgba>) -> PointCloud<PointXyzRgbaNormal> {
-    // // Prepare the Point Cloud
-    // let cleaned_cloud = prepare_point_cloud(pc);
-
-    // // Select Neighboring Points
-    // let neighbors = select_neighboring_points(&cleaned_cloud);
+fn perform_normal_estimation(pc: &PointCloud<PointXyzRgba>, radius: f64) -> PointCloud<PointXyzRgbaNormal> {
+    // Select Neighboring Points
+    let neighbors = select_neighboring_points(pc, radius);
 
     // // Compute Covariance Matrix
     // let covariance_matrices = compute_covariance_matrices(&cleaned_cloud, &neighbors);
@@ -82,16 +81,41 @@ fn perform_normal_estimation(pc: &PointCloud<PointXyzRgba>) -> PointCloud<PointX
     point_cloud
 }
 
-// fn prepare_point_cloud(pc: &PointCloud<PointXyzRgba>) -> PointCloud<PointXyzRgba> {
-//     // Perform any cleaning, denoising, or downsampling steps here
-//     // Return the prepared point cloud
-// }
+fn select_neighboring_points(pc: &PointCloud<PointXyzRgba>, radius: f64) -> Vec<Vec<usize>> {
+    let mut neighbors: Vec<Vec<usize>> = vec![Vec::new(); pc.number_of_points];
 
-// fn select_neighboring_points(pc: &PointCloud<PointXyzRgba>) -> Vec<Vec<usize>> {
-//     // Select neighboring points for each point in the point cloud
-//     // This could be done using radius search or k-nearest neighbors
-//     // Return a vector containing the indices of neighboring points for each point
-// }
+    for i in 0..pc.number_of_points {
+        let mut point_neighbors: Vec<usize> = Vec::new();
+        let p1 = &pc.points[i];
+
+        for j in 0..pc.number_of_points {
+            if i != j {
+                let p2 = &pc.points[j];
+                let dist = distance(&[p1.x, p1.y, p1.z], &[p2.x, p2.y, p2.z]);
+
+                if dist <= radius {
+                    point_neighbors.push(j);
+                }
+            }
+        }
+
+        neighbors[i] = point_neighbors;
+    }
+
+    neighbors
+}
+
+
+fn distance<T>(p1: &[T; 3], p2: &[T; 3]) -> f64
+where
+    T: Sub<Output = T> + Into<f64> + Copy,
+{
+    let dx = (p1[0] - p2[0]).into();
+    let dy = (p1[1] - p2[1]).into();
+    let dz = (p1[2] - p2[2]).into();
+
+    (dx * dx + dy * dy + dz * dz).sqrt()
+}
 
 // fn compute_covariance_matrices(pc: &PointCloud<PointXyzRgba>, neighbors: &[Vec<usize>]) -> Vec<CovarianceMatrix> {
 //     // Compute the covariance matrix for each point and its neighbors
@@ -118,3 +142,47 @@ fn perform_normal_estimation(pc: &PointCloud<PointXyzRgba>) -> PointCloud<PointX
 //     // you will have estimated a normal vector for each point with orientations consistent across the entire point cloud
 //     // Return the completed normal estimation as a new point cloud
 // }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_select_neighboring_points() {
+        // Create a sample point cloud
+        let points = vec![
+            PointXyzRgba { x: 0.0, y: 0.0, z: 0.0, r: 0, g: 0, b: 0, a: 255 },
+            PointXyzRgba { x: 1.0, y: 1.0, z: 1.0, r: 255, g: 255, b: 255, a: 255 },
+            PointXyzRgba { x: 2.0, y: 2.0, z: 2.0, r: 255, g: 0, b: 0, a: 255 },
+            PointXyzRgba { x: 3.0, y: 3.0, z: 3.0, r: 0, g: 255, b: 0, a: 255 },
+            PointXyzRgba { x: 4.0, y: 4.0, z: 4.0, r: 0, g: 0, b: 255, a: 255 },
+        ];
+    
+        let pc = PointCloud {
+            number_of_points: points.len(),
+            points,
+        };
+    
+        let radius = 3.0; // Example radius value
+    
+        let neighbors = select_neighboring_points(&pc, radius);
+    
+        // Assert the expected neighbors for each point
+    
+        // Point 0 should have neighbors 1
+        assert_eq!(neighbors[0], vec![1]);
+    
+        // Point 1 should have neighbors 0, 2
+        assert_eq!(neighbors[1], vec![0, 2]);
+    
+        // Point 2 should have neighbors 1, 3
+        assert_eq!(neighbors[2], vec![1, 3]);
+    
+        // Point 3 should have neighbors 2, 4
+        assert_eq!(neighbors[3], vec![2, 4]);
+    
+        // Point 4 should have neighbors 3
+        assert_eq!(neighbors[4], vec![3]);
+    }    
+}
+
