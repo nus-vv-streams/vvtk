@@ -14,13 +14,8 @@ use self::{
     executor::Executor,
     executor::ExecutorBuilder,
     subcommands::{
-<<<<<<< HEAD
-        convert, downsample, metrics, read, to_png, upsample, write, Convert, Downsampler,
-        MetricsCalculator, Read, Subcommand, ToPng, Upsampler, Write, reconstruct, Reconstructer,
-=======
         convert, downsample, info, metrics, read, render, upsample, write, Convert, Downsampler,
-        Info, MetricsCalculator, Read, Render, Subcommand, Upsampler, Write,
->>>>>>> main
+        Info, MetricsCalculator, Read, Render, Subcommand, Upsampler, Write, reconstruct, Reconstructer,
     },
 };
 
@@ -203,14 +198,10 @@ enum VVSubCommand {
     Downsample(downsample::Args),
     #[clap(name = "upsample")]
     Upsample(upsample::Args),
-<<<<<<< HEAD
     #[clap(name = "reconstruct")]
     Reconstruct(reconstruct::Args),
-
-=======
     #[clap(name = "info")]
     Info(info::Args),
->>>>>>> main
 }
 
 fn display_main_help_msg() {

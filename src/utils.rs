@@ -272,7 +272,7 @@ pub fn velodyne_bin_to_ply(output_path: &Path, storage_type: PCDDataType, file_p
     let pcd: PointCloudData = create_pcd(&pc);
     let filename = Path::new(file_path.file_name().unwrap()).with_extension("ply");
     let output_file = output_path.join(filename);
-    if let Err(e) = pcd_to_ply_from_data(&output_file, storage_type, pcd) {
+    if let Err(e) = pcd_to_ply_from_data(&output_file, storage_type, pcd, &None) {
         println!(
             "Failed to write {:?} to {:?}\n{e}",
             file_path.into_os_string(),
