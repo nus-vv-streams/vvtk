@@ -4,6 +4,8 @@ use crate::pcd::PointCloudData;
 
 pub mod pointxyzrgba;
 
+pub mod triangle_face;
+
 #[derive(Clone)]
 pub struct PointCloud<T> {
     pub number_of_points: usize,

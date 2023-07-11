@@ -19,7 +19,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["read", "./Ply", "+output=ply", "\\", "reconstruct", "+input=ply", "+output=ply1", "\\", "write", "./out", "+input=ply1",],
+            "args": ["read", "./Ply", "+output=ply", "\\", "reconstruct", "+input=ply", "+output=ply1", "\\", "write", "./out", "+input=ply1", "--storage-type",  "ascii", "--output-format", "ply"],
             "cwd": "${workspaceFolder}"
         },
         {

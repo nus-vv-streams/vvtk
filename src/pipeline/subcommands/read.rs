@@ -59,7 +59,7 @@ impl Subcommand for Read {
 
                 let point_cloud = read_file_to_point_cloud(file);
                 if let Some(pc) = point_cloud {
-                    channel.send(PipelineMessage::IndexedPointCloud(pc, i as u32));
+                    channel.send(PipelineMessage::IndexedPointCloud(pc, i as u32, None));
                 }
             }
             channel.send(PipelineMessage::End);

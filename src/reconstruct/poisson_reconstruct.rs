@@ -1,4 +1,4 @@
-use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
+use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud, triangle_face::TriangleFace};
 use octree::Octree;
 use poisson_reconstruction::{PoissonReconstruction, Real};
 use nalgebra::{Point3, Vector3};
@@ -7,7 +7,7 @@ const BUCKET_SIZE: usize = 10000;
 
 pub fn reconstruct(
     points: PointCloud<PointXyzRgba>,
-) -> PointCloud<PointXyzRgba> {
+) -> (PointCloud<PointXyzRgba>, Vec<TriangleFace>) {
     // let tmp = points.clone();
     // set octree
     // let _octree = create_octree(points);
@@ -33,8 +33,10 @@ pub fn reconstruct(
             a: 0,
         })
         .collect();
-    println!("Length of vecPoints: {}", vecPoints.len());
-    PointCloud::<PointXyzRgba> { number_of_points: vecPoints.len(), points: vecPoints }
+    let num_of_points = vecPoints.len();
+    println!("Length of vecPoints: {}", num_of_points);
+    (PointCloud::<PointXyzRgba> { number_of_points: num_of_points, points: vecPoints },
+        TriangleFace::get_default_mesh(num_of_points as i32))
     //points
 }
 

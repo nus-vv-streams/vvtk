@@ -7,7 +7,7 @@ use crossbeam_channel::Receiver;
 // use std::sync::mpsc::Receiver;
 
 use crate::{
-    formats::{pointxyzrgba::PointXyzRgba, PointCloud},
+    formats::{pointxyzrgba::PointXyzRgba, PointCloud, triangle_face::TriangleFace},
     metrics::Metrics,
 };
 
@@ -39,7 +39,7 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
 
 #[derive(Debug, Clone)]
 pub enum PipelineMessage {
-    IndexedPointCloud(PointCloud<PointXyzRgba>, u32),
+    IndexedPointCloud(PointCloud<PointXyzRgba>, u32, Option<Vec<TriangleFace>>),
     // PointCloud(PointCloud<PointXyzRgba>),
     Metrics(Metrics),
     End,
