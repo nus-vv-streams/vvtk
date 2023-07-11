@@ -514,6 +514,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 
 [[package]]
+name = "color_space"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3776b2bcc4e914db501bb9be9572dd706e344b9eb8f882894f3daa651d281381"
+
+[[package]]
 name = "colorchoice"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1032,6 +1038,12 @@ dependencies = [
  "crc32fast",
  "miniz_oxide 0.7.1",
 ]
+
+[[package]]
+name = "float-ord"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ce81f49ae8a0482e4c55ea62ebbd7e5a686af544c00b9d090bba3ff9be97b3d"
 
 [[package]]
 name = "flume"
@@ -3459,17 +3471,20 @@ dependencies = [
  "cgmath",
  "clap 4.3.0",
  "clipboard",
+ "color_space",
  "criterion",
  "crossbeam-channel",
  "egui 0.19.0",
  "egui_wgpu_backend",
  "egui_winit_platform",
  "epi",
+ "float-ord",
  "futures",
  "image",
  "kdam",
  "kiddo",
  "nalgebra",
+ "num-traits",
  "octree",
  "ply-rs",
  "poisson_reconstruction",

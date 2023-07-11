@@ -19,6 +19,13 @@ pub fn read_pcd_file<P: AsRef<Path>>(p: P) -> Result<PointCloudData> {
     Parser::new(reader).parse()
 }
 
+/// Reads [PCDHeader] directly from a file given the path
+pub fn read_pcd_header<P: AsRef<Path>>(p: P) -> Result<PCDHeader> {
+    let file = File::open(p).map_err(PCDReadError::IOError)?;
+    let reader = BufReader::new(file);
+    Parser::new(reader).parse_header()
+}
+
 /// Parses a [PointCloudData] from the reader
 /// ```no_run
 /// use vivotk::pcd::{PCDReadError, read_pcd};

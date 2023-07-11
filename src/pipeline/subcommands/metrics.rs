@@ -1,16 +1,11 @@
 use clap::Parser;
 
 use crate::{
-    metrics::calculate_metrics,
+    metrics::{calculate_metrics, SupoportedMetrics},
     pipeline::{channel::Channel, PipelineMessage},
 };
 
 use super::Subcommand;
-
-#[derive(clap::ValueEnum, Clone, Copy)]
-pub enum SupoportedMetrics {
-    Psnr,
-}
 
 #[derive(Parser)]
 #[clap(
@@ -18,16 +13,19 @@ pub enum SupoportedMetrics {
     override_usage = format!("\x1B[1m{}\x1B[0m [OPTIONS] +input=original,reconstructure +output=metrics", "metrics")
 )]
 pub struct Args {
-    #[clap(short, long, value_enum, default_value_t = SupoportedMetrics::Psnr)]
-    metric: SupoportedMetrics,
+    #[clap(short, long, num_args = 1.., value_delimiter = ',', default_value = "all")]
+    metrics: Vec<SupoportedMetrics>,
 }
 
-pub struct MetricsCalculator;
+pub struct MetricsCalculator {
+    metrics: Vec<SupoportedMetrics>,
+}
 
 impl MetricsCalculator {
     pub fn from_args(args: Vec<String>) -> Box<dyn Subcommand> {
-        let _args: Args = Args::parse_from(args);
-        Box::new(MetricsCalculator {})
+        let args: Args = Args::parse_from(args);
+        let metrics = args.metrics;
+        Box::new(MetricsCalculator { metrics })
     }
 }
 
@@ -46,12 +44,11 @@ impl Subcommand for MetricsCalculator {
                 PipelineMessage::IndexedPointCloud(original, _, _),
                 PipelineMessage::IndexedPointCloud(reconstructed, _, _),
             ) => {
-                let metrics = calculate_metrics(original, reconstructed);
+                let metrics = calculate_metrics(original, reconstructed, &self.metrics);
                 channel.send(PipelineMessage::Metrics(metrics));
             }
             (PipelineMessage::End, _) | (_, PipelineMessage::End) => {
                 channel.send(PipelineMessage::End);
-                // println!("Get `End` message, Closing metrics calculator channel");
             }
             (_, _) => {}
         }
