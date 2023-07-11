@@ -75,7 +75,7 @@ fn perform_normal_estimation(pc: &PointCloud<PointXyzRgba>, radius: f64) -> Poin
         }).collect(),
     };
     // Assign Normal Vector
-    assign_normal_vectors(&mut pc_normal, &neighbors, &eigen_results);
+    assign_normal_vectors(&mut pc_normal, &eigen_results);
     
 
     // // Complete Normal Estimation
@@ -244,30 +244,12 @@ fn compute_eigenvalues_eigenvectors(covariance_matrices: &[CovarianceMatrix]) ->
 }
 
 
-fn assign_normal_vectors(
-    pc: &mut PointCloud<PointXyzRgbaNormal>,
-    neighbors: &[Vec<usize>],
-    eigen_data: &[EigenData],
-) {
-    for i in 0..pc.number_of_points {
-        let mut normal = Vector3::zeros();
-        let num_neighbors = neighbors[i].len();
-
-        for j in neighbors[i].iter() {
-            let eigenvector = eigen_data[*j].eigenvectors.column(0).map(|x| x as f64);
-            normal += eigenvector;
-        }
-
-        normal /= num_neighbors as f64;
-        normal = normal.normalize();
-
-        let normal_x = normal.x as f32;
-        let normal_y = normal.y as f32;
-        let normal_z = normal.z as f32;
-
-        pc.points[i].normal_x = normal_x;
-        pc.points[i].normal_y = normal_y;
-        pc.points[i].normal_z = normal_z;
+fn assign_normal_vectors(pc: &mut PointCloud<PointXyzRgbaNormal>, eigen_results: &[EigenData]) {
+    for (i, eigen_data) in eigen_results.iter().enumerate() {
+        let normal = eigen_data.eigenvectors.column(0).normalize(); // Select the first eigenvector
+        pc.points[i].normal_x = normal[0];
+        pc.points[i].normal_y = normal[1];
+        pc.points[i].normal_z = normal[2];
     }
 }
 
