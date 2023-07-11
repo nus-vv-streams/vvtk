@@ -217,7 +217,6 @@ fn compute_covariance_matrices(pc: &PointCloud<PointXyzRgba>, neighbors: &[Vec<u
 
 #[derive(Debug)]
 struct EigenData {
-    eigenvalues: Vector3<f32>,
     eigenvectors: Matrix3<f32>,
 }
 
@@ -233,10 +232,9 @@ fn compute_eigenvalues_eigenvectors(covariance_matrices: &[CovarianceMatrix]) ->
 
         let eigendecomp = cov_matrix.symmetric_eigen();
 
-        let eigenvalues = eigendecomp.eigenvalues;
         let eigenvectors = eigendecomp.eigenvectors;
 
-        let eigen_data = EigenData { eigenvalues, eigenvectors };
+        let eigen_data = EigenData { eigenvectors };
         eigen_data_vec.push(eigen_data);
     }
 
@@ -366,9 +364,6 @@ mod test {
         // Compute the eigen data
         let eigen_data = compute_eigenvalues_eigenvectors(&[covariance_matrix]);
 
-        // Define the expected eigenvalues
-        let expected_eigenvalues = Vector3::new(6.048915, 1.6431041, 1.3079778);
-
         // Define the expected eigenvectors
         let expected_eigenvectors = Matrix3::new(
             0.52891886, -0.59959215, 0.60068053,
@@ -376,8 +371,6 @@ mod test {
             0.6411168, 0.7644144, 0.068997495,
         );
 
-        // Assert the eigenvalues and eigenvectors
-        assert_relative_eq!(eigen_data[0].eigenvalues, expected_eigenvalues, epsilon = 1e-6);
         assert_relative_eq!(eigen_data[0].eigenvectors, expected_eigenvectors, epsilon = 1e-6);
     }
     
