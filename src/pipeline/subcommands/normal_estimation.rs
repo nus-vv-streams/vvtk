@@ -1,5 +1,6 @@
 use clap::Parser;
 use std::ops::Sub;
+use nalgebra::{Vector3, Matrix3};
 use crate::pipeline::channel::Channel;
 use crate::pipeline::PipelineMessage;
 use crate::formats::{PointCloud, pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal};
@@ -52,11 +53,30 @@ fn perform_normal_estimation(pc: &PointCloud<PointXyzRgba>, radius: f64) -> Poin
     // Compute Covariance Matrix
     let covariance_matrices = compute_covariance_matrices(&pc, &neighbors);
 
-    // // Compute Eigenvalues and Eigenvectors
-    // let eigen_results = compute_eigenvalues_and_eigenvectors(&covariance_matrices);
+    // Compute Eigenvalues and Eigenvectors
+    let eigen_results = compute_eigenvalues_eigenvectors(&covariance_matrices);
 
-    // // Assign Normal Vector
-    // let normals = assign_normal_vectors(&eigen_results);
+    // Convert PointCloud<PointXyzRgba> to PointCloud<PointXyzRgbaNormal>
+    let mut pc_normal: PointCloud<PointXyzRgbaNormal> = PointCloud {
+        number_of_points: pc.number_of_points,
+        points: pc.points.iter().map(|p| {
+            PointXyzRgbaNormal {
+                x: p.x,
+                y: p.y,
+                z: p.z,
+                r: p.r,
+                g: p.g,
+                b: p.b,
+                a: p.a,
+                normal_x: 0.0, // Uninitialized normal values
+                normal_y: 0.0,
+                normal_z: 0.0,
+            }
+        }).collect(),
+    };
+    // Assign Normal Vector
+    assign_normal_vectors(&mut pc_normal, &neighbors, &eigen_results);
+    
 
     // // Complete Normal Estimation
     // let normal_estimation_result = complete_normal_estimation(&cleaned_cloud, &neighbors, &normals);
@@ -195,18 +215,62 @@ fn compute_covariance_matrices(pc: &PointCloud<PointXyzRgba>, neighbors: &[Vec<u
     covariance_matrices
 }
 
+#[derive(Debug)]
+struct EigenData {
+    eigenvalues: Vector3<f32>,
+    eigenvectors: Matrix3<f32>,
+}
+
+fn compute_eigenvalues_eigenvectors(covariance_matrices: &[CovarianceMatrix]) -> Vec<EigenData> {
+    let mut eigen_data_vec = Vec::with_capacity(covariance_matrices.len());
+
+    for covariance_matrix in covariance_matrices {
+        let cov_matrix = Matrix3::new(
+            covariance_matrix.xx, covariance_matrix.xy, covariance_matrix.xz,
+            covariance_matrix.xy, covariance_matrix.yy, covariance_matrix.yz,
+            covariance_matrix.xz, covariance_matrix.yz, covariance_matrix.zz,
+        );
+
+        let eigendecomp = cov_matrix.symmetric_eigen();
+
+        let eigenvalues = eigendecomp.eigenvalues;
+        let eigenvectors = eigendecomp.eigenvectors;
+
+        let eigen_data = EigenData { eigenvalues, eigenvectors };
+        eigen_data_vec.push(eigen_data);
+    }
+
+    eigen_data_vec
+}
 
 
-// fn compute_eigenvalues_and_eigenvectors(covariance_matrices: &[CovarianceMatrix]) -> Vec<EigenResult> {
-//     // Compute the eigenvalues and eigenvectors for each covariance matrix
-//     // Return a vector containing the eigenvalue and eigenvector results
-// }
+fn assign_normal_vectors(
+    pc: &mut PointCloud<PointXyzRgbaNormal>,
+    neighbors: &[Vec<usize>],
+    eigen_data: &[EigenData],
+) {
+    for i in 0..pc.number_of_points {
+        let mut normal = Vector3::zeros();
+        let num_neighbors = neighbors[i].len();
 
-// fn assign_normal_vectors(eigen_results: &[EigenResult]) -> Vec<NormalVector> {
-//     // Assign the normal vector for each point based on the eigenvector corresponding to the smallest eigenvalue
-//     // The normal vector can be derived from the eigenvector
-//     // Return a vector containing the assigned normal vectors
-// }
+        for j in neighbors[i].iter() {
+            let eigenvector = eigen_data[*j].eigenvectors.column(0).map(|x| x as f64);
+            normal += eigenvector;
+        }
+
+        normal /= num_neighbors as f64;
+        normal = normal.normalize();
+
+        let normal_x = normal.x as f32;
+        let normal_y = normal.y as f32;
+        let normal_z = normal.z as f32;
+
+        pc.points[i].normal_x = normal_x;
+        pc.points[i].normal_y = normal_y;
+        pc.points[i].normal_z = normal_z;
+    }
+}
+
 
 // fn complete_normal_estimation(
 //     pc: &PointCloud<PointXyzRgba>,
@@ -221,6 +285,7 @@ fn compute_covariance_matrices(pc: &PointCloud<PointXyzRgba>, neighbors: &[Vec<u
 #[cfg(test)]
 mod test {
     use super::*;
+    use approx::assert_relative_eq;
 
     #[test]
     fn test_select_neighboring_points() {
@@ -302,6 +367,36 @@ mod test {
     
         // Point 3 does not have sufficient neighbors, covariance matrix should be all zeros
         assert_eq!(covariance_matrices[3], CovarianceMatrix::zeros());
+    }
+
+    #[test]
+    fn test_compute_eigenvalues_eigenvectors() {
+        // Create a sample covariance matrix
+        let covariance_matrix = CovarianceMatrix {
+            xx: 2.0,
+            xy: 1.0,
+            xz: 1.0,
+            yy: 3.0,
+            yz: 2.0,
+            zz: 4.0,
+        };
+
+        // Compute the eigen data
+        let eigen_data = compute_eigenvalues_eigenvectors(&[covariance_matrix]);
+
+        // Define the expected eigenvalues
+        let expected_eigenvalues = Vector3::new(6.048915, 1.6431041, 1.3079778);
+
+        // Define the expected eigenvectors
+        let expected_eigenvectors = Matrix3::new(
+            0.52891886, -0.59959215, 0.60068053,
+            -0.5558934, 0.23822187, 0.79672605,
+            0.6411168, 0.7644144, 0.068997495,
+        );
+
+        // Assert the eigenvalues and eigenvectors
+        assert_relative_eq!(eigen_data[0].eigenvalues, expected_eigenvalues, epsilon = 1e-6);
+        assert_relative_eq!(eigen_data[0].eigenvectors, expected_eigenvectors, epsilon = 1e-6);
     }
     
     
