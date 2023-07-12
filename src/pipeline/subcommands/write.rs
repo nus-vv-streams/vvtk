@@ -48,7 +48,7 @@ impl Subcommand for Write {
         let max_count = pow(10, self.args.name_length);
         for message in messages {
             match &message {
-                PipelineMessage::IndexedPointCloud(pc, i) => {
+                PipelineMessage::IndexedPointCloud(pc, i, triangle_faces) => {
                     // println!("Writing point cloud with point num {}", pc.points.len());
                     let pcd_data_type = self
                         .args
@@ -82,7 +82,8 @@ impl Subcommand for Write {
                             }
                         }
                         "ply" => {
-                            if let Err(e) = pcd_to_ply_from_data(&output_file, pcd_data_type, pcd) {
+                            if let Err(e) = pcd_to_ply_from_data(&output_file, pcd_data_type, pcd,
+                                triangle_faces) {
                                 println!("Failed to write {:?}\n{e}", output_file);
                             }
                         }

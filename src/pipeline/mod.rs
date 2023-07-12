@@ -6,7 +6,7 @@ use crossbeam_channel::Receiver;
 // use std::sync::mpsc::Receiver;
 
 use crate::{
-    formats::{pointxyzrgba::PointXyzRgba, PointCloud},
+    formats::{pointxyzrgba::PointXyzRgba, PointCloud, triangle_face::TriangleFace},
     metrics::Metrics,
 };
 
@@ -15,7 +15,7 @@ use self::{
     executor::ExecutorBuilder,
     subcommands::{
         convert, downsample, info, metrics, read, render, upsample, write, Convert, Downsampler,
-        Info, MetricsCalculator, Read, Render, Subcommand, Upsampler, Write,
+        Info, MetricsCalculator, Read, Render, Subcommand, Upsampler, Write, reconstruct, Reconstructer,
     },
 };
 
@@ -31,6 +31,7 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
         "upsample" => Some(Box::from(Upsampler::from_args)),
         "convert" => Some(Box::from(Convert::from_args)),
         // "play" => Some(Box::from(Play::from_args)),
+        "reconstruct" => Some(Box::from(Reconstructer::from_args)),
         "info" => Some(Box::from(Info::from_args)),
         _ => None,
     }
@@ -38,7 +39,7 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
 
 #[derive(Debug, Clone)]
 pub enum PipelineMessage {
-    IndexedPointCloud(PointCloud<PointXyzRgba>, u32),
+    IndexedPointCloud(PointCloud<PointXyzRgba>, u32, Option<Vec<TriangleFace>>),
     // PointCloud(PointCloud<PointXyzRgba>),
     Metrics(Metrics),
     End,
@@ -197,6 +198,8 @@ enum VVSubCommand {
     Downsample(downsample::Args),
     #[clap(name = "upsample")]
     Upsample(upsample::Args),
+    #[clap(name = "reconstruct")]
+    Reconstruct(reconstruct::Args),
     #[clap(name = "info")]
     Info(info::Args),
 }
@@ -219,5 +222,6 @@ mod pipeline_mod_test {
         assert!(Pipeline::if_at_least_one_command("upsample"));
         assert!(Pipeline::if_at_least_one_command("convert"));
         assert!(!Pipeline::if_at_least_one_command("not_a_command"));
+        assert!(Pipeline::if_at_least_one_command("reconstruct"));
     }
 }

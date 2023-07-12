@@ -40,7 +40,7 @@ pub fn downsample(
             },
             points_per_voxel,
         );
-
+        println!("len {}", points.len());
         PointCloud {
             number_of_points: points.len(),
             points,
@@ -190,6 +190,9 @@ fn centroid(points: Vec<PointXyzRgba>) -> PointXyzRgba {
         g: (g / size) as u8,
         b: (b / size) as u8,
         a: (a / size) as u8,
+        nx: 0.0,
+        ny: 0.0,
+        nz: 0.0,
     }
 }
 

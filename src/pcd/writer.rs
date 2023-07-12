@@ -281,6 +281,9 @@ pub fn create_pcd(point_cloud: &PointCloud<PointXyzRgba>) -> PointCloudData {
             PCDField::new("x".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
             PCDField::new("y".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
             PCDField::new("z".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
+            PCDField::new("nx".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
+            PCDField::new("ny".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
+            PCDField::new("nz".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
             PCDField::new(
                 "rgba".to_string(),
                 PCDFieldSize::Four,
