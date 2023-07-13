@@ -41,8 +41,8 @@ impl Subcommand for MetricsCalculator {
 
         match (&message_one, &message_two) {
             (
-                PipelineMessage::IndexedPointCloud(original, _),
-                PipelineMessage::IndexedPointCloud(reconstructed, _),
+                PipelineMessage::IndexedPointCloud(original, _, _),
+                PipelineMessage::IndexedPointCloud(reconstructed, _, _),
             ) => {
                 let metrics = calculate_metrics(original, reconstructed, &self.metrics);
                 channel.send(PipelineMessage::Metrics(metrics));

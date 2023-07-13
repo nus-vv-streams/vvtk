@@ -5,6 +5,8 @@ use crate::velodyne::{VelodynPoint, VelodyneBinData};
 
 pub mod pointxyzrgba;
 
+pub mod triangle_face;
+
 #[derive(Clone)]
 pub struct PointCloud<T> {
     pub number_of_points: usize,
@@ -60,6 +62,9 @@ impl From<VelodynPoint> for pointxyzrgba::PointXyzRgba {
             x: value.x,
             y: value.y,
             z: value.z,
+            nx: 0.0,
+            ny: 0.0,
+            nz: 0.0,
             r: (value.intensity * 255.0) as u8,
             g: (value.intensity * 255.0) as u8,
             b: (value.intensity * 255.0) as u8,

@@ -126,7 +126,7 @@ impl Subcommand for Render<'_> {
 
         for message in messages {
             match &message {
-                PipelineMessage::IndexedPointCloud(pc, i) => {
+                PipelineMessage::IndexedPointCloud(pc, i, _) => {
                     let padded_count = format!("{:0>width$}", i, width = self.name_length as usize);
                     let filename = format!("{}.png", padded_count);
                     self.count += 1;

@@ -8,4 +8,7 @@ pub struct PointXyzRgba {
     pub g: u8,
     pub b: u8,
     pub a: u8,
+    pub nx: f32,
+    pub ny: f32,
+    pub nz: f32,
 }
