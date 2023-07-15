@@ -1,5 +1,5 @@
 use crate::{
-    formats::{pointxyzrgba::PointXyzRgba, PointCloud, triangle_face::TriangleFace},
+    formats::{pointxyzrgba::PointXyzRgba, triangle_face::TriangleFace, PointCloud},
     pcd::{create_pcd, read_pcd_file, write_pcd_file, PCDDataType, PointCloudData},
     ply::read_ply,
     velodyne::read_velodyn_bin_file,
@@ -204,20 +204,26 @@ pub fn pcd_to_ply_from_data(
     // add triangle faces to header and payload
     let vertex_indices_prop_def = ply_rs::ply::PropertyDef::new(
         "vertex_indices".to_string(),
-        ply_rs::ply::PropertyType::List(ply_rs::ply::ScalarType::UChar, ply_rs::ply::ScalarType::Int),
+        ply_rs::ply::PropertyType::List(
+            ply_rs::ply::ScalarType::UChar,
+            ply_rs::ply::ScalarType::Int,
+        ),
     );
 
     let mut element_faces = ply_rs::ply::ElementDef::new("face".to_string());
-    element_faces.properties.insert("vertex_indices".to_string(), vertex_indices_prop_def);
+    element_faces
+        .properties
+        .insert("vertex_indices".to_string(), vertex_indices_prop_def);
     let mut pay_load_vec_faces = Vec::<DefaultElement>::new();
     match triangle_faces {
         Some(value) => {
             element_faces.count = value.len();
             value.into_iter().for_each(|face| {
                 let mut ply_face = DefaultElement::new();
-                ply_face.insert("vertex_indices".to_string(), ply_rs::ply::Property::ListInt(
-                    vec![face.v1, face.v2, face.v3]
-                ));
+                ply_face.insert(
+                    "vertex_indices".to_string(),
+                    ply_rs::ply::Property::ListInt(vec![face.v1, face.v2, face.v3]),
+                );
                 pay_load_vec_faces.push(ply_face);
             })
         }
@@ -225,8 +231,10 @@ pub fn pcd_to_ply_from_data(
             element_faces.count = 0 as usize;
         }
     }
-    
-    ply_header.elements.insert("vertex_indices".to_string(), element_faces);
+
+    ply_header
+        .elements
+        .insert("vertex_indices".to_string(), element_faces);
     pay_load.insert("vertex_indices".to_string(), pay_load_vec_faces);
 
     // end of triangle face insertion

@@ -1,7 +1,7 @@
-use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud, triangle_face::TriangleFace};
+use crate::formats::{pointxyzrgba::PointXyzRgba, triangle_face::TriangleFace, PointCloud};
+use nalgebra::{Point3, Vector3};
 use octree::Octree;
 use poisson_reconstruction::{PoissonReconstruction, Real};
-use nalgebra::{Point3, Vector3};
 
 const BUCKET_SIZE: usize = 10000;
 
@@ -11,14 +11,14 @@ pub fn reconstruct(
     // let tmp = points.clone();
     // set octree
     // let _octree = create_octree(points);
-    
+
     // compute vector field
 
     // compute indicator function
 
     //extract iso-surface
     let surface: Vec<Point3<Real>> = reconstruct_surface(&points.points);
-    let vecPoints: Vec<PointXyzRgba> = surface
+    let vec_points: Vec<PointXyzRgba> = surface
         .iter()
         .map(|p| PointXyzRgba {
             x: p.x as f32,
@@ -33,31 +33,50 @@ pub fn reconstruct(
             a: 0,
         })
         .collect();
-    let num_of_points = vecPoints.len();
-    println!("Length of vecPoints: {}", num_of_points);
-    (PointCloud::<PointXyzRgba> { number_of_points: num_of_points, points: vecPoints },
-        TriangleFace::get_default_mesh(num_of_points as i32))
+    let num_of_points = vec_points.len();
+    println!("Length of reconstructed vertices: {}", num_of_points);
+    (
+        PointCloud::<PointXyzRgba> {
+            number_of_points: num_of_points,
+            points: vec_points,
+        },
+        TriangleFace::get_default_mesh(num_of_points as i32),
+    )
     //points
 }
 
 pub fn reconstruct_surface(vertices: &[PointXyzRgba]) -> Vec<Point3<Real>> {
-    let points: Vec<_> = vertices.iter().map(|v| Point3::new(v.x as f64, v.y as f64, v.z as f64)).collect();
-    let normals: Vec<_> = vertices.iter().map(|v| Vector3::new(v.nx as f64, v.ny as f64, v.nz as f64)).collect();
+    let points: Vec<_> = vertices
+        .iter()
+        .map(|v| Point3::new(v.x as f64, v.y as f64, v.z as f64))
+        .collect();
+    let normals: Vec<_> = vertices
+        .iter()
+        .map(|v| Vector3::new(v.nx as f64, v.ny as f64, v.nz as f64))
+        .collect();
 
-    let poisson: PoissonReconstruction = PoissonReconstruction::from_points_and_normals(points.as_slice(), normals.as_slice(), 0.0, 6, 6, 10);
+    let poisson: PoissonReconstruction = PoissonReconstruction::from_points_and_normals(
+        points.as_slice(),
+        normals.as_slice(),
+        0.0,
+        6,
+        6,
+        10,
+    );
     poisson.reconstruct_mesh()
 }
 
 pub fn create_octree(point_cloud: PointCloud<PointXyzRgba>) -> Octree {
-    let points_iter: Vec<[f64; 3]> = point_cloud.points
-    .iter()
-    .map(|point_xyzrgba| {
-        let x = f64::from(point_xyzrgba.x);
-        let y = f64::from(point_xyzrgba.y);
-        let z = f64::from(point_xyzrgba.z);
-        [x, y, z]
-    })
-    .collect();
+    let points_iter: Vec<[f64; 3]> = point_cloud
+        .points
+        .iter()
+        .map(|point_xyzrgba| {
+            let x = f64::from(point_xyzrgba.x);
+            let y = f64::from(point_xyzrgba.y);
+            let z = f64::from(point_xyzrgba.z);
+            [x, y, z]
+        })
+        .collect();
     let mut _octree = Octree::new(points_iter);
     _octree.build(BUCKET_SIZE);
     _octree

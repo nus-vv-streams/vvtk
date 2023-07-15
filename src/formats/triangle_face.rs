@@ -9,7 +9,10 @@ pub struct TriangleFace {
 
 impl TriangleFace {
     pub fn get_default_mesh(num_points: i32) -> Vec<TriangleFace> {
-        assert!(num_points % 3 == 0, "points from poissonRecon must be divisible by 3");
+        assert!(
+            num_points % 3 == 0,
+            "points from poissonRecon must be divisible by 3"
+        );
         // Create a vector to store the TriangleFace instances
         let mut mesh = Vec::with_capacity(num_points as usize / 3);
 
