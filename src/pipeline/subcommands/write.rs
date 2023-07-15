@@ -82,8 +82,12 @@ impl Subcommand for Write {
                             }
                         }
                         "ply" => {
-                            if let Err(e) = pcd_to_ply_from_data(&output_file, pcd_data_type, pcd,
-                                triangle_faces) {
+                            if let Err(e) = pcd_to_ply_from_data(
+                                &output_file,
+                                pcd_data_type,
+                                pcd,
+                                triangle_faces,
+                            ) {
                                 println!("Failed to write {:?}\n{e}", output_file);
                             }
                         }
