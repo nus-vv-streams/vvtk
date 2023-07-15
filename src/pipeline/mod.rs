@@ -6,7 +6,7 @@ use crossbeam_channel::Receiver;
 // use std::sync::mpsc::Receiver;
 
 use crate::{
-    formats::{pointxyzrgba::PointXyzRgba, PointCloud, triangle_face::TriangleFace},
+    formats::{pointxyzrgba::PointXyzRgba, triangle_face::TriangleFace, PointCloud},
     metrics::Metrics,
 };
 
@@ -14,8 +14,9 @@ use self::{
     executor::Executor,
     executor::ExecutorBuilder,
     subcommands::{
-        convert, downsample, info, metrics, read, render, upsample, write, Convert, Downsampler,
-        Info, MetricsCalculator, Read, Render, Subcommand, Upsampler, Write, reconstruct, Reconstructer,
+        convert, downsample, info, metrics, read, reconstruct, render, upsample, write, Convert,
+        Downsampler, Info, MetricsCalculator, Read, Reconstructer, Render, Subcommand, Upsampler,
+        Write,
     },
 };
 
