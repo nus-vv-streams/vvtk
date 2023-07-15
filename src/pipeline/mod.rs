@@ -40,11 +40,12 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
 
 #[derive(Debug, Clone)]
 pub enum PipelineMessage {
-    IndexedPointCloud(PointCloud<PointXyzRgba>, u32, Option<Vec<TriangleFace>>),
+    IndexedPointCloud(PointCloud<PointXyzRgba>, u32),
     // PointCloud(PointCloud<PointXyzRgba>),
     Metrics(Metrics),
     End,
     DummyForIncrement,
+    IndexedPointCloudWithTriangleFaces(PointCloud<PointXyzRgba>, u32, Option<Vec<TriangleFace>>)
 }
 
 #[derive(Debug)]
