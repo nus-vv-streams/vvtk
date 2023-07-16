@@ -31,15 +31,16 @@ impl Subcommand for Upsampler {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         for message in messages {
             match message {
-                PipelineMessage::IndexedPointCloud(pc, i, _) => {
+                PipelineMessage::IndexedPointCloud(pc, i) => {
                     let upsampled_pc = upsample(pc, self.factor);
-                    channel.send(PipelineMessage::IndexedPointCloud(upsampled_pc, i, None));
+                    channel.send(PipelineMessage::IndexedPointCloud(upsampled_pc, i));
                 }
                 PipelineMessage::Metrics(_) => {}
                 PipelineMessage::End => {
                     channel.send(message);
                 }
-                PipelineMessage::DummyForIncrement => {}
+                PipelineMessage::DummyForIncrement
+                | PipelineMessage::IndexedPointCloudWithTriangleFaces(_, _, _) => {}
             };
         }
     }

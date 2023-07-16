@@ -140,6 +140,92 @@ pub fn pcd_to_ply_from_data(
     output_path: &Path,
     storage_type: PCDDataType,
     pcd: PointCloudData,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let x_prop_def = ply_rs::ply::PropertyDef::new(
+        "x".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float),
+    );
+    let y_prop_def = ply_rs::ply::PropertyDef::new(
+        "y".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float),
+    );
+    let z_prop_def = ply_rs::ply::PropertyDef::new(
+        "z".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float),
+    );
+    let red_prop_def = ply_rs::ply::PropertyDef::new(
+        "red".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::UChar),
+    );
+    let green_prop_def = ply_rs::ply::PropertyDef::new(
+        "green".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::UChar),
+    );
+    let blue_prop_def = ply_rs::ply::PropertyDef::new(
+        "blue".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::UChar),
+    );
+
+    let mut element = ply_rs::ply::ElementDef::new("vertex".to_string());
+    element.properties.insert("x".to_string(), x_prop_def);
+    element.properties.insert("y".to_string(), y_prop_def);
+    element.properties.insert("z".to_string(), z_prop_def);
+    element.properties.insert("red".to_string(), red_prop_def);
+    element
+        .properties
+        .insert("green".to_string(), green_prop_def);
+    element.properties.insert("blue".to_string(), blue_prop_def);
+    element.count = pcd.header().width() as usize;
+
+    let mut ply_header = ply_rs::ply::Header::new();
+    ply_header.encoding = match storage_type {
+        PCDDataType::Ascii => ply_rs::ply::Encoding::Ascii,
+        PCDDataType::Binary => set_encoding(),
+        _ => unreachable!(),
+    };
+    ply_header.elements.insert("vertex".to_string(), element);
+
+    let pcd_pointxyzrgba: PointCloud<PointXyzRgba> = pcd.into();
+    let mut pay_load_vec = Vec::<DefaultElement>::new();
+    pcd_pointxyzrgba.points.into_iter().for_each(|point| {
+        let mut ply_point = DefaultElement::new();
+        ply_point.insert("x".to_string(), ply_rs::ply::Property::Float(point.x));
+        ply_point.insert("y".to_string(), ply_rs::ply::Property::Float(point.y));
+        ply_point.insert("z".to_string(), ply_rs::ply::Property::Float(point.z));
+        ply_point.insert("red".to_string(), ply_rs::ply::Property::UChar(point.r));
+        ply_point.insert("green".to_string(), ply_rs::ply::Property::UChar(point.g));
+        ply_point.insert("blue".to_string(), ply_rs::ply::Property::UChar(point.b));
+        pay_load_vec.push(ply_point);
+    });
+    let mut pay_load = Payload::<DefaultElement>::new();
+    pay_load.insert("vertex".to_string(), pay_load_vec);
+
+    let mut ply = ply_rs::ply::Ply::<DefaultElement>::new();
+    ply.header = ply_header;
+    ply.payload = pay_load;
+
+    // println!("Writing to {:?}", output_path);
+    // get dir part and check existence, create if not exist
+    let dir = output_path.parent().unwrap();
+    if !dir.exists() {
+        std::fs::create_dir_all(dir).unwrap();
+    }
+
+    println!("Writing to {:?}", output_path);
+    let mut file = File::create(output_path).unwrap();
+
+    let ply_writer = writer::Writer::<ply::DefaultElement>::new();
+    if let Err(e) = ply_writer.write_ply(&mut file, &mut ply) {
+        Result::Err(Box::new(e))
+    } else {
+        Result::Ok(())
+    }
+}
+
+pub fn pcd_to_ply_from_data_with_faces(
+    output_path: &Path,
+    storage_type: PCDDataType,
+    pcd: PointCloudData,
     triangle_faces: &Option<Vec<TriangleFace>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let x_prop_def = ply_rs::ply::PropertyDef::new(
@@ -265,7 +351,7 @@ pub fn pcd_to_ply(output_path: &Path, storage_type: PCDDataType, file_path: Path
     let pcd = read_pcd_file(&file_path).unwrap();
     let filename = Path::new(file_path.file_name().unwrap()).with_extension("ply");
     let output_file = output_path.join(filename);
-    if let Err(e) = pcd_to_ply_from_data(&output_file, storage_type, pcd, &None) {
+    if let Err(e) = pcd_to_ply_from_data(&output_file, storage_type, pcd) {
         println!(
             "Failed to write {:?} to {:?}\n{e}",
             file_path.into_os_string(),
@@ -280,7 +366,7 @@ pub fn velodyne_bin_to_ply(output_path: &Path, storage_type: PCDDataType, file_p
     let pcd: PointCloudData = create_pcd(&pc);
     let filename = Path::new(file_path.file_name().unwrap()).with_extension("ply");
     let output_file = output_path.join(filename);
-    if let Err(e) = pcd_to_ply_from_data(&output_file, storage_type, pcd, &None) {
+    if let Err(e) = pcd_to_ply_from_data(&output_file, storage_type, pcd) {
         println!(
             "Failed to write {:?} to {:?}\n{e}",
             file_path.into_os_string(),
