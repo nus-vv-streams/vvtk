@@ -39,7 +39,8 @@ impl Subcommand for Upsampler {
                 PipelineMessage::End => {
                     channel.send(message);
                 }
-                PipelineMessage::DummyForIncrement | PipelineMessage::IndexedPointCloudWithTriangleFaces(_, _, _) => {}
+                PipelineMessage::DummyForIncrement
+                | PipelineMessage::IndexedPointCloudWithTriangleFaces(_, _, _) => {}
             };
         }
     }

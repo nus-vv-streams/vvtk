@@ -30,7 +30,9 @@ impl Subcommand for Reconstructer {
                         Some(triangle_faces),
                     ));
                 }
-                PipelineMessage::Metrics(_) | PipelineMessage::DummyForIncrement | PipelineMessage::IndexedPointCloudWithTriangleFaces(_, _, _) => {}
+                PipelineMessage::Metrics(_)
+                | PipelineMessage::DummyForIncrement
+                | PipelineMessage::IndexedPointCloudWithTriangleFaces(_, _, _) => {}
                 PipelineMessage::End => {
                     channel.send(message);
                 }

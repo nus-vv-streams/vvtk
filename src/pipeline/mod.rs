@@ -45,7 +45,7 @@ pub enum PipelineMessage {
     Metrics(Metrics),
     End,
     DummyForIncrement,
-    IndexedPointCloudWithTriangleFaces(PointCloud<PointXyzRgba>, u32, Option<Vec<TriangleFace>>)
+    IndexedPointCloudWithTriangleFaces(PointCloud<PointXyzRgba>, u32, Option<Vec<TriangleFace>>),
 }
 
 #[derive(Debug)]
