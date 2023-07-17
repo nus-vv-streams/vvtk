@@ -14,8 +14,8 @@ use self::{
     executor::Executor,
     executor::ExecutorBuilder,
     subcommands::{
-        convert, downsample, info, metrics, read, to_png, upsample, write, Convert, Downsampler,
-        Info, MetricsCalculator, Read, Subcommand, ToPng, Upsampler, Write,
+        convert, downsample, info, metrics, read, render, upsample, write, Convert, Downsampler,
+        Info, MetricsCalculator, Read, Render, Subcommand, Upsampler, Write,
     },
 };
 
@@ -24,7 +24,7 @@ pub type SubcommandCreator = Box<dyn Fn(Vec<String>) -> Box<dyn Subcommand>>;
 fn subcommand(s: &str) -> Option<SubcommandCreator> {
     match s {
         "write" => Some(Box::from(Write::from_args)),
-        "render" => Some(Box::from(ToPng::from_args)),
+        "render" => Some(Box::from(Render::from_args)),
         "read" => Some(Box::from(Read::from_args)),
         "metrics" => Some(Box::from(MetricsCalculator::from_args)),
         "downsample" => Some(Box::from(Downsampler::from_args)),
@@ -190,7 +190,7 @@ enum VVSubCommand {
     #[clap(name = "read")]
     Read(read::Args),
     #[clap(name = "render")]
-    ToPng(to_png::Args),
+    Render(render::Args),
     #[clap(name = "metrics")]
     Metrics(metrics::Args),
     #[clap(name = "downsample")]

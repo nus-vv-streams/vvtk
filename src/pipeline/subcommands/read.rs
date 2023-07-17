@@ -24,6 +24,10 @@ pub struct Args {
     filetype: FileType,
     /// Files, glob patterns, directories
     files: Vec<OsString>,
+
+    #[clap(short, long)]
+    /// read previous n files after sorting lexicalgraphically
+    num: Option<usize>,
 }
 
 pub struct Read {
@@ -44,6 +48,13 @@ impl Subcommand for Read {
         if messages.is_empty() {
             let mut files = find_all_files(&self.args.files);
             files.sort();
+            // if self.num is not None, then take the first self.num files
+            if let Some(num) = self.args.num {
+                if num < files.len() {
+                    files = files.into_iter().take(num).collect();
+                }
+            }
+
             for (i, file) in files.iter().enumerate() {
                 match &self.args.filetype {
                     FileType::All => {}

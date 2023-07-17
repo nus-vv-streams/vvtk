@@ -3,7 +3,6 @@
 ![format badge](https://github.com/nus-vv-streams/vivotk/actions/workflows/format.yml/badge.svg)
 ![build badge](https://github.com/nus-vv-streams/vivotk/actions/workflows/build.yml/badge.svg)
 
-
 ## How to Install?
 
 1. Install the latest Rust compiler from the [official website](https://www.rust-lang.org/tools/install)
@@ -18,7 +17,7 @@
 
 ### `vv`
 
-Provides subcommands that can be chained together. The inputs and outputs of a subcommand must be specified with the `+input=` or `+in` followed by a comma separated list of inputs or `+output=` or `+out` to denote the name of its output stream. Note that `+input` must be specified for commands other than `read`. 
+Provides subcommands that can be chained together. The inputs and outputs of a subcommand must be specified with the `+input=` or `+in` followed by a comma separated list of inputs or `+output=` or `+out` to denote the name of its output stream. Note that `+input` must be specified for commands other than `read`.
 
 ```shell
 Usage: vv <COMMAND>
@@ -75,6 +74,7 @@ Arguments:
 
 Options:
   -t, --filetype <FILETYPE>  [default: all] [possible values: all, ply, pcd]
+  -n, --num <NUM>            read previous n files after sorting lexicalgraphically
   -h, --help                 Print help
 ```
 
@@ -82,9 +82,16 @@ Options:
 vv read ./Ply +output=plys
 ```
 
+Read only 10 files from a folder, specifying `--num` is useful to check the command is working as expected.
+
+```shell
+vv read ./Ply --num 10 +output=plys
+```
+
 #### `render`
 
-Writes point clouds from the input stream into images.
+Writes point clouds from the input stream into images(png) or videos(mp4).
+To render point clouds into mp4, you need to make sure `ffmepg` is installed.
 
 ```shell
 Usage: render [OPTIONS] <OUTPUT_DIR> 
@@ -95,20 +102,34 @@ Arguments:
 Options:
   -x, --camera-x <CAMERA_X>        [default: 0]
   -y, --camera-y <CAMERA_Y>        [default: 0]
-  -z, --camera-z <CAMERA_Z>        [default: 1.3]
+  -z, --camera-z <CAMERA_Z>        [default: 1.8]
       --yaw <CAMERA_YAW>           [default: -90]
       --pitch <CAMERA_PITCH>       [default: 0]
       --width <WIDTH>              [default: 1600]
       --height <HEIGHT>            [default: 900]
       --name-length <NAME_LENGTH>  [default: 5]
+      --bg-color <BG_COLOR>        [default: rgb(255,255,255)]
+      --format <RENDER_FORMAT>     [default: png] [possible values: png, mp4]
+      --fps <FPS>                  [default: 30]
+      --verbose
   -h, --help                       Print help
 ```
 
-**render example**
+**render to png example**
 
 ```shell
 vv read ./Ply +output=plys \
         render ./Pngs +input=plys
+```
+
+**render to mp4 example**
+
+Read 60 frames of pointcloud and render them into a mp4 video with fps=20. This is done by first render them into png files, and then use `ffmpeg` to convert the images into a mp4 video.
+
+```shell
+vv read -n 60 ./pcd +output=pcd \
+    render ./mp4 \
+    +input=f --format mp4 --fps 20
 ```
 
 #### `metrics`
@@ -141,7 +162,6 @@ vv read ./original +output=original \
         metrics +input=original,reconstructed +output=metrics --metrics acd,cd,hd \
         write ./metrics +input=metrics
 ```
-
 
 #### `write`
 
@@ -266,6 +286,7 @@ vv convert --input ./pcd_b --output ./pcd_a --storage-type ascii --output-format
 ```
 
 #### `info`
+
 Get the info of a pointcloud file or directory. Supported formats are .pcd and .ply. If no option is specified, all info will be printed.
 
 ```shell
@@ -408,24 +429,13 @@ vvplay ./pcds -b 100
 ```
 
 You can specify the background color using `--bg-color` in the following two ways.
+
 1. use rgb value: rgb(r,g,b)
 2. use hex rgb number: #RRGGBB
 
 ```shell
 vvplay ./pcds --bg-color "#9ef244"
 vvplay ./pcds --bg-color "rgb(10,23,189)"
-```
-
-### `vvdash`
-
-Simulates DASH streaming by sending input files to an output directory over simulated network conditions
-
-### Example
-
-The following command will send 300 frames of varying `"hi"` or `"lo"` qualities from `./input` to `./output`, depending on the simulated network conditions specified in `./simulated_network.txt`, which is a `.txt` file containing bandwidth conditions specified in KB/s, separated by newline characters `(\n)`.
-
-```shell
-vvdash ./input ./output ./simulated_network.txt 300
 ```
 
 ## For Developers
@@ -437,4 +447,3 @@ Use Rust 1.69
 ### Coding Style
 
 We follow the [official Rust coding style](https://github.com/rust-dev-tools/fmt-rfcs/blob/master/guide/guide.md).  You can use `rustfmt` (or run `cargo fmt`) to automatically format your code.
-
