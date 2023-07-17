@@ -88,7 +88,7 @@ required-features = ["render", "dash"]
 name = "vv"
 
 [[bin]]
-name = "ply_play"
+name = "vvplay_asnyc"
 required-features = ["render", "dash"]
 
 [features]

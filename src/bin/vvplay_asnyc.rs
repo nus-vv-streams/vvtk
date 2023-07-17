@@ -25,8 +25,8 @@ use vivotk::render::wgpu::{
     renderer::Renderer,
 };
 use vivotk::utils::{
-    get_cosines, predict_quality, ExponentialMovingAverage, LastValue,
-    SimpleRunningAverage, GAEMA, LPEMA,
+    get_cosines, predict_quality, ExponentialMovingAverage, LastValue, SimpleRunningAverage, GAEMA,
+    LPEMA,
 };
 use vivotk::{BufMsg, PCMetadata};
 
@@ -548,10 +548,54 @@ fn is_remote_src(src: &str) -> bool {
     src.starts_with("http://") || src.starts_with("https://")
 }
 
+fn infer_format(src: &String) -> String {
+    let choices = ["pcd", "ply", "bin", "http"];
+    const PCD: usize = 0;
+    const PLY: usize = 1;
+    const BIN: usize = 2;
+
+    if choices.contains(&src.as_str()) {
+        return src.clone();
+    }
+
+    let path = Path::new(src);
+    // infer by counting extension numbers (pcd ply and bin)
+
+    let mut choice_count = [0, 0, 0];
+    for file_entry in path.read_dir().unwrap() {
+        match file_entry {
+            Ok(entry) => {
+                if let Some(ext) = entry.path().extension() {
+                    if ext.eq("pcd") {
+                        choice_count[PCD] += 1;
+                    } else if ext.eq("ply") {
+                        choice_count[PLY] += 1;
+                    } else if ext.eq("bin") {
+                        choice_count[BIN] += 1;
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("{e}")
+            }
+        }
+    }
+
+    let max_index = choice_count
+        .iter()
+        .enumerate()
+        .max_by_key(|(_, &item)| item)
+        .map(|(index, _)| index);
+    choices[max_index.unwrap()].to_string()
+}
+
+
 fn main() {
     // initialize logger
     env_logger::init();
     let args: Args = Args::parse();
+    let play_format = infer_format(&args.src);
+    
     let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(8)
         .enable_all()
@@ -718,7 +762,7 @@ fn main() {
                 let mut dir = tokio::fs::read_dir(path).await.unwrap();
                 while let Some(entry) = dir.next_entry().await.unwrap() {
                     let f = entry.path();
-                    if !f.extension().map(|f| "pcd".eq(f)).unwrap_or(false) {
+                    if !f.extension().map(|f| play_format.as_str().eq(f)).unwrap_or(false) {
                         continue;
                     }
                     ply_files.push(f);
