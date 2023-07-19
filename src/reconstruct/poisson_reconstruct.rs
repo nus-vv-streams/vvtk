@@ -1,9 +1,7 @@
 use crate::formats::{pointxyzrgba::PointXyzRgba, triangle_face::TriangleFace, PointCloud};
+use crate::reconstruct::poisson_reconstruction::poisson::PoissonReconstruction;
+use crate::reconstruct::poisson_reconstruction::Real;
 use nalgebra::{Point3, Vector3};
-use octree::Octree;
-use poisson_reconstruction::{PoissonReconstruction, Real};
-
-const BUCKET_SIZE: usize = 10000;
 
 pub fn reconstruct(
     points: PointCloud<PointXyzRgba>,
@@ -64,20 +62,4 @@ pub fn reconstruct_surface(vertices: &[PointXyzRgba]) -> Vec<Point3<Real>> {
         10,
     );
     poisson.reconstruct_mesh()
-}
-
-pub fn create_octree(point_cloud: PointCloud<PointXyzRgba>) -> Octree {
-    let points_iter: Vec<[f64; 3]> = point_cloud
-        .points
-        .iter()
-        .map(|point_xyzrgba| {
-            let x = f64::from(point_xyzrgba.x);
-            let y = f64::from(point_xyzrgba.y);
-            let z = f64::from(point_xyzrgba.z);
-            [x, y, z]
-        })
-        .collect();
-    let mut _octree = Octree::new(points_iter);
-    _octree.build(BUCKET_SIZE);
-    _octree
 }
