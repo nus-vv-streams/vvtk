@@ -36,6 +36,7 @@ impl Subcommand for NormalEstimation {
             match message {
                 PipelineMessage::IndexedPointCloud(pc, i) => {
                     let normal_estimation_result = perform_normal_estimation(&pc, self.args.radius);
+                    println!("Normal Estimation Completed for Point Cloud {}", i);
                     channel.send(PipelineMessage::IndexedPointCloudNormal(normal_estimation_result, i));
                 }
                 PipelineMessage::Metrics(_) | PipelineMessage::IndexedPointCloudNormal(_, _) | PipelineMessage::DummyForIncrement => {}

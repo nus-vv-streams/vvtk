@@ -194,7 +194,7 @@ enum VVSubCommand {
     Downsample(downsample::Args),
     #[clap(name = "upsample")]
     Upsample(upsample::Args),
-    #[clap(name = "normal_estimation")]
+    #[clap(name = "normal")]
     NormalEstimation(normal_estimation::Args),
 }
 
