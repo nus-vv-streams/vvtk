@@ -1,6 +1,7 @@
 use clap::Parser;
 use std::ops::Sub;
-use nalgebra::Matrix3;
+use std::collections::VecDeque;
+use nalgebra::{Vector3, Matrix3};
 use crate::pipeline::channel::Channel;
 use crate::pipeline::PipelineMessage;
 use crate::formats::{PointCloud, pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal};
@@ -77,28 +78,10 @@ fn perform_normal_estimation(pc: &PointCloud<PointXyzRgba>, radius: f64) -> Poin
     // Assign Normal Vector
     assign_normal_vectors(&mut pc_normal, &eigen_results);
     
+    // Complete Normal Estimation
+    propagate_normal_orientation(&mut pc_normal, &neighbors);
 
-    // // Complete Normal Estimation
-    // let normal_estimation_result = complete_normal_estimation(&cleaned_cloud, &neighbors, &normals);
-
-    // normal_estimation_result
-    let point = PointXyzRgbaNormal {
-        x: 1.0,
-        y: 2.0,
-        z: 3.0,
-        r: 255,
-        g: 0,
-        b: 0,
-        a: 255,
-        normal_x: 0.0,
-        normal_y: 0.0,
-        normal_z: 1.0,
-    };
-    let point_cloud = PointCloud {
-        number_of_points: 1,
-        points: vec![point],
-    };
-    point_cloud
+    pc_normal
 }
 
 fn select_neighboring_points(pc: &PointCloud<PointXyzRgba>, radius: f64) -> Vec<Vec<usize>> {
@@ -124,7 +107,6 @@ fn select_neighboring_points(pc: &PointCloud<PointXyzRgba>, radius: f64) -> Vec<
 
     neighbors
 }
-
 
 fn distance<T>(p1: &[T; 3], p2: &[T; 3]) -> f64
 where
@@ -278,16 +260,55 @@ fn assign_normal_vectors(pc: &mut PointCloud<PointXyzRgbaNormal>, eigen_results:
     }
 }
 
+fn propagate_normal_orientation(pc: &mut PointCloud<PointXyzRgbaNormal>, neighbors: &[Vec<usize>]) {
+    let root_point_index = 0; // Choose the root point index (e.g., 0)
 
-// fn complete_normal_estimation(
-//     pc: &PointCloud<PointXyzRgba>,
-//     neighbors: &[Vec<usize>],
-//     normals: &[NormalVector],
-// ) -> PointCloud<NormalVector> {
-//     // After traversing all points in the point cloud and propagating the orientations,
-//     // you will have estimated a normal vector for each point with orientations consistent across the entire point cloud
-//     // Return the completed normal estimation as a new point cloud
-// }
+    // Set the initial orientation for the root point's normal
+    let root_normal = Vector3::new(
+        pc.points[root_point_index].normal_x,
+        pc.points[root_point_index].normal_y,
+        pc.points[root_point_index].normal_z,
+    );
+
+    // Use a queue to perform a breadth-first search
+    let mut queue = VecDeque::new();
+    let mut visited = vec![false; pc.number_of_points];
+
+    // Enqueue the root point
+    queue.push_back(root_point_index);
+    visited[root_point_index] = true;
+
+    // Propagate normal orientation
+    while let Some(current_point_index) = queue.pop_front() {
+        let _current_normal = Vector3::new(
+            pc.points[current_point_index].normal_x,
+            pc.points[current_point_index].normal_y,
+            pc.points[current_point_index].normal_z,
+        );
+
+        // Check the orientation of neighbors and flip if necessary
+        for &neighbor_index in &neighbors[current_point_index] {
+            if !visited[neighbor_index] {
+                let neighbor_normal = Vector3::new(
+                    pc.points[neighbor_index].normal_x,
+                    pc.points[neighbor_index].normal_y,
+                    pc.points[neighbor_index].normal_z,
+                );
+
+                if root_normal.dot(&neighbor_normal) < 0.0 {
+                    // Flip the neighbor's normal
+                    pc.points[neighbor_index].normal_x = -pc.points[neighbor_index].normal_x;
+                    pc.points[neighbor_index].normal_y = -pc.points[neighbor_index].normal_y;
+                    pc.points[neighbor_index].normal_z = -pc.points[neighbor_index].normal_z;
+                }
+
+                // Enqueue the neighbor for further propagation
+                queue.push_back(neighbor_index);
+                visited[neighbor_index] = true;
+            }
+        }
+    }
+}
 
 #[cfg(test)]
 mod test {
