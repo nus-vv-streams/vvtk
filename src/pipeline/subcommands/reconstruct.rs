@@ -27,7 +27,7 @@ impl Subcommand for Reconstructer {
                     let start = Instant::now();
                     let (reconstructed_pc, triangle_faces) = reconstruct(pc);
                     let duration = start.elapsed();
-                    println!("Time elapsed in expensive_function() is: {:?}", duration);
+                    println!("Time elapsed in whole poisson reconstruct is: {:?}", duration);
                     channel.send(PipelineMessage::IndexedPointCloudWithTriangleFaces(
                         reconstructed_pc,
                         i,

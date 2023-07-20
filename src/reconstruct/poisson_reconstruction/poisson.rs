@@ -87,13 +87,11 @@ impl PoissonReconstruction {
             let layer = PoissonLayer::from_next_layer(points, &layers[i]);
             layers.push(layer);
         }
-
         // Reverse so the coarser layers go first.
         layers.reverse();
 
         let vector_field =
             PoissonVectorField::new(&layers, points, normals, density_estimation_depth);
-
         for i in 0..layers.len() {
             let result = PoissonLayer::solve(
                 &layers,
@@ -106,7 +104,6 @@ impl PoissonReconstruction {
             );
             layers[i].node_weights = result;
         }
-
         let mut total_weight = 0.0;
         let mut result = Self {
             layers,

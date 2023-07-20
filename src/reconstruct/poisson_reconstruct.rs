@@ -6,15 +6,6 @@ use nalgebra::{Point3, Vector3};
 pub fn reconstruct(
     points: PointCloud<PointXyzRgba>,
 ) -> (PointCloud<PointXyzRgba>, Vec<TriangleFace>) {
-    // let tmp = points.clone();
-    // set octree
-    // let _octree = create_octree(points);
-
-    // compute vector field
-
-    // compute indicator function
-
-    //extract iso-surface
     let surface: Vec<Point3<Real>> = reconstruct_surface(&points.points);
     let vec_points: Vec<PointXyzRgba> = surface
         .iter()
@@ -52,7 +43,6 @@ pub fn reconstruct_surface(vertices: &[PointXyzRgba]) -> Vec<Point3<Real>> {
         .iter()
         .map(|v| Vector3::new(v.nx as f64, v.ny as f64, v.nz as f64))
         .collect();
-
     let poisson: PoissonReconstruction = PoissonReconstruction::from_points_and_normals(
         points.as_slice(),
         normals.as_slice(),

@@ -166,6 +166,8 @@ impl PoissonLayer {
         let cell_width = my_layer.cell_width();
         assert_eq!(points.len(), normals.len());
         let convolution = polynomial::compute_quadratic_bspline_convolution_coeffs(cell_width);
+        //let duration = start.elapsed();
+        //println!("1. Time elapsed in bsline is: {:?}", duration);
         let num_nodes = my_layer.ordered_nodes.len();
 
         // Compute the gradient matrix.
@@ -223,11 +225,14 @@ impl PoissonLayer {
                 }
             }
         }
+        //let duration = start.elapsed();
+        //println!("Time elapsed after iteration is: {:?}", duration);
 
         // Build rhs
         let mut rhs = DVector::zeros(my_layer.ordered_nodes.len());
         vector_field.build_rhs(layers, curr_layer, &mut rhs);
-
+        //let duration = start.elapsed();
+        //println!("Time elapsed building rhs is: {:?}", duration);
         // Subtract the results from the coarser layers.
         rhs.as_mut_slice()
             .par_iter_mut()
@@ -282,10 +287,13 @@ impl PoissonLayer {
                     }
                 }
             });
-
+        //let duration = start.elapsed();
+        //println!("Time elapsed before solve conj grad is: {:?}", duration);
         // Solve the sparse system.
         let lhs = CscMatrix::from(&grad_matrix);
         solve_conjugate_gradient(&lhs, &mut rhs, niters);
+        //let duration = start.elapsed();
+        //println!("Time elapsed after solving is: {:?}", duration);
         // let chol = CscCholesky::factor(&lhs).unwrap();
         // chol.solve_mut(&mut rhs);
 
