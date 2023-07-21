@@ -23,7 +23,10 @@ impl Subcommand for Reconstructer {
         for message in messages {
             match message {
                 PipelineMessage::IndexedPointCloud(pc, i) => {
+                    let now = std::time::Instant::now();
                     let (reconstructed_pc, triangle_faces) = reconstruct(pc);
+                    let duration = now.elapsed();
+                    println!("total time: {:?}", duration);
                     channel.send(PipelineMessage::IndexedPointCloudWithTriangleFaces(
                         reconstructed_pc,
                         i,
