@@ -8,7 +8,7 @@ pub struct PointXyzRgbaNormal {
     pub g: u8,
     pub b: u8,
     pub a: u8,
-    pub normal_x: f32,
-    pub normal_y: f32,
-    pub normal_z: f32,
+    pub nx: f32,
+    pub ny: f32,
+    pub nz: f32,
 }

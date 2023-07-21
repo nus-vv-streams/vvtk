@@ -70,9 +70,9 @@ fn perform_normal_estimation(pc: &PointCloud<PointXyzRgba>, radius: f64) -> Poin
                 g: p.g,
                 b: p.b,
                 a: p.a,
-                normal_x: 0.0, // Uninitialized normal values
-                normal_y: 0.0,
-                normal_z: 0.0,
+                nx: 0.0, // Uninitialized normal values
+                ny: 0.0,
+                nz: 0.0,
             }
         }).collect(),
     };
@@ -255,9 +255,9 @@ fn compute_eigenvalues_eigenvectors(covariance_matrices: &[CovarianceMatrix]) ->
 fn assign_normal_vectors(pc: &mut PointCloud<PointXyzRgbaNormal>, eigen_results: &[EigenData]) {
     for (i, eigen_data) in eigen_results.iter().enumerate() {
         let normal = eigen_data.eigenvectors.column(0).normalize(); // Select the first eigenvector
-        pc.points[i].normal_x = normal[0];
-        pc.points[i].normal_y = normal[1];
-        pc.points[i].normal_z = normal[2];
+        pc.points[i].nx = normal[0];
+        pc.points[i].ny = normal[1];
+        pc.points[i].nz = normal[2];
     }
 }
 
@@ -266,9 +266,9 @@ fn propagate_normal_orientation(pc: &mut PointCloud<PointXyzRgbaNormal>, neighbo
 
     // Set the initial orientation for the root point's normal
     let root_normal = Vector3::new(
-        pc.points[root_point_index].normal_x,
-        pc.points[root_point_index].normal_y,
-        pc.points[root_point_index].normal_z,
+        pc.points[root_point_index].nx,
+        pc.points[root_point_index].ny,
+        pc.points[root_point_index].nz,
     );
 
     // Use a queue to perform a breadth-first search
@@ -282,25 +282,25 @@ fn propagate_normal_orientation(pc: &mut PointCloud<PointXyzRgbaNormal>, neighbo
     // Propagate normal orientation
     while let Some(current_point_index) = queue.pop_front() {
         let _current_normal = Vector3::new(
-            pc.points[current_point_index].normal_x,
-            pc.points[current_point_index].normal_y,
-            pc.points[current_point_index].normal_z,
+            pc.points[current_point_index].nx,
+            pc.points[current_point_index].ny,
+            pc.points[current_point_index].nz,
         );
 
         // Check the orientation of neighbors and flip if necessary
         for &neighbor_index in &neighbors[current_point_index] {
             if !visited[neighbor_index] {
                 let neighbor_normal = Vector3::new(
-                    pc.points[neighbor_index].normal_x,
-                    pc.points[neighbor_index].normal_y,
-                    pc.points[neighbor_index].normal_z,
+                    pc.points[neighbor_index].nx,
+                    pc.points[neighbor_index].ny,
+                    pc.points[neighbor_index].nz,
                 );
 
                 if root_normal.dot(&neighbor_normal) < 0.0 {
                     // Flip the neighbor's normal
-                    pc.points[neighbor_index].normal_x = -pc.points[neighbor_index].normal_x;
-                    pc.points[neighbor_index].normal_y = -pc.points[neighbor_index].normal_y;
-                    pc.points[neighbor_index].normal_z = -pc.points[neighbor_index].normal_z;
+                    pc.points[neighbor_index].nx = -pc.points[neighbor_index].nx;
+                    pc.points[neighbor_index].ny = -pc.points[neighbor_index].ny;
+                    pc.points[neighbor_index].nz = -pc.points[neighbor_index].nz;
                 }
 
                 // Enqueue the neighbor for further propagation
