@@ -272,8 +272,10 @@ impl BufferManager {
                             if camera_trace.is_some() {
                                 renderer_req.camera_pos = camera_trace.as_ref().map(|ct| ct.next());
                             } else {
-                                viewport_predictor.add(renderer_req.camera_pos.unwrap_or_else(|| original_position));
-                                renderer_req.camera_pos = viewport_predictor.predict();
+                                if renderer_req.camera_pos.is_none() {
+                                    renderer_req.camera_pos = Some(original_position);
+                                }
+                                viewport_predictor.add(renderer_req.camera_pos.unwrap());
                             }
 
                             // First, attempt to fulfill the request from the buffer.
@@ -338,7 +340,7 @@ impl BufferManager {
 
                             if !self.buffer.is_full() {
                                 // If the buffer is not full yet, we can send a request to the fetcher to fetch the next frame
-                                self.prefetch_frame(req.camera_pos);
+                                self.prefetch_frame(viewport_predictor.predict());
                             } else {
                                 is_desired_buffer_level_reached = true;
                             }
