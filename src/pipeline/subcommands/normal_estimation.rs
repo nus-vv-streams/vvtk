@@ -52,6 +52,8 @@ fn perform_normal_estimation(pc: &PointCloud<PointXyzRgba>, radius: f64) -> Poin
     // Select Neighboring Points
     let neighbors = select_neighboring_points(pc, radius);
 
+    println!("Normal Estimation: Selected Neighboring Points.");
+
     // Compute Covariance Matrix
     let covariance_matrices = compute_covariance_matrices(&pc, &neighbors);
 
@@ -102,6 +104,8 @@ fn select_neighboring_points(pc: &PointCloud<PointXyzRgba>, radius: f64) -> Vec<
                 }
             }
         }
+
+        println!("Point {} has {} neighbors", i, point_neighbors.len());
 
         neighbors[i] = point_neighbors;
     }
