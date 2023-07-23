@@ -12,6 +12,7 @@ use parry3d_f64::bounding_volume::Aabb;
 use parry3d_f64::partitioning::Qbvh;
 use rayon::prelude::*;
 use std::collections::HashMap;
+use std::time::Instant;
 
 #[derive(Clone)]
 pub struct PoissonLayer {
@@ -230,9 +231,10 @@ impl PoissonLayer {
 
         // Build rhs
         let mut rhs = DVector::zeros(my_layer.ordered_nodes.len());
+        let start = Instant::now();
         vector_field.build_rhs(layers, curr_layer, &mut rhs);
-        //let duration = start.elapsed();
-        //println!("Time elapsed building rhs is: {:?}", duration);
+        let duration = start.elapsed();
+        println!("Time elapsed building rhs is: {:?}", duration);
         // Subtract the results from the coarser layers.
         rhs.as_mut_slice()
             .par_iter_mut()

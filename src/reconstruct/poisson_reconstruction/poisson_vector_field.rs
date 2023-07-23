@@ -9,6 +9,10 @@ use rayon::prelude::*;
 use std::time::Instant;
 use std::sync::atomic::Ordering::Relaxed;
 
+use std::fs::OpenOptions;
+use std::io::prelude::*;
+use std::sync::{Arc, Mutex};
+
 const CORNERS: [Vector3<i64>; 8] = [
     vector![0, 0, 0],
     vector![1, 0, 0],
@@ -125,12 +129,113 @@ impl PoissonVectorField {
         }
     }
     // finds divergence of normals
+    // pub fn build_rhs(
+    //     &self,
+    //     layers: &[PoissonLayer],
+    //     curr_layer_id: usize,
+    //     rhs: &mut DVector<Real>,
+    // ) {
+    //     let mut file = OpenOptions::new()
+    //     .write(true)
+    //     .append(true)
+    //     .open("log.txt");
+
+    //     let curr_layer = &layers[curr_layer_id];
+    //     rhs.as_mut_slice()
+    //         .par_iter_mut()
+    //         .enumerate()
+    //         .for_each(|(rhs_id, rhs)| {
+    //             //parallel 
+    //             let rhs_atomic = AtomicF64::new(0.0);
+    //             let curr_node = curr_layer.ordered_nodes[rhs_id];
+    //             let curr_node_center = curr_layer.grid.cell_center(&curr_node);
+    //             for (other_layer_id, other_layer) in layers.iter().enumerate() {
+    //                 //let other_layer_id = curr_layer_id + 1;
+
+    //                 let aabb = Aabb::from_half_extents(
+    //                     curr_node_center,
+    //                     Vector3::repeat(
+    //                         curr_layer.cell_width() * 1.5 + other_layer.cell_width() * 1.5,
+    //                     ),
+    //                 );
+    //                 let filtered_vec: Vec<_> = other_layer
+    //                     .grid
+    //                     .cells_intersecting_aabb(&aabb.mins, &aabb.maxs)
+    //                     .filter(|(other_node, _)| self.layers_normals[other_layer_id][other_layer.grid_node_idx[&other_node]] != Vector3::zeros())
+    //                     .collect();
+    //                 let variable_to_log = format!("cur layer/id: {} {} other: {} length: {}", curr_layer_id, rhs_id, other_layer_id, filtered_vec.len());
+    //                 writeln!(file.expect("err"), "{}", variable_to_log);
+    //                 filtered_vec.par_iter()
+    //                     .for_each(|(other_node, _)| {
+    //                         let other_node_id = other_layer.grid_node_idx[&other_node];
+    //                         let normal = self.layers_normals[other_layer_id][other_node_id];
+    //                         let other_node_center = other_layer.grid.cell_center(&other_node);
+    //                         let poly1 = TriQuadraticBspline::new(
+    //                             other_node_center,
+    //                             other_layer.cell_width(),
+    //                         );
+    //                         let poly2 =
+    //                             TriQuadraticBspline::new(curr_node_center, curr_layer.cell_width());
+    //                         let coeff = poly1.grad_grad(poly2, false, true);
+    //                         rhs_atomic.fetch_add(normal.dot(&coeff), Relaxed);
+    //                 });
+
+    //             }
+    //             *rhs = rhs_atomic.load(Relaxed);
+                
+    //             // parallel end
+
+    //             // let curr_node = curr_layer.ordered_nodes[rhs_id];
+    //             // let curr_node_center = curr_layer.grid.cell_center(&curr_node);
+    //             // let rhs_atomic = AtomicF64::new(0.0);
+    //             // for (other_layer_id, other_layer) in layers.iter().enumerate() {
+    //             //     let aabb = Aabb::from_half_extents(
+    //             //         curr_node_center,
+    //             //         Vector3::repeat(
+    //             //             curr_layer.cell_width() * 1.5 + other_layer.cell_width() * 1.5,
+    //             //         ),
+    //             //     );
+
+    //             //     for (other_node, _) in other_layer
+    //             //         .grid
+    //             //         .cells_intersecting_aabb(&aabb.mins, &aabb.maxs)
+    //             //         .filter(|(other_node, _)| self.layers_normals[other_layer_id][other_layer.grid_node_idx[&other_node]] != Vector3::zeros())
+    //             //     {
+    //             //         let other_node_id = other_layer.grid_node_idx[&other_node];
+    //             //         let normal = self.layers_normals[other_layer_id][other_node_id];
+
+    //             //         if normal != Vector3::zeros() {
+    //             //             if (curr_layer_id == other_layer_id) {
+    //             //                 println!("{} {}", rhs_id, other_node_id);
+    //             //             }
+    //             //             let other_node_center = other_layer.grid.cell_center(&other_node);
+    //             //             let poly1 = TriQuadraticBspline::new(
+    //             //                 other_node_center,
+    //             //                 other_layer.cell_width(),
+    //             //             );
+    //             //             let poly2 =
+    //             //                 TriQuadraticBspline::new(curr_node_center, curr_layer.cell_width());
+    //             //             let coeff = poly1.grad_grad(poly2, false, true);
+    //             //             *rhs += normal.dot(&coeff);
+    //             //         }
+    //             //     }
+    //             // }
+    //         });
+    // }
     pub fn build_rhs(
         &self,
         layers: &[PoissonLayer],
         curr_layer_id: usize,
         rhs: &mut DVector<Real>,
     ) {
+        let file = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open("log.txt")
+            .expect("Unable to open file");
+    
+        let file = Arc::new(Mutex::new(file));
+    
         let curr_layer = &layers[curr_layer_id];
         rhs.as_mut_slice()
             .par_iter_mut()
@@ -141,6 +246,8 @@ impl PoissonVectorField {
                 let curr_node = curr_layer.ordered_nodes[rhs_id];
                 let curr_node_center = curr_layer.grid.cell_center(&curr_node);
                 for (other_layer_id, other_layer) in layers.iter().enumerate() {
+                    //let other_layer_id = curr_layer_id + 1;
+    
                     let aabb = Aabb::from_half_extents(
                         curr_node_center,
                         Vector3::repeat(
@@ -152,6 +259,14 @@ impl PoissonVectorField {
                         .cells_intersecting_aabb(&aabb.mins, &aabb.maxs)
                         .filter(|(other_node, _)| self.layers_normals[other_layer_id][other_layer.grid_node_idx[&other_node]] != Vector3::zeros())
                         .collect();
+                    if filtered_vec.len() == 0 {
+                        continue;
+                    }
+                    //let variable_to_log = format!("cur layer/id: {} {} other: {} length: {}", curr_layer_id, rhs_id, other_layer_id, filtered_vec.len());
+    
+                    //let file = Arc::clone(&file);
+                    //let _ = writeln!(*file.lock().unwrap(), "{}", variable_to_log);
+    
                     filtered_vec.par_iter()
                         .for_each(|(other_node, _)| {
                             let other_node_id = other_layer.grid_node_idx[&other_node];
@@ -166,50 +281,11 @@ impl PoissonVectorField {
                             let coeff = poly1.grad_grad(poly2, false, true);
                             rhs_atomic.fetch_add(normal.dot(&coeff), Relaxed);
                     });
-
+    
                 }
                 *rhs = rhs_atomic.load(Relaxed);
-                
-                // parallel end
-
-                // let curr_node = curr_layer.ordered_nodes[rhs_id];
-                // let curr_node_center = curr_layer.grid.cell_center(&curr_node);
-                // let rhs_atomic = AtomicF64::new(0.0);
-                // for (other_layer_id, other_layer) in layers.iter().enumerate() {
-                //     let aabb = Aabb::from_half_extents(
-                //         curr_node_center,
-                //         Vector3::repeat(
-                //             curr_layer.cell_width() * 1.5 + other_layer.cell_width() * 1.5,
-                //         ),
-                //     );
-
-                //     for (other_node, _) in other_layer
-                //         .grid
-                //         .cells_intersecting_aabb(&aabb.mins, &aabb.maxs)
-                //         .filter(|(other_node, _)| self.layers_normals[other_layer_id][other_layer.grid_node_idx[&other_node]] != Vector3::zeros())
-                //     {
-                //         let other_node_id = other_layer.grid_node_idx[&other_node];
-                //         let normal = self.layers_normals[other_layer_id][other_node_id];
-
-                //         if normal != Vector3::zeros() {
-                //             if (curr_layer_id == other_layer_id) {
-                //                 println!("{} {}", rhs_id, other_node_id);
-                //             }
-                //             let other_node_center = other_layer.grid.cell_center(&other_node);
-                //             let poly1 = TriQuadraticBspline::new(
-                //                 other_node_center,
-                //                 other_layer.cell_width(),
-                //             );
-                //             let poly2 =
-                //                 TriQuadraticBspline::new(curr_node_center, curr_layer.cell_width());
-                //             let coeff = poly1.grad_grad(poly2, false, true);
-                //             *rhs += normal.dot(&coeff);
-                //         }
-                //     }
-                // }
             });
     }
-
     pub fn area_approximation(&self) -> Real {
         self.densities.iter().map(|d| 1.0 / *d).sum()
     }
