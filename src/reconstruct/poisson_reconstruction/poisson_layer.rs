@@ -10,9 +10,7 @@ use nalgebra::{vector, DVector, Point3, Vector3};
 use nalgebra_sparse::{CooMatrix, CscMatrix};
 use parry3d_f64::bounding_volume::Aabb;
 use parry3d_f64::partitioning::Qbvh;
-use rayon::prelude::*;
 use std::collections::HashMap;
-use std::time::Instant;
 
 #[derive(Clone)]
 pub struct PoissonLayer {
@@ -167,8 +165,6 @@ impl PoissonLayer {
         let cell_width = my_layer.cell_width();
         assert_eq!(points.len(), normals.len());
         let convolution = polynomial::compute_quadratic_bspline_convolution_coeffs(cell_width);
-        //let duration = start.elapsed();
-        //println!("1. Time elapsed in bsline is: {:?}", duration);
         let num_nodes = my_layer.ordered_nodes.len();
 
         // Compute the gradient matrix.
@@ -200,19 +196,33 @@ impl PoissonLayer {
                                             let adj = node + vector![si, sj, sk];
 
                                             if let Some(pt_ids) = my_layer.grid.cell(&adj) {
-                                                for pid in pt_ids {
-                                                    // Use get to ignore the sentinel.
-                                                    if let Some(pt) = points.get(*pid) {
-                                                        let poly1 = TriQuadraticBspline::new(
-                                                            center1, cell_width,
-                                                        );
-                                                        let poly2 = TriQuadraticBspline::new(
-                                                            center2, cell_width,
-                                                        );
-                                                        laplacian += screen_factor
-                                                            * poly1.eval(*pt)
-                                                            * poly2.eval(*pt);
-                                                    }
+                                                // for pid in pt_ids {
+                                                //     // Use get to ignore the sentinel.
+                                                //     if let Some(pt) = points.get(*pid) {
+                                                //         let poly1 = TriQuadraticBspline::new(
+                                                //             center1, cell_width,
+                                                //         );
+                                                //         let poly2 = TriQuadraticBspline::new(
+                                                //             center2, cell_width,
+                                                //         );
+                                                //         laplacian += screen_factor
+                                                //             * poly1.eval(*pt)
+                                                //             * poly2.eval(*pt);
+                                                //     }
+                                                // }
+                                                if pt_ids.len() > 1 {
+                                                    let poly1 = TriQuadraticBspline::new(
+                                                        center1, cell_width,
+                                                    );
+                                                    let poly2 = TriQuadraticBspline::new(
+                                                        center2, cell_width,
+                                                    );
+                                                    let node_center = my_layer.grid.cell_center(&adj);
+                                                    let pt = nalgebra::Point3::new(node_center.x as Real, node_center.y as Real, node_center.z as Real);
+                                                    laplacian += screen_factor
+                                                            * poly1.eval(pt)
+                                                            * poly2.eval(pt)
+                                                            * (pt_ids.len() as f64 - 1.0);
                                                 }
                                             }
                                         }
@@ -226,78 +236,14 @@ impl PoissonLayer {
                 }
             }
         }
-        //let duration = start.elapsed();
-        //println!("Time elapsed after iteration is: {:?}", duration);
 
         // Build rhs
         let mut rhs = DVector::zeros(my_layer.ordered_nodes.len());
-        let start = Instant::now();
-        vector_field.build_rhs(layers, curr_layer, &mut rhs);
-        let duration = start.elapsed();
-        println!("Time elapsed building rhs is: {:?}", duration);
-        // Subtract the results from the coarser layers.
-        rhs.as_mut_slice()
-            .par_iter_mut()
-            .enumerate()
-            .for_each(|(rhs_id, rhs)| {
-                let node_key = my_layer.ordered_nodes[rhs_id];
-                let node_center = my_layer.grid.cell_center(&node_key);
-                let poly1 = TriQuadraticBspline::new(node_center, my_layer.cell_width());
-
-                for coarser_layer in &layers[0..curr_layer] {
-                    let aabb = Aabb::from_half_extents(
-                        node_center,
-                        Vector3::repeat(
-                            my_layer.cell_width() * 1.5 + coarser_layer.cell_width() * 1.5,
-                        ),
-                    );
-
-                    for (coarser_node_key, _) in coarser_layer
-                        .grid
-                        .cells_intersecting_aabb(&aabb.mins, &aabb.maxs)
-                    {
-                        let coarser_node_center = coarser_layer.grid.cell_center(&coarser_node_key);
-                        let poly2 = TriQuadraticBspline::new(
-                            coarser_node_center,
-                            coarser_layer.cell_width(),
-                        );
-                        let mut coeff = poly1.grad_grad(poly2, true, true).sum();
-                        let coarser_rhs_id = coarser_layer.grid_node_idx[&coarser_node_key];
-
-                        if screening != 0.0 {
-                            for si in -1..=1 {
-                                for sj in -1..=1 {
-                                    for sk in -1..=1 {
-                                        let adj = node_key + vector![si, sj, sk];
-
-                                        if let Some(pt_ids) = my_layer.grid.cell(&adj) {
-                                            for pid in pt_ids {
-                                                // Use get to ignore the sentinel.
-                                                if let Some(pt) = points.get(*pid) {
-                                                    coeff += screen_factor
-                                                        * poly1.eval(*pt)
-                                                        * poly2.eval(*pt);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        *rhs -= coarser_layer.node_weights[coarser_rhs_id] * coeff;
-                    }
-                }
-            });
-        //let duration = start.elapsed();
-        //println!("Time elapsed before solve conj grad is: {:?}", duration);
+        vector_field.build_rhs(layers, curr_layer, &mut rhs, screening != 0.0, screen_factor);
+        
         // Solve the sparse system.
         let lhs = CscMatrix::from(&grad_matrix);
         solve_conjugate_gradient(&lhs, &mut rhs, niters);
-        //let duration = start.elapsed();
-        //println!("Time elapsed after solving is: {:?}", duration);
-        // let chol = CscCholesky::factor(&lhs).unwrap();
-        // chol.solve_mut(&mut rhs);
 
         rhs
     }

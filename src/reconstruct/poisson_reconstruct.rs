@@ -46,7 +46,7 @@ pub fn reconstruct_surface(vertices: &[PointXyzRgba]) -> Vec<Point3<Real>> {
     let poisson: PoissonReconstruction = PoissonReconstruction::from_points_and_normals(
         points.as_slice(),
         normals.as_slice(),
-        0.0,
+        0.5,
         6,
         6,
         10,
