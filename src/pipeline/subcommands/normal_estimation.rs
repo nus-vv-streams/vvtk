@@ -5,16 +5,24 @@ use nalgebra::{Vector3, Matrix3};
 use crate::pipeline::channel::Channel;
 use crate::pipeline::PipelineMessage;
 use crate::formats::{PointCloud, pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal};
+use kdtree::distance::squared_euclidean;
+use kdtree::KdTree;
 
 use super::Subcommand;
+
+type PointType = [f64; 3];
 
 #[derive(Parser)]
 #[clap(
     about = "Performs normal estimation on point clouds.",
 )]
 pub struct Args {
-    #[clap(short, long, default_value = "1.0")]
-    radius: f64,
+    // #[clap(short, long, default_value = "0.1")]
+    // radius: f64,
+    #[clap(short, long, default_value = "30")]
+    k: usize,
+    // #[clap(short, long, default_value = "1")]
+    // kdtree: usize,
 }
 
 pub struct NormalEstimation {
@@ -35,8 +43,7 @@ impl Subcommand for NormalEstimation {
         for message in messages {
             match message {
                 PipelineMessage::IndexedPointCloud(pc, i) => {
-                    let normal_estimation_result = perform_normal_estimation(&pc, self.args.radius);
-                    println!("Normal Estimation Completed for Point Cloud {}", i);
+                    let normal_estimation_result = perform_normal_estimation(&pc, self.args.k);
                     channel.send(PipelineMessage::IndexedPointCloudNormal(normal_estimation_result, i));
                 }
                 PipelineMessage::Metrics(_) | PipelineMessage::IndexedPointCloudNormal(_, _) | PipelineMessage::DummyForIncrement => {}
@@ -48,11 +55,10 @@ impl Subcommand for NormalEstimation {
     }
 }
 
-fn perform_normal_estimation(pc: &PointCloud<PointXyzRgba>, radius: f64) -> PointCloud<PointXyzRgbaNormal> {
-    // Select Neighboring Points
-    let neighbors = select_neighboring_points(pc, radius);
+fn perform_normal_estimation(pc: &PointCloud<PointXyzRgba>, k: usize) -> PointCloud<PointXyzRgbaNormal> {
 
-    println!("Normal Estimation: Selected Neighboring Points.");
+    // Select Neighboring Points
+    let neighbors = select_neighbors(pc,k);
 
     // Compute Covariance Matrix
     let covariance_matrices = compute_covariance_matrices(&pc, &neighbors);
@@ -87,42 +93,66 @@ fn perform_normal_estimation(pc: &PointCloud<PointXyzRgba>, radius: f64) -> Poin
     pc_normal
 }
 
-fn select_neighboring_points(pc: &PointCloud<PointXyzRgba>, radius: f64) -> Vec<Vec<usize>> {
-    let mut neighbors: Vec<Vec<usize>> = vec![Vec::new(); pc.number_of_points];
+fn build_kd_tree(points: &[PointXyzRgba]) -> KdTree<f64, usize, PointType> {
+    let mut kdtree = KdTree::new(3);
+    for (i, point) in points.iter().enumerate() {
+        kdtree.add([point.x as f64, point.y as f64, point.z as f64], i).unwrap();
+    }
+    kdtree
+}
 
-    for i in 0..pc.number_of_points {
-        let mut point_neighbors: Vec<usize> = Vec::new();
-        let p1 = &pc.points[i];
-
-        for j in 0..pc.number_of_points {
-            if i != j {
-                let p2 = &pc.points[j];
-                let dist = distance(&[p1.x, p1.y, p1.z], &[p2.x, p2.y, p2.z]);
-
-                if dist <= radius {
-                    point_neighbors.push(j);
-                }
+fn select_neighbors(pc: &PointCloud<PointXyzRgba>, k: usize) -> Vec<Vec<usize>> {
+    let kdtree = build_kd_tree(&pc.points);
+    let mut neighbors: Vec<Vec<usize>> = Vec::with_capacity(pc.number_of_points);
+    for (i, point) in pc.points.iter().enumerate() {
+        // Ask for k+1 neighbors to account for the point itself
+        let ret = kdtree.nearest(&[point.x as f64, point.y as f64, point.z as f64], k + 1, &squared_euclidean).unwrap();
+        let mut neighbor_indices = Vec::new();
+        for &(_dist, &index) in ret.iter() {
+            // Exclude the point itself
+            if index != i {
+                neighbor_indices.push(index);
             }
         }
-
-        println!("Point {} has {} neighbors", i, point_neighbors.len());
-
-        neighbors[i] = point_neighbors;
+        neighbors.push(neighbor_indices);
     }
-
     neighbors
 }
 
-fn distance<T>(p1: &[T; 3], p2: &[T; 3]) -> f64
-where
-    T: Sub<Output = T> + Into<f64> + Copy,
-{
-    let dx = (p1[0] - p2[0]).into();
-    let dy = (p1[1] - p2[1]).into();
-    let dz = (p1[2] - p2[2]).into();
+// fn select_neighboring_points(pc: &PointCloud<PointXyzRgba>, radius: f64) -> Vec<Vec<usize>> {
+//     let mut neighbors: Vec<Vec<usize>> = vec![Vec::new(); pc.number_of_points];
 
-    (dx * dx + dy * dy + dz * dz).sqrt()
-}
+//     for i in 0..pc.number_of_points {
+//         let mut point_neighbors: Vec<usize> = Vec::new();
+//         let p1 = &pc.points[i];
+
+//         for j in 0..pc.number_of_points {
+//             if i != j {
+//                 let p2 = &pc.points[j];
+//                 let dist = distance(&[p1.x, p1.y, p1.z], &[p2.x, p2.y, p2.z]);
+
+//                 if dist <= radius {
+//                     point_neighbors.push(j);
+//                 }
+//             }
+//         }
+
+//         neighbors[i] = point_neighbors;
+//     }
+
+//     neighbors
+// }
+
+// fn distance<T>(p1: &[T; 3], p2: &[T; 3]) -> f64
+// where
+//     T: Sub<Output = T> + Into<f64> + Copy,
+// {
+//     let dx = (p1[0] - p2[0]).into();
+//     let dy = (p1[1] - p2[1]).into();
+//     let dz = (p1[2] - p2[2]).into();
+
+//     (dx * dx + dy * dy + dz * dz).sqrt()
+// }
 
 #[derive(Debug, PartialEq)]
 pub struct CovarianceMatrix {
@@ -160,15 +190,20 @@ fn compute_covariance_matrices(pc: &PointCloud<PointXyzRgba>, neighbors: &[Vec<u
             continue;
         }
 
-        let mut mean_x = pc.points[i].x;
-        let mut mean_y = pc.points[i].y;
-        let mut mean_z = pc.points[i].z;
+        let mut mean_x = 0.0;
+        let mut mean_y = 0.0;
+        let mut mean_z = 0.0;
 
         for &neighbor_index in point_neighbors {
             mean_x += pc.points[neighbor_index].x;
             mean_y += pc.points[neighbor_index].y;
             mean_z += pc.points[neighbor_index].z;
         }
+
+        // Include the point itself in the mean calculation
+        mean_x += pc.points[i].x;
+        mean_y += pc.points[i].y;
+        mean_z += pc.points[i].z;
 
         mean_x /= total_points as f32;
         mean_y /= total_points as f32;
@@ -195,10 +230,11 @@ fn compute_covariance_matrices(pc: &PointCloud<PointXyzRgba>, neighbors: &[Vec<u
             cov_zz += dz * dz;
         }
 
-        // Include the point itself
+        // Include the point itself in the covariance calculation
         let dx = pc.points[i].x - mean_x;
         let dy = pc.points[i].y - mean_y;
         let dz = pc.points[i].z - mean_z;
+
         cov_xx += dx * dx;
         cov_xy += dx * dy;
         cov_xz += dx * dz;
@@ -232,6 +268,7 @@ fn compute_covariance_matrices(pc: &PointCloud<PointXyzRgba>, neighbors: &[Vec<u
 #[derive(Debug)]
 struct EigenData {
     eigenvectors: Matrix3<f32>,
+    eigenvalues: Vector3<f32>,
 }
 
 fn compute_eigenvalues_eigenvectors(covariance_matrices: &[CovarianceMatrix]) -> Vec<EigenData> {
@@ -247,33 +284,38 @@ fn compute_eigenvalues_eigenvectors(covariance_matrices: &[CovarianceMatrix]) ->
         let eigendecomp = cov_matrix.symmetric_eigen();
 
         let eigenvectors = eigendecomp.eigenvectors;
+        let eigenvalues = eigendecomp.eigenvalues;
 
-        let eigen_data = EigenData { eigenvectors };
+        let eigen_data = EigenData { eigenvectors, eigenvalues };
         eigen_data_vec.push(eigen_data);
     }
 
     eigen_data_vec
 }
 
-
 fn assign_normal_vectors(pc: &mut PointCloud<PointXyzRgbaNormal>, eigen_results: &[EigenData]) {
     for (i, eigen_data) in eigen_results.iter().enumerate() {
-        let normal = eigen_data.eigenvectors.column(0).normalize(); // Select the first eigenvector
+        // Find the index of the smallest eigenvalue
+        let min_index = eigen_data.eigenvalues
+            .iter()
+            .enumerate()
+            .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(index, _value)| index)
+            .unwrap_or(0); // If all else fails, default to 0
+
+        // Select the eigenvector corresponding to the smallest eigenvalue
+        let normal = eigen_data.eigenvectors.column(min_index).normalize();
+
+        // Assign the normal vector to the point cloud
         pc.points[i].nx = normal[0];
         pc.points[i].ny = normal[1];
         pc.points[i].nz = normal[2];
     }
 }
 
+
 fn propagate_normal_orientation(pc: &mut PointCloud<PointXyzRgbaNormal>, neighbors: &[Vec<usize>]) {
     let root_point_index = 0; // Choose the root point index (e.g., 0)
-
-    // Set the initial orientation for the root point's normal
-    let root_normal = Vector3::new(
-        pc.points[root_point_index].nx,
-        pc.points[root_point_index].ny,
-        pc.points[root_point_index].nz,
-    );
 
     // Use a queue to perform a breadth-first search
     let mut queue = VecDeque::new();
@@ -285,7 +327,7 @@ fn propagate_normal_orientation(pc: &mut PointCloud<PointXyzRgbaNormal>, neighbo
 
     // Propagate normal orientation
     while let Some(current_point_index) = queue.pop_front() {
-        let _current_normal = Vector3::new(
+        let current_normal = Vector3::new(
             pc.points[current_point_index].nx,
             pc.points[current_point_index].ny,
             pc.points[current_point_index].nz,
@@ -294,17 +336,18 @@ fn propagate_normal_orientation(pc: &mut PointCloud<PointXyzRgbaNormal>, neighbo
         // Check the orientation of neighbors and flip if necessary
         for &neighbor_index in &neighbors[current_point_index] {
             if !visited[neighbor_index] {
-                let neighbor_normal = Vector3::new(
+                let mut neighbor_normal = Vector3::new(
                     pc.points[neighbor_index].nx,
                     pc.points[neighbor_index].ny,
                     pc.points[neighbor_index].nz,
                 );
 
-                if root_normal.dot(&neighbor_normal) < 0.0 {
+                if current_normal.dot(&neighbor_normal) < 0.0 {
                     // Flip the neighbor's normal
-                    pc.points[neighbor_index].nx = -pc.points[neighbor_index].nx;
-                    pc.points[neighbor_index].ny = -pc.points[neighbor_index].ny;
-                    pc.points[neighbor_index].nz = -pc.points[neighbor_index].nz;
+                    neighbor_normal = -neighbor_normal;
+                    pc.points[neighbor_index].nx = neighbor_normal[0];
+                    pc.points[neighbor_index].ny = neighbor_normal[1];
+                    pc.points[neighbor_index].nz = neighbor_normal[2];
                 }
 
                 // Enqueue the neighbor for further propagation
@@ -315,48 +358,49 @@ fn propagate_normal_orientation(pc: &mut PointCloud<PointXyzRgbaNormal>, neighbo
     }
 }
 
+
 #[cfg(test)]
 mod test {
     use super::*;
     use approx::assert_relative_eq;
 
-    #[test]
-    fn test_select_neighboring_points() {
-        // Create a sample point cloud
-        let points = vec![
-            PointXyzRgba { x: 0.0, y: 0.0, z: 0.0, r: 0, g: 0, b: 0, a: 255 },
-            PointXyzRgba { x: 1.0, y: 1.0, z: 1.0, r: 255, g: 255, b: 255, a: 255 },
-            PointXyzRgba { x: 2.0, y: 2.0, z: 2.0, r: 255, g: 0, b: 0, a: 255 },
-            PointXyzRgba { x: 3.0, y: 3.0, z: 3.0, r: 0, g: 255, b: 0, a: 255 },
-            PointXyzRgba { x: 4.0, y: 4.0, z: 4.0, r: 0, g: 0, b: 255, a: 255 },
-        ];
+    // #[test]
+    // fn test_select_neighboring_points() {
+    //     // Create a sample point cloud
+    //     let points = vec![
+    //         PointXyzRgba { x: 0.0, y: 0.0, z: 0.0, r: 0, g: 0, b: 0, a: 255 },
+    //         PointXyzRgba { x: 1.0, y: 1.0, z: 1.0, r: 255, g: 255, b: 255, a: 255 },
+    //         PointXyzRgba { x: 2.0, y: 2.0, z: 2.0, r: 255, g: 0, b: 0, a: 255 },
+    //         PointXyzRgba { x: 3.0, y: 3.0, z: 3.0, r: 0, g: 255, b: 0, a: 255 },
+    //         PointXyzRgba { x: 4.0, y: 4.0, z: 4.0, r: 0, g: 0, b: 255, a: 255 },
+    //     ];
     
-        let pc = PointCloud {
-            number_of_points: points.len(),
-            points,
-        };
+    //     let pc = PointCloud {
+    //         number_of_points: points.len(),
+    //         points,
+    //     };
     
-        let radius = 3.0; // Example radius value
+    //     let radius = 3.0; // Example radius value
     
-        let neighbors = select_neighboring_points(&pc, radius);
+    //     let neighbors = select_neighboring_points(&pc, radius);
     
-        // Assert the expected neighbors for each point
+    //     // Assert the expected neighbors for each point
     
-        // Point 0 should have neighbors 1
-        assert_eq!(neighbors[0], vec![1]);
+    //     // Point 0 should have neighbors 1
+    //     assert_eq!(neighbors[0], vec![1]);
     
-        // Point 1 should have neighbors 0, 2
-        assert_eq!(neighbors[1], vec![0, 2]);
+    //     // Point 1 should have neighbors 0, 2
+    //     assert_eq!(neighbors[1], vec![0, 2]);
     
-        // Point 2 should have neighbors 1, 3
-        assert_eq!(neighbors[2], vec![1, 3]);
+    //     // Point 2 should have neighbors 1, 3
+    //     assert_eq!(neighbors[2], vec![1, 3]);
     
-        // Point 3 should have neighbors 2, 4
-        assert_eq!(neighbors[3], vec![2, 4]);
+    //     // Point 3 should have neighbors 2, 4
+    //     assert_eq!(neighbors[3], vec![2, 4]);
     
-        // Point 4 should have neighbors 3
-        assert_eq!(neighbors[4], vec![3]);
-    }
+    //     // Point 4 should have neighbors 3
+    //     assert_eq!(neighbors[4], vec![3]);
+    // }
 
     #[test]
     fn test_compute_eigenvalues_eigenvectors() {
