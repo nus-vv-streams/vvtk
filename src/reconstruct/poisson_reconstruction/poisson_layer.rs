@@ -217,12 +217,17 @@ impl PoissonLayer {
                                                     let poly2 = TriQuadraticBspline::new(
                                                         center2, cell_width,
                                                     );
-                                                    let node_center = my_layer.grid.cell_center(&adj);
-                                                    let pt = nalgebra::Point3::new(node_center.x as Real, node_center.y as Real, node_center.z as Real);
+                                                    let node_center =
+                                                        my_layer.grid.cell_center(&adj);
+                                                    let pt = nalgebra::Point3::new(
+                                                        node_center.x as Real,
+                                                        node_center.y as Real,
+                                                        node_center.z as Real,
+                                                    );
                                                     laplacian += screen_factor
-                                                            * poly1.eval(pt)
-                                                            * poly2.eval(pt)
-                                                            * (pt_ids.len() as f64 - 1.0);
+                                                        * poly1.eval(pt)
+                                                        * poly2.eval(pt)
+                                                        * (pt_ids.len() as f64 - 1.0);
                                                 }
                                             }
                                         }
@@ -239,8 +244,14 @@ impl PoissonLayer {
 
         // Build rhs
         let mut rhs = DVector::zeros(my_layer.ordered_nodes.len());
-        vector_field.build_rhs(layers, curr_layer, &mut rhs, screening != 0.0, screen_factor);
-        
+        vector_field.build_rhs(
+            layers,
+            curr_layer,
+            &mut rhs,
+            screening != 0.0,
+            screen_factor,
+        );
+
         // Solve the sparse system.
         let lhs = CscMatrix::from(&grad_matrix);
         solve_conjugate_gradient(&lhs, &mut rhs, niters);

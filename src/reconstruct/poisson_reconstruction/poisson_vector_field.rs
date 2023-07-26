@@ -121,7 +121,7 @@ impl PoissonVectorField {
             layers_normals,
         }
     }
-    
+
     pub fn build_rhs(
         &self,
         layers: &[PoissonLayer],
@@ -139,7 +139,7 @@ impl PoissonVectorField {
                 let curr_node = curr_layer.ordered_nodes[rhs_id];
                 let curr_node_center = curr_layer.grid.cell_center(&curr_node);
                 let poly2 = TriQuadraticBspline::new(curr_node_center, curr_layer.cell_width());
-                
+
                 for (other_layer_id, other_layer) in layers.iter().enumerate() {
                     let aabb = Aabb::from_half_extents(
                         curr_node_center,
@@ -154,10 +154,8 @@ impl PoissonVectorField {
                         let other_node_id = other_layer.grid_node_idx[&other_node];
                         let normal = self.layers_normals[other_layer_id][other_node_id];
                         let other_node_center = other_layer.grid.cell_center(&other_node);
-                        let poly1 = TriQuadraticBspline::new(
-                            other_node_center,
-                            other_layer.cell_width(),
-                        );
+                        let poly1 =
+                            TriQuadraticBspline::new(other_node_center, other_layer.cell_width());
                         if normal != Vector3::zeros() {
                             let coeff = poly1.grad_grad(poly2, false, true);
                             *rhs += normal.dot(&coeff);
@@ -167,13 +165,13 @@ impl PoissonVectorField {
                             let coarser_layer = other_layer;
                             let coarser_rhs_id = other_node_id;
                             let mut coeff = poly2.grad_grad(poly1, true, true).sum();
-                            
+
                             if screening {
                                 for si in -1..=1 {
                                     for sj in -1..=1 {
                                         for sk in -1..=1 {
                                             let adj = curr_node + vector![si, sj, sk];
-    
+
                                             if let Some(pt_ids) = curr_layer.grid.cell(&adj) {
                                                 // for pid in pt_ids {
                                                 //     // Use get to ignore the sentinel.
@@ -184,12 +182,17 @@ impl PoissonVectorField {
                                                 //     }
                                                 // }
                                                 if pt_ids.len() > 1 {
-                                                    let node_center = curr_layer.grid.cell_center(&adj);
-                                                    let pt = nalgebra::Point3::new(node_center.x as Real, node_center.y as Real, node_center.z as Real);
+                                                    let node_center =
+                                                        curr_layer.grid.cell_center(&adj);
+                                                    let pt = nalgebra::Point3::new(
+                                                        node_center.x as Real,
+                                                        node_center.y as Real,
+                                                        node_center.z as Real,
+                                                    );
                                                     coeff += screen_factor
-                                                            * poly1.eval(pt)
-                                                            * poly2.eval(pt)
-                                                            * (pt_ids.len() as f64 - 1.0);
+                                                        * poly1.eval(pt)
+                                                        * poly2.eval(pt)
+                                                        * (pt_ids.len() as f64 - 1.0);
                                                 }
                                             }
                                         }
