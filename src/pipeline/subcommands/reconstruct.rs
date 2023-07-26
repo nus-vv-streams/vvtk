@@ -4,6 +4,7 @@ use super::Subcommand;
 use crate::pipeline::channel::Channel;
 use crate::pipeline::PipelineMessage;
 use crate::reconstruct::poisson_reconstruct::reconstruct;
+use std::time::Instant;
 
 #[derive(Parser)]
 pub struct Args {
@@ -23,7 +24,13 @@ impl Subcommand for Reconstructer {
         for message in messages {
             match message {
                 PipelineMessage::IndexedPointCloud(pc, i) => {
+                    let start = Instant::now();
                     let (reconstructed_pc, triangle_faces) = reconstruct(pc);
+                    let duration = start.elapsed();
+                    println!(
+                        "Time elapsed in whole poisson reconstruct is: {:?}",
+                        duration
+                    );
                     channel.send(PipelineMessage::IndexedPointCloudWithTriangleFaces(
                         reconstructed_pc,
                         i,
