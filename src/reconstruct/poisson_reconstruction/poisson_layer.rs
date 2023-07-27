@@ -56,6 +56,7 @@ impl PoissonLayer {
             let ref_node = grid.key(pt);
             let ref_center = grid.cell_center(&ref_node);
             grid.insert(&ref_center, pid);
+            grid.update_cell_average(&pt);
 
             for i in -2..=2 {
                 for j in -2..=2 {
@@ -116,6 +117,7 @@ impl PoissonLayer {
             let ref_node = grid.key(pt);
             let ref_center = grid.cell_center(&ref_node);
             grid.insert(&ref_center, pid);
+            grid.update_cell_average(&pt);
         }
 
         Self::from_populated_grid(grid, grid_node_idx, ordered_nodes)
@@ -196,20 +198,6 @@ impl PoissonLayer {
                                             let adj = node + vector![si, sj, sk];
 
                                             if let Some(pt_ids) = my_layer.grid.cell(&adj) {
-                                                // for pid in pt_ids {
-                                                //     // Use get to ignore the sentinel.
-                                                //     if let Some(pt) = points.get(*pid) {
-                                                //         let poly1 = TriQuadraticBspline::new(
-                                                //             center1, cell_width,
-                                                //         );
-                                                //         let poly2 = TriQuadraticBspline::new(
-                                                //             center2, cell_width,
-                                                //         );
-                                                //         laplacian += screen_factor
-                                                //             * poly1.eval(*pt)
-                                                //             * poly2.eval(*pt);
-                                                //     }
-                                                // }
                                                 if pt_ids.len() > 1 {
                                                     let poly1 = TriQuadraticBspline::new(
                                                         center1, cell_width,
@@ -217,17 +205,14 @@ impl PoissonLayer {
                                                     let poly2 = TriQuadraticBspline::new(
                                                         center2, cell_width,
                                                     );
-                                                    let node_center =
-                                                        my_layer.grid.cell_center(&adj);
-                                                    let pt = nalgebra::Point3::new(
-                                                        node_center.x as Real,
-                                                        node_center.y as Real,
-                                                        node_center.z as Real,
-                                                    );
-                                                    laplacian += screen_factor
-                                                        * poly1.eval(pt)
-                                                        * poly2.eval(pt)
-                                                        * (pt_ids.len() as f64 - 1.0);
+                                                    let pt =
+                                                        my_layer.grid.get_cell_average_point(&adj);
+                                                    if pt != Point3::new(0.0, 0.0, 0.0) {
+                                                        laplacian += screen_factor
+                                                            * poly1.eval(pt)
+                                                            * poly2.eval(pt)
+                                                            * (pt_ids.len() as f64 - 1.0);
+                                                    }
                                                 }
                                             }
                                         }
