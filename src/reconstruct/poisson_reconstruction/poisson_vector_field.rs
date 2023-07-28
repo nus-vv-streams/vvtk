@@ -173,26 +173,16 @@ impl PoissonVectorField {
                                             let adj = curr_node + vector![si, sj, sk];
 
                                             if let Some(pt_ids) = curr_layer.grid.cell(&adj) {
-                                                // for pid in pt_ids {
-                                                //     // Use get to ignore the sentinel.
-                                                //     if let Some(pt) = points.get(*pid) {
-                                                //         coeff += screen_factor
-                                                //             * poly1.eval(*pt)
-                                                //             * poly2.eval(*pt);
-                                                //     }
-                                                // }
                                                 if pt_ids.len() > 1 {
-                                                    let node_center =
-                                                        curr_layer.grid.cell_center(&adj);
-                                                    let pt = nalgebra::Point3::new(
-                                                        node_center.x as Real,
-                                                        node_center.y as Real,
-                                                        node_center.z as Real,
-                                                    );
-                                                    coeff += screen_factor
-                                                        * poly1.eval(pt)
-                                                        * poly2.eval(pt)
-                                                        * (pt_ids.len() as f64 - 1.0);
+                                                    let pt = curr_layer
+                                                        .grid
+                                                        .get_cell_average_point(&adj);
+                                                    if pt != Point3::new(0.0, 0.0, 0.0) {
+                                                        coeff += screen_factor
+                                                            * poly1.eval(pt)
+                                                            * poly2.eval(pt)
+                                                            * (pt_ids.len() as f64 - 1.0);
+                                                    }
                                                 }
                                             }
                                         }
