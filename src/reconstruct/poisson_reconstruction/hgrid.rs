@@ -4,7 +4,6 @@
 
 use fnv::FnvHasher;
 
-use std::cell::Cell;
 use std::collections::HashMap;
 use std::hash::BuildHasher;
 
