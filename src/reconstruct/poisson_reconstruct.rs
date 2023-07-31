@@ -5,8 +5,18 @@ use nalgebra::{Point3, Vector3};
 
 pub fn reconstruct(
     points: PointCloud<PointXyzRgba>,
+    screening: f64,
+    density_estimation_depth: usize,
+    max_depth: usize,
+    max_relaxation_iters: usize,
 ) -> (PointCloud<PointXyzRgba>, Vec<TriangleFace>) {
-    let surface: Vec<Point3<Real>> = reconstruct_surface(&points.points);
+    let surface: Vec<Point3<Real>> = reconstruct_surface(
+        &points.points,
+        screening,
+        density_estimation_depth,
+        max_depth,
+        max_relaxation_iters,
+    );
     let vec_points: Vec<PointXyzRgba> = surface
         .iter()
         .map(|p| PointXyzRgba {
@@ -16,9 +26,9 @@ pub fn reconstruct(
             nx: 0.0,
             ny: 0.0,
             nz: 0.0,
-            r: 0,
-            g: 0,
-            b: 0,
+            r: 1,
+            g: 1,
+            b: 1,
             a: 0,
         })
         .collect();
@@ -34,7 +44,13 @@ pub fn reconstruct(
     //points
 }
 
-pub fn reconstruct_surface(vertices: &[PointXyzRgba]) -> Vec<Point3<Real>> {
+pub fn reconstruct_surface(
+    vertices: &[PointXyzRgba],
+    screening: f64,
+    density_estimation_depth: usize,
+    max_depth: usize,
+    max_relaxation_iters: usize,
+) -> Vec<Point3<Real>> {
     let points: Vec<_> = vertices
         .iter()
         .map(|v| Point3::new(v.x as f64, v.y as f64, v.z as f64))
@@ -46,10 +62,10 @@ pub fn reconstruct_surface(vertices: &[PointXyzRgba]) -> Vec<Point3<Real>> {
     let poisson: PoissonReconstruction = PoissonReconstruction::from_points_and_normals(
         points.as_slice(),
         normals.as_slice(),
-        0.5,
-        6,
-        6,
-        10,
+        screening as Real,
+        density_estimation_depth,
+        max_depth,
+        max_relaxation_iters,
     );
     poisson.reconstruct_mesh()
 }

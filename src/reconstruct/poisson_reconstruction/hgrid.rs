@@ -7,6 +7,7 @@ use fnv::FnvHasher;
 use std::collections::HashMap;
 use std::hash::BuildHasher;
 
+use super::cell_average_data::CellAverageData;
 use super::Real;
 use nalgebra as na;
 use nalgebra::{Point3, Vector3};
@@ -38,6 +39,7 @@ pub struct HGrid<T> {
     cells: HashMap<Point3<i64>, Vec<T>, DeterministicState>,
     origin: Point3<Real>,
     cell_width: Real,
+    cell_average_hashmap: HashMap<Point3<i64>, CellAverageData, DeterministicState>,
 }
 
 impl<T> HGrid<T> {
@@ -47,6 +49,7 @@ impl<T> HGrid<T> {
             cells: HashMap::with_hasher(DeterministicState),
             origin,
             cell_width,
+            cell_average_hashmap: HashMap::with_hasher(DeterministicState),
         }
     }
 
@@ -86,6 +89,27 @@ impl<T> HGrid<T> {
     pub fn insert(&mut self, point: &Point3<Real>, element: T) {
         let key = self.key(point);
         self.cells.entry(key).or_insert_with(Vec::new).push(element)
+    }
+
+    /// Updates the average point position of a cell, given a new point to be added to the grid
+    pub fn update_cell_average(&mut self, point: &Point3<Real>) {
+        let key = self.key(point);
+        let cell_average_data = self
+            .cell_average_hashmap
+            .entry(key)
+            .or_insert_with(CellAverageData::new);
+        cell_average_data.add_point(*point);
+    }
+
+    /// Retrieves the average point of a cell given the cell
+    pub fn get_cell_average_point(&self, cell: &Point3<i64>) -> Point3<Real> {
+        let cell_average_data: Option<&CellAverageData> = self.cell_average_hashmap.get(cell);
+
+        let average_point = cell_average_data
+            .and_then(|data| Some(data.get_cell_average_point()))
+            .unwrap_or(Point3::new(0.0, 0.0, 0.0));
+
+        average_point
     }
 
     /// Returns the element attached to the cell containing the given `point`.
