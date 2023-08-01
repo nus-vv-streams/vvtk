@@ -167,6 +167,7 @@ pub struct Camera {
     pub position: Point3<f32>,
     pub yaw: Rad<f32>,
     pub pitch: Rad<f32>,
+    pub up: Vector3<f32>, // either unit_y or -unit_y
 }
 
 impl Camera {
@@ -179,6 +180,7 @@ impl Camera {
             position: position.into(),
             yaw: yaw.into(),
             pitch: pitch.into(),
+            up: Vector3::unit_y(),
         }
     }
 
@@ -189,7 +191,7 @@ impl Camera {
         Matrix4::look_to_rh(
             self.position,
             Vector3::new(cos_pitch * cos_yaw, sin_pitch, cos_pitch * sin_yaw).normalize(),
-            Vector3::unit_y(),
+            self.up,
         )
     }
 }
@@ -376,6 +378,7 @@ impl CameraController {
                 // pitch needs to be updated as well
                 camera.pitch = camera.pitch - rotate_angle * clock_wise;
                 camera.pitch = camera.pitch % Rad(2.0 * std::f32::consts::PI);
+                camera.up = camera.pitch.cos().signum() * Vector3::new(0.0, 1.0, 0.0);
             }
             _ => {}
         }
@@ -387,6 +390,7 @@ impl CameraController {
             camera.position = self.initial_camera.position.clone();
             camera.yaw = self.initial_camera.yaw.clone();
             camera.pitch = self.initial_camera.pitch.clone();
+            camera.up = self.initial_camera.up.clone();
             self.if_reset = false;
         }
 
