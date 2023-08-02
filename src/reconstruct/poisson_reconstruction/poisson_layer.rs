@@ -11,6 +11,7 @@ use nalgebra_sparse::{CooMatrix, CscMatrix};
 use parry3d_f64::bounding_volume::Aabb;
 use parry3d_f64::partitioning::Qbvh;
 use std::collections::HashMap;
+use kiddo::KdTree;
 
 #[derive(Clone)]
 pub struct PoissonLayer {
@@ -19,6 +20,7 @@ pub struct PoissonLayer {
     pub grid_node_idx: HashMap<Point3<i64>, usize>,
     pub ordered_nodes: Vec<Point3<i64>>,
     pub node_weights: DVector<Real>,
+    pub kd_tree: Option<KdTree<f64, u32, 3>>,
 }
 
 impl PoissonLayer {
@@ -32,6 +34,7 @@ impl PoissonLayer {
         points: &[Point3<Real>],
         grid_origin: Point3<Real>,
         cell_width: Real,
+        with_colour: bool,
     ) -> Self {
         let mut grid = HGrid::new(grid_origin, cell_width);
         let mut grid_node_idx = HashMap::new();
@@ -52,6 +55,12 @@ impl PoissonLayer {
         // }
 
         // TODO: do we still need this when using the multigrid solver?
+        let mut kd_tree: Option<KdTree<f64, u32, 3>> = if with_colour {
+            Some(KdTree::new())
+        } else {
+            None
+        };
+
         for (pid, pt) in points.iter().enumerate() {
             let ref_node = grid.key(pt);
             let ref_center = grid.cell_center(&ref_node);
@@ -71,9 +80,14 @@ impl PoissonLayer {
                     }
                 }
             }
-        }
 
-        Self::from_populated_grid(grid, grid_node_idx, ordered_nodes)
+            if let Some(tree) = kd_tree.as_mut() {
+                let formatted_point: [f64; 3] = [pt.x, pt.y, pt.z];
+                let _ = tree.add(&formatted_point, pid as u32);
+            } 
+        }
+        
+        Self::from_populated_grid(grid, grid_node_idx, ordered_nodes, kd_tree)
     }
 
     pub fn from_next_layer(points: &[Point3<Real>], layer: &Self) -> Self {
@@ -120,13 +134,14 @@ impl PoissonLayer {
             grid.update_cell_average(&pt);
         }
 
-        Self::from_populated_grid(grid, grid_node_idx, ordered_nodes)
+        Self::from_populated_grid(grid, grid_node_idx, ordered_nodes, None)
     }
 
     fn from_populated_grid(
         grid: HGrid<usize>,
         grid_node_idx: HashMap<Point3<i64>, usize>,
         ordered_nodes: Vec<Point3<i64>>,
+        kd_tree: Option<KdTree<f64, u32, 3>>,
     ) -> Self {
         let cell_width = grid.cell_width();
         let mut cells_qbvh = Qbvh::new();
@@ -144,13 +159,14 @@ impl PoissonLayer {
         );
 
         let node_weights = DVector::zeros(grid_node_idx.len());
-
+        
         Self {
             grid,
             cells_qbvh,
             ordered_nodes,
             grid_node_idx,
             node_weights,
+            kd_tree,
         }
     }
 

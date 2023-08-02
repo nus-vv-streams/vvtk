@@ -9,6 +9,7 @@ pub fn reconstruct(
     density_estimation_depth: usize,
     max_depth: usize,
     max_relaxation_iters: usize,
+    with_colour: bool,
 ) -> (PointCloud<PointXyzRgba>, Vec<TriangleFace>) {
     let surface: Vec<Point3<Real>> = reconstruct_surface(
         &points.points,
@@ -16,6 +17,7 @@ pub fn reconstruct(
         density_estimation_depth,
         max_depth,
         max_relaxation_iters,
+        with_colour,
     );
     let vec_points: Vec<PointXyzRgba> = surface
         .iter()
@@ -50,6 +52,7 @@ pub fn reconstruct_surface(
     density_estimation_depth: usize,
     max_depth: usize,
     max_relaxation_iters: usize,
+    with_colour: bool,
 ) -> Vec<Point3<Real>> {
     let points: Vec<_> = vertices
         .iter()
@@ -66,6 +69,7 @@ pub fn reconstruct_surface(
         density_estimation_depth,
         max_depth,
         max_relaxation_iters,
+        with_colour,
     );
     poisson.reconstruct_mesh()
 }

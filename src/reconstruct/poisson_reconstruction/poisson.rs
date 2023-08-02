@@ -63,6 +63,7 @@ impl PoissonReconstruction {
         density_estimation_depth: usize,
         max_depth: usize,
         max_relaxation_iters: usize,
+        with_colour: bool,
     ) -> Self {
         assert_eq!(
             points.len(),
@@ -81,6 +82,7 @@ impl PoissonReconstruction {
             points,
             grid_origin,
             leaf_cell_width,
+            with_colour,
         ));
 
         for i in 0..max_depth {
@@ -166,7 +168,7 @@ impl PoissonReconstruction {
     /// the isosurface at 0.
     pub fn reconstruct_mesh(&self) -> Vec<Point3<Real>> {
         let mut vertices = vec![];
-
+        
         if let Some(last_layer) = self.layers.last() {
             for cell in last_layer.cells_qbvh.raw_proxies() {
                 let aabb = last_layer.cells_qbvh.node_aabb(cell.node).unwrap();
@@ -175,7 +177,7 @@ impl PoissonReconstruction {
                 for (pt, val) in aabb.vertices().iter().zip(vertex_values.iter_mut()) {
                     *val = self.eval(pt);
                 }
-
+                
                 march_cube(&aabb.mins, &aabb.maxs, &vertex_values, 0.0, &mut vertices);
             }
         }

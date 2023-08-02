@@ -52,6 +52,7 @@ impl Subcommand for Reconstructer {
                         self.density_estimation_depth,
                         self.max_depth,
                         self.max_relaxation_iters,
+                        true, // TODO add pipeline arg
                     );
                     let duration = start.elapsed();
                     println!(
