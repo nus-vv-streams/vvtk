@@ -1,18 +1,19 @@
 use super::conjugate_gradient::solve_conjugate_gradient;
 use super::hgrid::HGrid;
+use super::kdtree_data::KdTreeData;
 use super::poisson_vector_field::PoissonVectorField;
 use super::polynomial::TriQuadraticBspline;
 use super::{
     poisson::{self, CellWithId},
     polynomial, Real,
 };
+use crate::formats::pointxyzrgba::PointXyzRgba;
+use kiddo::KdTree;
 use nalgebra::{vector, DVector, Point3, Vector3};
 use nalgebra_sparse::{CooMatrix, CscMatrix};
 use parry3d_f64::bounding_volume::Aabb;
 use parry3d_f64::partitioning::Qbvh;
 use std::collections::HashMap;
-use kiddo::KdTree;
-
 #[derive(Clone)]
 pub struct PoissonLayer {
     pub grid: HGrid<usize>,
@@ -20,7 +21,7 @@ pub struct PoissonLayer {
     pub grid_node_idx: HashMap<Point3<i64>, usize>,
     pub ordered_nodes: Vec<Point3<i64>>,
     pub node_weights: DVector<Real>,
-    pub kd_tree: Option<KdTree<f64, u32, 3>>,
+    pub kd_tree: Option<KdTree<f64, KdTreeData, 3>>,
 }
 
 impl PoissonLayer {
@@ -31,7 +32,7 @@ impl PoissonLayer {
 
 impl PoissonLayer {
     pub fn from_points(
-        points: &[Point3<Real>],
+        vertices: &[PointXyzRgba],
         grid_origin: Point3<Real>,
         cell_width: Real,
         with_colour: bool,
@@ -55,14 +56,16 @@ impl PoissonLayer {
         // }
 
         // TODO: do we still need this when using the multigrid solver?
-        let mut kd_tree: Option<KdTree<f64, u32, 3>> = if with_colour {
+        let mut kd_tree: Option<KdTree<f64, KdTreeData, 3>> = if with_colour {
             Some(KdTree::new())
         } else {
             None
         };
 
-        for (pid, pt) in points.iter().enumerate() {
-            let ref_node = grid.key(pt);
+        for (pid, vertice) in vertices.iter().enumerate() {
+            let pt: Point3<Real> =
+                Point3::new(vertice.x as f64, vertice.y as f64, vertice.z as f64);
+            let ref_node = grid.key(&pt);
             let ref_center = grid.cell_center(&ref_node);
             grid.insert(&ref_center, pid);
             grid.update_cell_average(&pt);
@@ -83,10 +86,14 @@ impl PoissonLayer {
 
             if let Some(tree) = kd_tree.as_mut() {
                 let formatted_point: [f64; 3] = [pt.x, pt.y, pt.z];
-                let _ = tree.add(&formatted_point, pid as u32);
-            } 
+                let data = KdTreeData {
+                    index: pid,
+                    color: [vertice.r, vertice.g, vertice.b],
+                };
+                let _ = tree.add(&formatted_point, data);
+            }
         }
-        
+
         Self::from_populated_grid(grid, grid_node_idx, ordered_nodes, kd_tree)
     }
 
@@ -141,7 +148,7 @@ impl PoissonLayer {
         grid: HGrid<usize>,
         grid_node_idx: HashMap<Point3<i64>, usize>,
         ordered_nodes: Vec<Point3<i64>>,
-        kd_tree: Option<KdTree<f64, u32, 3>>,
+        kd_tree: Option<KdTree<f64, KdTreeData, 3>>,
     ) -> Self {
         let cell_width = grid.cell_width();
         let mut cells_qbvh = Qbvh::new();
@@ -159,7 +166,7 @@ impl PoissonLayer {
         );
 
         let node_weights = DVector::zeros(grid_node_idx.len());
-        
+
         Self {
             grid,
             cells_qbvh,
