@@ -12,7 +12,7 @@ use std::str::FromStr;
 use crate::abr::quetra::Quetra;
 use crate::abr::RateAdapter;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, clap::ValueEnum)]
 enum DashAlgo {
     Naive,
     Quetra,
@@ -41,8 +41,8 @@ impl FromStr for DashAlgo {
 
 #[derive(Parser)]
 #[clap(
-    about = "Reads in one of our supported file formats. \nFiles can be of the type .pcd .ply. \nThe path can be a file path or a directory path contains these files.",
-    override_usage = format!("\x1B[1m{}\x1B[0m [OPTIONS] <FILES>... +output=plys", "read")
+    about = "Dash will simulate a varying network conditions, it reads in one of our supported file formats. \nFiles can be of the type .pcd .ply. \nThe path can be a file path or a directory path contains these files.",
+    override_usage = format!("\x1B[1m{}\x1B[0m [OPTIONS] <FILES>... +output=plys", "dash")
 )]
 pub struct Args {
     /// input directory with different quality of point clouds
@@ -86,7 +86,7 @@ impl Dash {
         let bandwidth = self.prepare_bandwidth();
 
         let mut starting_frame_int: usize = 0;
-        let mut frame_increment_int: usize = 0;
+        let mut _frame_increment_int: usize = 0;
         let mut count: usize = 0;
         let mut total_frames: usize = 0;
         let extension = "pcd";
@@ -117,9 +117,9 @@ impl Dash {
         for cap in re.captures_iter(first_entry_filename_short) {
             let starting_frame = &cap[4].to_owned();
             // frame_count is 'F30', substring
-            frame_increment_int = 1;
+            _frame_increment_int = 1;
             starting_frame_int = starting_frame.parse().unwrap();
-            total_frames = entries.len() * frame_increment_int;
+            total_frames = entries.len() * _frame_increment_int;
         }
 
         let available_bitrates = vec![vec![4641, 7975, 14050, 25974, 46778]];
@@ -174,7 +174,6 @@ impl Dash {
                 in_frame_name_buf
             }
             DashAlgo::Quetra => {
-                println!("Quetra");
                 let mut buffer_status: Vec<u64> = Vec::new();
                 let mut quality_selected: Vec<u64> = Vec::new();
                 // buffer capacity set to 10 seconds, fps 30
@@ -247,7 +246,6 @@ impl Dash {
 impl Subcommand for Dash {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         if messages.is_empty() {
-            println!("Dash: {:?}", self.args.input_path);
             let mut in_frame_name_buf = self.main_process();
             if let Some(num) = self.args.num {
                 if num < in_frame_name_buf.len() {

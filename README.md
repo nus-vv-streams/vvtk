@@ -40,13 +40,17 @@ Commands:
   info        Get the info of a pointcloud file or directory.
                   Supported formats are .pcd and .ply.
                   If no option is specified, all info will be printed.
+  dash        Dash will simulate a varying network conditions. 
+                  Dash reads in one of our supported file formats. 
+                  Files can be of the type .pcd .ply. 
+                  The path can be a file path or a directory path contains these files.
   help        Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help  Print help
 ```
 
-**Example**
+***Example***
 
 ```shell
 vv read ./ply_ascii +output=ply_a \
@@ -115,14 +119,14 @@ Options:
   -h, --help                       Print help
 ```
 
-**render to png example**
+***render to png example***
 
 ```shell
 vv read ./Ply +output=plys \
         render ./Pngs +input=plys
 ```
 
-**render to mp4 example**
+***render to mp4 example***
 
 Read 60 frames of pointcloud and render them into a mp4 video with fps=20. This is done by first render them into png files, and then use `ffmpeg` to convert the images into a mp4 video.
 
@@ -180,7 +184,7 @@ Options:
   -h, --help                           Print help
 ```
 
-**Writing metrics**
+***Writing metrics***
 
 ```shell
 vv read ./original +output=original \
@@ -201,7 +205,7 @@ Options:
   -h, --help             Print help
 ```
 
-**Upsampling a file**
+***Upsampling a file***
 
 Upsamples pcd files and write as ply binary
 
@@ -226,7 +230,7 @@ Options:
   -h, --help 
 ```
 
-**Downsampling a file**
+***Downsampling a file***
 
 Downsamples pcd files and write as ply binary
 
@@ -239,7 +243,7 @@ vv read ./pcd +output=pcdb \
              --output-format ply
 ```
 
-**Complex Example**
+***Complex Example***
 
 ```shell
 vv read ./pcd                       +output=pcdb \
@@ -356,6 +360,64 @@ number of frames: 2
 average number of points: 688515.00
 ```
 
+#### `dash`
+
+Dash will simulate a varying network conditions, it reads in one of our supported file formats.
+Files can be of the type .pcd .ply.
+The path can be a file path or a directory path contains these files.
+
+```shell
+Usage: dash [OPTIONS] <FILES>... +output=plys
+
+Arguments:
+  <INPUT_PATH>    input directory with different quality of point clouds
+  <NETWORK_PATH>  path to network settings
+
+Options:
+  -a, --algorithm <ALGORITHM>  [default: naive] [possible values: naive, quetra]
+  -n, --num <NUM>              read previous n files after sorting lexicalgraphically
+  -t, --filetype <FILETYPE>    [default: all] [possible values: all, ply, pcd, bin]
+  -h, --help                   Print help
+```
+
+***Preparation***  
+
+An example of netowrk setting file is provided in `./test_files/dash/sim_nw_avg_14050.txt`
+
+The structure of input directory with different quality of point clouds should be the following.
+
+```shell
+INPUT_PATH
+├── R01
+│   ├── r1_longdress_dec_0000.pcd
+│   ├── ***
+│   └── r1_longdress_dec_0299.pcd
+├── R02
+│   ├── r2_longdress_dec_0000.pcd
+│   ├── ***
+│   └── r2_longdress_dec_0299.pcd
+├── R03
+│   ├── r3_longdress_dec_0000.pcd
+│   ├── ***
+│   └── r3_longdress_dec_0299.pcd
+├── R04
+│   ├── r4_longdress_dec_0000.pcd
+│   ├── ***
+│   └── r4_longdress_dec_0299.pcd
+└── R05
+    ├── r5_longdress_dec_0000.pcd
+    ├── ***
+    └── r5_longdress_dec_0299.pcd
+```
+
+***Usage***
+
+```shell
+vv dash ./input ./sim_nw_avg_14050.txt -a quetra +out=dash \
+   write --output-format pcd --storage-type binary \
+   ./pcd_quetra +in=dash
+```
+
 ### `vvplay`
 
 Plays a folder of pcd/ply/bin files in lexicographical order. A window will appear upon running the binary from which you can navigate using your mouse and keyboard. Controls are described further below.
@@ -402,6 +464,11 @@ With the main screen focused,
 9. `LeftArrow` Key - Rewinds by 1 frame
 10. `RightArrow` Key - Advances by 1 frame
 11. `Mouse` Drag - Adjusts camera yaw / pitch (Hold right click on Mac, left click on Windows)
+12. `L` Key - Rotates camera horizontally(around the Y axis) clockwise
+13. `J` Key - Rotates camera horizontally(around the Y axis) counterclockwise
+14. `I` Key - Rotates camera vertically(around the X axis) clockwise
+15. `K` Key - Rotates camera vertically(around the X axis) counterclockwise
+16. Adjusts camera yaw/picth with mouse (Hold right click on Mac, left click on Windows)
 
 With the secondary window focused,
 
