@@ -1,6 +1,7 @@
 //! # Vivo Toolkit
 //#[warn(missing_docs)]
 
+pub mod abr;
 pub mod codec;
 #[cfg(feature = "dash")]
 pub mod dash;
