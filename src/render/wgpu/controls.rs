@@ -46,8 +46,8 @@ impl Attachable for Controller {
             .with_transparent(false)
             .with_title("Controls")
             .with_inner_size(winit::dpi::PhysicalSize {
-                width: 500i32,
-                height: 400i32,
+                width: 600u32,
+                height: 500u32,
             })
             .build(event_loop)
             .unwrap();
@@ -85,6 +85,7 @@ impl Attachable for Controller {
             info: None,
             listeners: Vec::new(),
             display_help: false,
+            my_id: window.id(),
         };
 
         (object, window)
@@ -105,6 +106,7 @@ pub struct ControlWindow {
     info: Option<RenderInformation>,
     listeners: Vec<WindowId>,
     display_help: bool,
+    my_id: WindowId,
 }
 
 impl ControlWindow {
@@ -141,6 +143,24 @@ impl ControlWindow {
                 };
                 if ui.add(Button::new(format!("{} Control Help", display_or_hide))).clicked() {
                     self.display_help = !self.display_help;
+                    let control_window_size = if self.display_help {
+                        PhysicalSize {
+                            width: 600u32,
+                            height: 500u32,
+                        }
+                    } else {
+                        PhysicalSize {
+                            width: 550u32,
+                            height: 450u32,
+                        }
+                    };
+
+                    let sender = self.event_proxy.0.lock().unwrap();
+                    sender.send_event(RenderEvent {
+                            window_id: self.my_id,
+                            event_type: EventType::ResizeControlInMainLoop(control_window_size),
+                    })
+                        .unwrap();
                 };
 
                 if self.display_help {
@@ -164,6 +184,10 @@ impl ControlWindow {
                         ui.label("Space      Key - Toggles  Play / Pause");
                         ui.label("LeftArrow  Key - Rewinds  by 1 frame");
                         ui.label("RightArrow Key - Advances by 1 frame");
+                        ui.label("L          Key - Rotates camera horizontally(around the Y axis) clockwise");
+                        ui.label("J          Key - Rotates camera horizontally(around the Y axis) counterclockwise");
+                        ui.label("I          Key - Rotates camera vertically(around the X axis) clockwise");
+                        ui.label("K          Key - Rotates camera vertically(around the X axis) counterclockwise");
                         ui.label("Adjusts camera yaw/picth with mouse \n(Hold right click on Mac, left click on Windows)");
                     });
                 }

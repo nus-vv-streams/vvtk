@@ -7,7 +7,7 @@ use crate::pipeline::PipelineMessage;
 use crate::utils::{find_all_files, read_file_to_point_cloud};
 
 #[derive(clap::ValueEnum, Clone, Copy)]
-enum FileType {
+pub enum FileType {
     All,
     Ply,
     Pcd,
