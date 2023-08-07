@@ -14,9 +14,9 @@ use self::{
     executor::Executor,
     executor::ExecutorBuilder,
     subcommands::{
-        convert, dash, downsample, info, metrics, read, reconstruct, render, upsample, write, Convert, Dash,
-        Downsampler, Info, MetricsCalculator, Read, Reconstructer, Render, Subcommand, Upsampler,
-        Write,
+        convert, dash, downsample, info, metrics, read, reconstruct, render, upsample, write,
+        Convert, Dash, Downsampler, Info, MetricsCalculator, Read, Reconstructer, Render,
+        Subcommand, Upsampler, Write,
     },
 };
 
