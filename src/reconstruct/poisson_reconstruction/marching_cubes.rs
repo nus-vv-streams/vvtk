@@ -114,7 +114,7 @@ pub fn march_cube(
                     g = data.color[1];
                     b = data.color[2];
                 }
-                Err(e) => {
+                Err(_e) => {
                     // Handle the error here
                 }
             }

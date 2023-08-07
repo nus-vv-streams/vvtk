@@ -21,9 +21,9 @@ pub struct Args {
     #[clap(long, default_value_t = 10)]
     max_relaxation_iters: usize,
     #[clap(long, short, action=ArgAction::SetTrue)]
-    with_colour: bool,
+    colour: bool,
     #[clap(long, short, action=ArgAction::SetTrue)]
-    with_faces: bool,
+    faces: bool,
 }
 
 pub struct Reconstructer {
@@ -43,8 +43,8 @@ impl Reconstructer {
             density_estimation_depth: args.density_estimation_depth,
             max_depth: args.max_depth,
             max_relaxation_iters: args.max_relaxation_iters,
-            with_colour: args.with_colour,
-            with_faces: args.with_faces,
+            with_colour: args.colour,
+            with_faces: args.faces,
         })
     }
 }

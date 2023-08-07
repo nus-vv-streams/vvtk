@@ -1,7 +1,7 @@
 use crate::formats::{pointxyzrgba::PointXyzRgba, triangle_face::TriangleFace, PointCloud};
 use crate::reconstruct::poisson_reconstruction::poisson::PoissonReconstruction;
 use crate::reconstruct::poisson_reconstruction::Real;
-use nalgebra::{Point3, Vector3};
+use nalgebra::Vector3;
 
 pub fn reconstruct(
     points: PointCloud<PointXyzRgba>,

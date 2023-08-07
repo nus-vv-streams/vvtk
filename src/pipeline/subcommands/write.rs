@@ -93,7 +93,7 @@ impl Subcommand for Write {
                     }
                 }
                 PipelineMessage::IndexedPointCloudWithTriangleFaces(pc, i, triangle_faces) => {
-                    // println!("Writing point cloud with point num {}", pc.points.len());
+                    println!("Writing point cloud with point num {}", pc.points.len());
                     let pcd_data_type = self
                         .args
                         .storage_type
