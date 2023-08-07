@@ -1,3 +1,4 @@
+use clap::ArgAction;
 use clap::Parser;
 
 use super::Subcommand;
@@ -19,6 +20,10 @@ pub struct Args {
     max_depth: usize,
     #[clap(long, default_value_t = 10)]
     max_relaxation_iters: usize,
+    #[clap(long, short, action=ArgAction::SetTrue)]
+    colour: bool,
+    #[clap(long, short, action=ArgAction::SetTrue)]
+    faces: bool,
 }
 
 pub struct Reconstructer {
@@ -26,6 +31,8 @@ pub struct Reconstructer {
     density_estimation_depth: usize,
     max_depth: usize,
     max_relaxation_iters: usize,
+    with_colour: bool,
+    with_faces: bool,
 }
 
 impl Reconstructer {
@@ -36,6 +43,8 @@ impl Reconstructer {
             density_estimation_depth: args.density_estimation_depth,
             max_depth: args.max_depth,
             max_relaxation_iters: args.max_relaxation_iters,
+            with_colour: args.colour,
+            with_faces: args.faces,
         })
     }
 }
@@ -52,6 +61,8 @@ impl Subcommand for Reconstructer {
                         self.density_estimation_depth,
                         self.max_depth,
                         self.max_relaxation_iters,
+                        self.with_colour,
+                        self.with_faces,
                     );
                     let duration = start.elapsed();
                     println!(
@@ -61,7 +72,7 @@ impl Subcommand for Reconstructer {
                     channel.send(PipelineMessage::IndexedPointCloudWithTriangleFaces(
                         reconstructed_pc,
                         i,
-                        Some(triangle_faces),
+                        triangle_faces,
                     ));
                 }
                 PipelineMessage::Metrics(_)
