@@ -1,12 +1,13 @@
 use clap::Parser;
-use std::ops::Sub;
 use std::collections::VecDeque;
+use std::time::Instant;
 use nalgebra::{Vector3, Matrix3};
 use crate::pipeline::channel::Channel;
 use crate::pipeline::PipelineMessage;
 use crate::formats::{PointCloud, pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal};
 use kdtree::distance::squared_euclidean;
 use kdtree::KdTree;
+use rayon::prelude::*;
 
 use super::Subcommand;
 
@@ -17,12 +18,8 @@ type PointType = [f64; 3];
     about = "Performs normal estimation on point clouds.",
 )]
 pub struct Args {
-    // #[clap(short, long, default_value = "0.1")]
-    // radius: f64,
     #[clap(short, long, default_value = "30")]
     k: usize,
-    // #[clap(short, long, default_value = "1")]
-    // kdtree: usize,
 }
 
 pub struct NormalEstimation {
@@ -56,15 +53,22 @@ impl Subcommand for NormalEstimation {
 }
 
 fn perform_normal_estimation(pc: &PointCloud<PointXyzRgba>, k: usize) -> PointCloud<PointXyzRgbaNormal> {
+    let start_total = Instant::now(); // Record start time of the entire process
 
     // Select Neighboring Points
-    let neighbors = select_neighbors(pc,k);
+    let start_neighbors = Instant::now();
+    let neighbors = select_neighbors(pc, k);
+    let elapsed_neighbors = start_neighbors.elapsed();
 
     // Compute Covariance Matrix
+    let start_covariance = Instant::now();
     let covariance_matrices = compute_covariance_matrices(&pc, &neighbors);
+    let elapsed_covariance = start_covariance.elapsed();
 
     // Compute Eigenvalues and Eigenvectors
+    let start_eigen = Instant::now();
     let eigen_results = compute_eigenvalues_eigenvectors(&covariance_matrices);
+    let elapsed_eigen = start_eigen.elapsed();
 
     // Convert PointCloud<PointXyzRgba> to PointCloud<PointXyzRgbaNormal>
     let mut pc_normal: PointCloud<PointXyzRgbaNormal> = PointCloud {
@@ -84,11 +88,26 @@ fn perform_normal_estimation(pc: &PointCloud<PointXyzRgba>, k: usize) -> PointCl
             }
         }).collect(),
     };
+
     // Assign Normal Vector
+    let start_assign = Instant::now();
     assign_normal_vectors(&mut pc_normal, &eigen_results);
-    
+    let elapsed_assign = start_assign.elapsed();
+
     // Complete Normal Estimation
+    let start_propagate = Instant::now();
     propagate_normal_orientation(&mut pc_normal, &neighbors);
+    let elapsed_propagate = start_propagate.elapsed();
+
+    let elapsed_total = start_total.elapsed(); // Record end time of the entire process
+
+    // Output the runtime of each method
+    println!("Select Neighbors: {:?}", elapsed_neighbors);
+    println!("Compute Covariance Matrix: {:?}", elapsed_covariance);
+    println!("Compute Eigenvalues and Eigenvectors: {:?}", elapsed_eigen);
+    println!("Assign Normal Vector: {:?}", elapsed_assign);
+    println!("Complete Normal Estimation: {:?}", elapsed_propagate);
+    println!("Total Runtime: {:?}", elapsed_total);
 
     pc_normal
 }
@@ -103,56 +122,23 @@ fn build_kd_tree(points: &[PointXyzRgba]) -> KdTree<f64, usize, PointType> {
 
 fn select_neighbors(pc: &PointCloud<PointXyzRgba>, k: usize) -> Vec<Vec<usize>> {
     let kdtree = build_kd_tree(&pc.points);
-    let mut neighbors: Vec<Vec<usize>> = Vec::with_capacity(pc.number_of_points);
-    for (i, point) in pc.points.iter().enumerate() {
-        // Ask for k+1 neighbors to account for the point itself
-        let ret = kdtree.nearest(&[point.x as f64, point.y as f64, point.z as f64], k + 1, &squared_euclidean).unwrap();
-        let mut neighbor_indices = Vec::new();
-        for &(_dist, &index) in ret.iter() {
-            // Exclude the point itself
-            if index != i {
-                neighbor_indices.push(index);
+    pc.points
+        .par_iter() // Parallel iterator
+        .enumerate()
+        .map(|(i, point)| {
+            // Ask for k+1 neighbors to account for the point itself
+            let ret = kdtree.nearest(&[point.x as f64, point.y as f64, point.z as f64], k + 1, &squared_euclidean).unwrap();
+            let mut neighbor_indices = Vec::new();
+            for &(_dist, &index) in ret.iter() {
+                // Exclude the point itself
+                if index != i {
+                    neighbor_indices.push(index);
+                }
             }
-        }
-        neighbors.push(neighbor_indices);
-    }
-    neighbors
+            neighbor_indices
+        })
+        .collect()
 }
-
-// fn select_neighboring_points(pc: &PointCloud<PointXyzRgba>, radius: f64) -> Vec<Vec<usize>> {
-//     let mut neighbors: Vec<Vec<usize>> = vec![Vec::new(); pc.number_of_points];
-
-//     for i in 0..pc.number_of_points {
-//         let mut point_neighbors: Vec<usize> = Vec::new();
-//         let p1 = &pc.points[i];
-
-//         for j in 0..pc.number_of_points {
-//             if i != j {
-//                 let p2 = &pc.points[j];
-//                 let dist = distance(&[p1.x, p1.y, p1.z], &[p2.x, p2.y, p2.z]);
-
-//                 if dist <= radius {
-//                     point_neighbors.push(j);
-//                 }
-//             }
-//         }
-
-//         neighbors[i] = point_neighbors;
-//     }
-
-//     neighbors
-// }
-
-// fn distance<T>(p1: &[T; 3], p2: &[T; 3]) -> f64
-// where
-//     T: Sub<Output = T> + Into<f64> + Copy,
-// {
-//     let dx = (p1[0] - p2[0]).into();
-//     let dy = (p1[1] - p2[1]).into();
-//     let dz = (p1[2] - p2[2]).into();
-
-//     (dx * dx + dy * dy + dz * dz).sqrt()
-// }
 
 #[derive(Debug, PartialEq)]
 pub struct CovarianceMatrix {
@@ -312,7 +298,6 @@ fn assign_normal_vectors(pc: &mut PointCloud<PointXyzRgbaNormal>, eigen_results:
         pc.points[i].nz = normal[2];
     }
 }
-
 
 fn propagate_normal_orientation(pc: &mut PointCloud<PointXyzRgbaNormal>, neighbors: &[Vec<usize>]) {
     let root_point_index = 0; // Choose the root point index (e.g., 0)
