@@ -1,6 +1,9 @@
 //! Basic marching-cubes implementation.
 
-use super::Real;
+use super::{kdtree_data::KdTreeData, Real};
+use crate::formats::pointxyzrgba::PointXyzRgba;
+use kiddo::distance::squared_euclidean;
+use kiddo::KdTree;
 use nalgebra::Point3;
 
 /* The cube vertex and edge indices for base rotation:
@@ -72,7 +75,8 @@ pub fn march_cube(
     maxs: &Point3<Real>,
     vertex_values: &[Real; 8],
     iso_value: Real,
-    out_triangles: &mut Vec<Point3<Real>>,
+    out_triangles: &mut Vec<PointXyzRgba>,
+    kd_tree: &Option<KdTree<f64, KdTreeData, 3>>,
 ) {
     // Compute the index for MC_TRI_TABLE
     let mut index = 0;
@@ -100,7 +104,33 @@ pub fn march_cube(
 
         // Convert the normalized_vert into an Aabb vert.
         let vert = mins + (maxs - mins).component_mul(&normalized_vert.coords);
-        out_triangles.push(vert);
+        let mut r: u8 = 0;
+        let mut g: u8 = 0;
+        let mut b: u8 = 0;
+        let mut a: u8 = 0;
+        if let Some(tree) = kd_tree {
+            match tree.nearest_one(&[vert.x, vert.y, vert.z], &squared_euclidean) {
+                Ok((_, data)) => {
+                    r = data.color[0];
+                    g = data.color[1];
+                    b = data.color[2];
+                    a = data.color[3];
+                }
+                Err(_e) => {
+                    // Handle the error here
+                }
+            }
+        }
+        let vertice = PointXyzRgba {
+            x: vert.x as f32,
+            y: vert.y as f32,
+            z: vert.z as f32,
+            r: r,
+            g: g,
+            b: b,
+            a: a,
+        };
+        out_triangles.push(vertice);
     }
 }
 

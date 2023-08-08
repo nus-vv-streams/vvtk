@@ -6,7 +6,10 @@ use crossbeam_channel::Receiver;
 // use std::sync::mpsc::Receiver;
 
 use crate::{
-    formats::{pointxyzrgba::PointXyzRgba, triangle_face::TriangleFace, PointCloud},
+    formats::{
+        pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal,
+        triangle_face::TriangleFace, PointCloud,
+    },
     metrics::Metrics,
 };
 
@@ -14,9 +17,9 @@ use self::{
     executor::Executor,
     executor::ExecutorBuilder,
     subcommands::{
-        convert, downsample, info, metrics, read, reconstruct, render, upsample, write, Convert,
-        Downsampler, Info, MetricsCalculator, Read, Reconstructer, Render, Subcommand, Upsampler,
-        Write,
+        convert, dash, downsample, info, metrics, normal_estimation, read, render, upsample, write,
+        Convert, Dash, Downsampler, Info, MetricsCalculator, NormalEstimation, Read, Render,
+        Subcommand, Upsampler, Write,
     },
 };
 
@@ -31,8 +34,9 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
         "downsample" => Some(Box::from(Downsampler::from_args)),
         "upsample" => Some(Box::from(Upsampler::from_args)),
         "convert" => Some(Box::from(Convert::from_args)),
+        "normal" => Some(Box::from(NormalEstimation::from_args)),
         // "play" => Some(Box::from(Play::from_args)),
-        "reconstruct" => Some(Box::from(Reconstructer::from_args)),
+        "dash" => Some(Box::from(Dash::from_args)),
         "info" => Some(Box::from(Info::from_args)),
         _ => None,
     }
@@ -41,6 +45,7 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
 #[derive(Debug, Clone)]
 pub enum PipelineMessage {
     IndexedPointCloud(PointCloud<PointXyzRgba>, u32),
+    IndexedPointCloudNormal(PointCloud<PointXyzRgbaNormal>, u32),
     // PointCloud(PointCloud<PointXyzRgba>),
     Metrics(Metrics),
     End,
@@ -200,10 +205,12 @@ enum VVSubCommand {
     Downsample(downsample::Args),
     #[clap(name = "upsample")]
     Upsample(upsample::Args),
-    #[clap(name = "reconstruct")]
-    Reconstruct(reconstruct::Args),
     #[clap(name = "info")]
     Info(info::Args),
+    #[clap(name = "dash")]
+    Dash(dash::Args),
+    #[clap(name = "normal")]
+    NormalEstimation(normal_estimation::Args),
 }
 
 fn display_main_help_msg() {
@@ -224,6 +231,5 @@ mod pipeline_mod_test {
         assert!(Pipeline::if_at_least_one_command("upsample"));
         assert!(Pipeline::if_at_least_one_command("convert"));
         assert!(!Pipeline::if_at_least_one_command("not_a_command"));
-        assert!(Pipeline::if_at_least_one_command("reconstruct"));
     }
 }

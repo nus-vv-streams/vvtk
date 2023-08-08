@@ -90,6 +90,7 @@ impl ExecutorBuilder {
             || cmd.as_str() == "read"
             || cmd.as_str() == "convert"
             || cmd.as_str() == "info"
+            || cmd.as_str() == "dash"
             || has_help
         {
         } else {

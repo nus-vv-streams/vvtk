@@ -4,6 +4,8 @@ use super::poisson_layer::PoissonLayer;
 use super::poisson_vector_field::PoissonVectorField;
 use super::polynomial::{eval_bspline, eval_bspline_diff};
 use super::Real;
+use crate::formats::pointxyzrgba::PointXyzRgba;
+use crate::formats::pointxyzrgbanormal::PointXyzRgbaNormal;
 use nalgebra::{vector, Point3, Vector3};
 use parry3d_f64::bounding_volume::{Aabb, BoundingVolume};
 use parry3d_f64::partitioning::IndexedData;
@@ -57,13 +59,19 @@ impl PoissonReconstruction {
     /// - `max_relaxation_iters`: the maximum number of iterations for the internal
     ///   conjugate-gradient solver. Values around `10` should be enough for most cases.
     pub fn from_points_and_normals(
-        points: &[Point3<Real>],
+        vertices: &[PointXyzRgbaNormal],
         normals: &[Vector3<Real>],
         screening: Real,
         density_estimation_depth: usize,
         max_depth: usize,
         max_relaxation_iters: usize,
+        with_colour: bool,
     ) -> Self {
+        let tmp_points: Vec<_> = vertices
+            .iter()
+            .map(|v| Point3::new(v.x as f64, v.y as f64, v.z as f64))
+            .collect();
+        let points = tmp_points.as_slice();
         assert_eq!(
             points.len(),
             normals.len(),
@@ -78,9 +86,10 @@ impl PoissonReconstruction {
 
         let mut layers = vec![];
         layers.push(PoissonLayer::from_points(
-            points,
+            vertices,
             grid_origin,
             leaf_cell_width,
+            with_colour,
         ));
 
         for i in 0..max_depth {
@@ -164,8 +173,8 @@ impl PoissonReconstruction {
 
     /// Reconstructs a mesh from this implicit function using a simple marching-cubes, extracting
     /// the isosurface at 0.
-    pub fn reconstruct_mesh(&self) -> Vec<Point3<Real>> {
-        let mut vertices = vec![];
+    pub fn reconstruct_mesh(&self) -> Vec<PointXyzRgba> {
+        let mut vertices: Vec<PointXyzRgba> = vec![];
 
         if let Some(last_layer) = self.layers.last() {
             for cell in last_layer.cells_qbvh.raw_proxies() {
@@ -176,7 +185,14 @@ impl PoissonReconstruction {
                     *val = self.eval(pt);
                 }
 
-                march_cube(&aabb.mins, &aabb.maxs, &vertex_values, 0.0, &mut vertices);
+                march_cube(
+                    &aabb.mins,
+                    &aabb.maxs,
+                    &vertex_values,
+                    0.0,
+                    &mut vertices,
+                    &last_layer.kd_tree,
+                );
             }
         }
 

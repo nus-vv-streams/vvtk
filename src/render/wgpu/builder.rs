@@ -17,6 +17,7 @@ pub enum EventType {
     Toggle,
     Info(RenderInformation),
     Repaint,
+    ResizeControlInMainLoop(PhysicalSize<u32>),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -86,6 +87,15 @@ impl RenderBuilder {
         self.event_loop.run(move |new_event, _, control_flow| {
             *control_flow = ControlFlow::Poll;
             match &new_event {
+                Event::UserEvent(RenderEvent {
+                    event_type: EventType::ResizeControlInMainLoop(physical_size),
+                    window_id,
+                }) => {
+                    if let Some(windowed_object) = self.window_objects.get_mut(window_id) {
+                        windowed_object.object.resize(*physical_size);
+                    }
+                }
+
                 Event::MainEventsCleared => {
                     for WindowedObject { window, .. } in self.window_objects.values() {
                         window.request_redraw()
