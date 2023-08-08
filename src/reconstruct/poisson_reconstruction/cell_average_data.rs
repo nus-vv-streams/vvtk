@@ -40,6 +40,6 @@ impl CellAverageData {
 
     /// Get the average point from this CellAverageData
     pub fn get_cell_average_point(&self) -> Point3<Real> {
-        self.average_point.clone()
+        self.average_point
     }
 }

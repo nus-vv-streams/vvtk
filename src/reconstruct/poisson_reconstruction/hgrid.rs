@@ -105,11 +105,9 @@ impl<T> HGrid<T> {
     pub fn get_cell_average_point(&self, cell: &Point3<i64>) -> Point3<Real> {
         let cell_average_data: Option<&CellAverageData> = self.cell_average_hashmap.get(cell);
 
-        let average_point = cell_average_data
-            .and_then(|data| Some(data.get_cell_average_point()))
-            .unwrap_or(Point3::new(0.0, 0.0, 0.0));
-
-        average_point
+        cell_average_data
+            .map(|data| data.get_cell_average_point())
+            .unwrap_or(Point3::new(0.0, 0.0, 0.0))
     }
 
     /// Returns the element attached to the cell containing the given `point`.

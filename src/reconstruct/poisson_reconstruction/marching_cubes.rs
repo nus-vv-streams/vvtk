@@ -125,10 +125,10 @@ pub fn march_cube(
             x: vert.x as f32,
             y: vert.y as f32,
             z: vert.z as f32,
-            r: r,
-            g: g,
-            b: b,
-            a: a,
+            r,
+            g,
+            b,
+            a,
         };
         out_triangles.push(vertice);
     }
