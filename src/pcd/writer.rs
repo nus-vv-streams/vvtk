@@ -1,4 +1,4 @@
-use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
+use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud, pointxyzrgbanormal::PointXyzRgbaNormal};
 use crate::pcd::{
     PCDDataType, PCDField, PCDFieldDataType, PCDFieldSize, PCDFieldType, PCDHeader, PCDVersion,
     PointCloudData,
@@ -307,5 +307,37 @@ pub fn create_pcd(point_cloud: &PointCloud<PointXyzRgba>) -> PointCloudData {
             points.capacity() * std::mem::size_of::<PointXyzRgba>(),
         )
     };
+    PointCloudData::new(header, bytes).unwrap()
+}
+
+pub fn create_pcd_from_pc_normal(point_cloud: &PointCloud<PointXyzRgbaNormal>) -> PointCloudData {
+    let header = PCDHeader::new(
+        PCDVersion::V0_7,
+        vec![
+            PCDField::new("x".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
+            PCDField::new("y".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
+            PCDField::new("z".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
+            PCDField::new("rgba".to_string(), PCDFieldSize::Four, PCDFieldType::Unsigned, 1).unwrap(),
+            PCDField::new("nx".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
+            PCDField::new("ny".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
+            PCDField::new("nz".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
+        ],
+        point_cloud.number_of_points as u64,
+        1,
+        [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+        point_cloud.number_of_points as u64,
+        PCDDataType::Ascii, // This is a placeholder value, it will be overwritten accordingly in write_pcd_file()
+    )
+    .unwrap();
+
+    let bytes = unsafe {
+        let mut points = std::mem::ManuallyDrop::new(point_cloud.points.clone());
+        Vec::from_raw_parts(
+            points.as_mut_ptr() as *mut u8,
+            point_cloud.number_of_points * std::mem::size_of::<PointXyzRgbaNormal>(),
+            points.capacity() * std::mem::size_of::<PointXyzRgbaNormal>(),
+        )
+    };
+
     PointCloudData::new(header, bytes).unwrap()
 }

@@ -1,10 +1,10 @@
 use cgmath::num_traits::pow;
 use clap::Parser;
 
-use crate::pcd::{create_pcd, write_pcd_file, PCDDataType};
+use crate::pcd::{create_pcd, create_pcd_from_pc_normal, write_pcd_file, PCDDataType};
 use crate::pipeline::channel::Channel;
 use crate::pipeline::PipelineMessage;
-use crate::utils::{pcd_to_ply_from_data, pcd_to_ply_from_data_with_faces, ConvertOutputFormat};
+use crate::utils::{pcd_to_ply_from_data, pcd_to_ply_from_data_normal, pcd_to_ply_from_data_with_faces, ConvertOutputFormat};
 use std::fs::File;
 use std::path::Path;
 
@@ -149,6 +149,51 @@ impl Subcommand for Write {
                     File::create(output_file)
                         .and_then(|mut f| metrics.write_to(&mut f))
                         .expect("Should be able to create file to write metrics to");
+                }
+                PipelineMessage::IndexedPointCloudNormal(pc, i) => {
+                     // println!("Writing point cloud with point num {}", pc.points.len());
+                    let pcd_data_type = self
+                        .args
+                        .storage_type
+                        .expect("PCD data type should be provided");
+                    let output_format = self.args.output_format.to_string();
+
+                    // !! use index(i) instead of count to make sure the order of files
+                    let padded_count = format!("{:0width$}", i, width = self.args.name_length);
+                    let file_name = format!("{}.{}", padded_count, output_format);
+                    self.count += 1;
+                    if self.count >= max_count {
+                        channel.send(PipelineMessage::End);
+                        panic!("Too many files, please increase the name length by setting --name-length")
+                    }
+
+                    let file_name = Path::new(&file_name);
+                    let output_file = output_path.join(file_name);
+                    if !output_path.exists() {
+                        std::fs::create_dir_all(output_path)
+                            .expect("Failed to create output directory");
+                    }
+
+                    // use pcd format as a trasition format now
+                    let pcd = create_pcd_from_pc_normal(pc);
+
+                    match output_format.as_str() {
+                        "pcd" => {
+                            if let Err(e) = write_pcd_file(&pcd, pcd_data_type, &output_file) {
+                                println!("Failed to write {:?}\n{e}", output_file);
+                            }
+                        }
+                        "ply" => {
+                            if let Err(e) = pcd_to_ply_from_data_normal(&output_file, pcd_data_type, pcd) {
+                                println!("Failed to write {:?}\n{e}", output_file);
+                            }
+                        }
+                        _ => {
+                            println!("Unsupported output format {}", output_format);
+                            continue;
+                        }
+                    }
+                
                 }
                 PipelineMessage::End | PipelineMessage::DummyForIncrement => {}
             }

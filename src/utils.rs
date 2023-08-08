@@ -1,5 +1,5 @@
 use crate::{
-    formats::{pointxyzrgba::PointXyzRgba, triangle_face::TriangleFace, PointCloud},
+    formats::{pointxyzrgba::PointXyzRgba, PointCloud, pointxyzrgbanormal::PointXyzRgbaNormal, triangle_face::TriangleFace},
     pcd::{create_pcd, read_pcd_file, write_pcd_file, PCDDataType, PointCloudData},
     ply::read_ply,
     velodyne::read_velodyn_bin_file,
@@ -337,6 +337,107 @@ pub fn pcd_to_ply_from_data_with_faces(
     }
 
     println!("Writing to {:?}", output_path);
+    let mut file = File::create(output_path).unwrap();
+
+    let ply_writer = writer::Writer::<ply::DefaultElement>::new();
+    if let Err(e) = ply_writer.write_ply(&mut file, &mut ply) {
+        Result::Err(Box::new(e))
+    } else {
+        Result::Ok(())
+    }
+}
+
+pub fn pcd_to_ply_from_data_normal(
+    output_path: &Path,
+    storage_type: PCDDataType,
+    pcd: PointCloudData,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let x_prop_def = ply_rs::ply::PropertyDef::new(
+        "x".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float),
+    );
+    let y_prop_def = ply_rs::ply::PropertyDef::new(
+        "y".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float),
+    );
+    let z_prop_def = ply_rs::ply::PropertyDef::new(
+        "z".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float),
+    );
+    let red_prop_def = ply_rs::ply::PropertyDef::new(
+        "red".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::UChar),
+    );
+    let green_prop_def = ply_rs::ply::PropertyDef::new(
+        "green".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::UChar),
+    );
+    let blue_prop_def = ply_rs::ply::PropertyDef::new(
+        "blue".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::UChar),
+    );
+    let nx_prop_def = ply_rs::ply::PropertyDef::new(
+        "nx".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float),
+    );
+    let ny_prop_def = ply_rs::ply::PropertyDef::new(
+        "ny".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float),
+    );
+    let nz_prop_def = ply_rs::ply::PropertyDef::new(
+        "nz".to_string(),
+        ply_rs::ply::PropertyType::Scalar(ply_rs::ply::ScalarType::Float),
+    );
+
+    let mut element = ply_rs::ply::ElementDef::new("vertex".to_string());
+    element.properties.insert("x".to_string(), x_prop_def);
+    element.properties.insert("y".to_string(), y_prop_def);
+    element.properties.insert("z".to_string(), z_prop_def);
+    element.properties.insert("red".to_string(), red_prop_def);
+    element
+        .properties
+        .insert("green".to_string(), green_prop_def);
+    element.properties.insert("blue".to_string(), blue_prop_def);
+    element.properties.insert("nx".to_string(), nx_prop_def);
+    element.properties.insert("ny".to_string(), ny_prop_def);
+    element.properties.insert("nz".to_string(), nz_prop_def);
+    element.count = pcd.header().width() as usize;
+
+    let mut ply_header = ply_rs::ply::Header::new();
+    ply_header.encoding = match storage_type {
+        PCDDataType::Ascii => ply_rs::ply::Encoding::Ascii,
+        PCDDataType::Binary => set_encoding(),
+        _ => unreachable!(),
+    };
+    ply_header.elements.insert("vertex".to_string(), element);
+
+    let pcd_pointxyzrgbanormal: PointCloud<PointXyzRgbaNormal> = pcd.into();
+    let mut pay_load_vec = Vec::<DefaultElement>::new();
+    pcd_pointxyzrgbanormal.points.into_iter().for_each(|point| {
+        let mut ply_point = DefaultElement::new();
+        ply_point.insert("x".to_string(), ply_rs::ply::Property::Float(point.x));
+        ply_point.insert("y".to_string(), ply_rs::ply::Property::Float(point.y));
+        ply_point.insert("z".to_string(), ply_rs::ply::Property::Float(point.z));
+        ply_point.insert("red".to_string(), ply_rs::ply::Property::UChar(point.r));
+        ply_point.insert("green".to_string(), ply_rs::ply::Property::UChar(point.g));
+        ply_point.insert("blue".to_string(), ply_rs::ply::Property::UChar(point.b));
+        ply_point.insert("nx".to_string(), ply_rs::ply::Property::Float(point.nx));
+        ply_point.insert("ny".to_string(), ply_rs::ply::Property::Float(point.ny));
+        ply_point.insert("nz".to_string(), ply_rs::ply::Property::Float(point.nz));
+        pay_load_vec.push(ply_point);
+    });
+    let mut pay_load = Payload::<DefaultElement>::new();
+    pay_load.insert("vertex".to_string(), pay_load_vec);
+
+    let mut ply = ply_rs::ply::Ply::<DefaultElement>::new();
+    ply.header = ply_header;
+    ply.payload = pay_load;
+
+    let dir = output_path.parent().unwrap();
+    if !dir.exists() {
+        std::fs::create_dir_all(dir).unwrap();
+    }
+
     let mut file = File::create(output_path).unwrap();
 
     let ply_writer = writer::Writer::<ply::DefaultElement>::new();
