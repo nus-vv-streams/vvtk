@@ -4,7 +4,7 @@ use crate::pcd::PointCloudData;
 use crate::velodyne::{VelodynPoint, VelodyneBinData};
 
 pub mod pointxyzrgba;
-
+pub mod pointxyzrgbanormal;
 pub mod triangle_face;
 
 #[derive(Clone)]
@@ -26,6 +26,19 @@ impl Debug for PointCloud<pointxyzrgba::PointXyzRgba> {
         Ok(())
     }
 }
+
+impl Debug for PointCloud<pointxyzrgbanormal::PointXyzRgbaNormal> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "PointCloud<PointXyzRgbaNormal> {{")?;
+        writeln!(f, "   number_of_points: {}", self.number_of_points)?;
+        for point in &self.points {
+            writeln!(f, "   {:?}", point)?;
+        }
+        writeln!(f, "}}")?;
+        Ok(())
+    }
+}
+
 
 impl<T> From<PointCloudData> for PointCloud<T> {
     fn from(pcd: PointCloudData) -> Self {
@@ -62,9 +75,6 @@ impl From<VelodynPoint> for pointxyzrgba::PointXyzRgba {
             x: value.x,
             y: value.y,
             z: value.z,
-            nx: 0.0,
-            ny: 0.0,
-            nz: 0.0,
             r: (value.intensity * 255.0) as u8,
             g: (value.intensity * 255.0) as u8,
             b: (value.intensity * 255.0) as u8,

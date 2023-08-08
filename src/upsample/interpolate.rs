@@ -69,9 +69,6 @@ pub fn upsample(point_cloud: PointCloud<PointXyzRgba>, factor: usize) -> PointCl
                                 g: col_g as u8,
                                 b: col_b as u8,
                                 a: col_a as u8,
-                                nx: 0.0,
-                                ny: 0.0,
-                                nz: 0.0,
                             })
                         }
                     }

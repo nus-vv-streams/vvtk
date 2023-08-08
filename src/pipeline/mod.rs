@@ -14,8 +14,8 @@ use self::{
     executor::Executor,
     executor::ExecutorBuilder,
     subcommands::{
-        convert, dash, downsample, info, metrics, read, reconstruct, render, upsample, write,
-        Convert, Dash, Downsampler, Info, MetricsCalculator, Read, Reconstructer, Render,
+        convert, dash, downsample, info, metrics, read, render, upsample, write,
+        Convert, Dash, Downsampler, Info, MetricsCalculator, Read, Render,
         Subcommand, Upsampler, Write,
     },
 };
@@ -32,7 +32,6 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
         "upsample" => Some(Box::from(Upsampler::from_args)),
         "convert" => Some(Box::from(Convert::from_args)),
         // "play" => Some(Box::from(Play::from_args)),
-        "reconstruct" => Some(Box::from(Reconstructer::from_args)),
         "dash" => Some(Box::from(Dash::from_args)),
         "info" => Some(Box::from(Info::from_args)),
         _ => None,
@@ -201,8 +200,6 @@ enum VVSubCommand {
     Downsample(downsample::Args),
     #[clap(name = "upsample")]
     Upsample(upsample::Args),
-    #[clap(name = "reconstruct")]
-    Reconstruct(reconstruct::Args),
     #[clap(name = "info")]
     Info(info::Args),
     #[clap(name = "dash")]
@@ -227,6 +224,5 @@ mod pipeline_mod_test {
         assert!(Pipeline::if_at_least_one_command("upsample"));
         assert!(Pipeline::if_at_least_one_command("convert"));
         assert!(!Pipeline::if_at_least_one_command("not_a_command"));
-        assert!(Pipeline::if_at_least_one_command("reconstruct"));
     }
 }
