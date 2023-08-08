@@ -138,7 +138,7 @@ impl PoissonLayer {
             let ref_node = grid.key(pt);
             let ref_center = grid.cell_center(&ref_node);
             grid.insert(&ref_center, pid);
-            grid.update_cell_average(&pt);
+            grid.update_cell_average(pt);
         }
 
         Self::from_populated_grid(grid, grid_node_idx, ordered_nodes, None)

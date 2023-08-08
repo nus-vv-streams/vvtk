@@ -307,7 +307,7 @@ pub fn pcd_to_ply_from_data_with_faces(
     match triangle_faces {
         Some(value) => {
             element_faces.count = value.len();
-            value.into_iter().for_each(|face| {
+            value.iter().for_each(|face| {
                 let mut ply_face = DefaultElement::new();
                 ply_face.insert(
                     "vertex_indices".to_string(),
@@ -317,7 +317,7 @@ pub fn pcd_to_ply_from_data_with_faces(
             })
         }
         None => {
-            element_faces.count = 0 as usize;
+            element_faces.count = 0_usize;
         }
     }
 
