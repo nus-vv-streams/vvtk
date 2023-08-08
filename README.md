@@ -514,35 +514,3 @@ Use Rust 1.69
 ### Coding Style
 
 We follow the [official Rust coding style](https://github.com/rust-dev-tools/fmt-rfcs/blob/master/guide/guide.md).  You can use `rustfmt` (or run `cargo fmt`) to automatically format your code.
-
-#### `reconstruct`
-
-Reconstructs a point cloud with poisson reconstruction.
-
-```shell
-Usage: reconstruct [OPTIONS] 
-
-Options:
-  -s, --screening <SCREENING>                   [default: 0.0]
-  -d, --density-estimation-depth <DEPTH>        [default: 6]
-      --max-depth <DEPTH>                       [default: 6]
-      --max-relaxation-iters <ITERS>            [default: 10]
-  -c  --colour               
-  -f  --faces
-  -h, --help                                    Print help
-```
-
-More details on [poisson reconstruction parameters](https://github.com/ForesightMiningSoftwareCorporation/PoissonReconstruction)
-
-***Reconstructing a file***
-
-Reconstructs ply files and write as ply binary
-
-```shell
-vv read ./pcd +output=pcdb \
-       reconstruct --screening 0.5 -c +input=pcdb +output=pcdb_up \
-       write ./pcd_up \
-             +input=pcdb_up \
-             --storage-type binary \
-             --output-format ply
-```
