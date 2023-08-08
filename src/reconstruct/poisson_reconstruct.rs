@@ -1,10 +1,10 @@
-use crate::formats::{pointxyzrgba::PointXyzRgba, triangle_face::TriangleFace, PointCloud};
+use crate::formats::{pointxyzrgbanormal::PointXyzRgbaNormal, pointxyzrgba::PointXyzRgba, triangle_face::TriangleFace, PointCloud};
 use crate::reconstruct::poisson_reconstruction::poisson::PoissonReconstruction;
 use crate::reconstruct::poisson_reconstruction::Real;
 use nalgebra::Vector3;
 
 pub fn reconstruct(
-    points: PointCloud<PointXyzRgba>,
+    points: PointCloud<PointXyzRgbaNormal>,
     screening: f64,
     density_estimation_depth: usize,
     max_depth: usize,
@@ -38,7 +38,7 @@ pub fn reconstruct(
 }
 
 pub fn reconstruct_surface(
-    vertices: &[PointXyzRgba],
+    vertices: &[PointXyzRgbaNormal],
     screening: f64,
     density_estimation_depth: usize,
     max_depth: usize,

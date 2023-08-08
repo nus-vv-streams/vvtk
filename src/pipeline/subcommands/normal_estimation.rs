@@ -43,7 +43,7 @@ impl Subcommand for NormalEstimation {
                     let normal_estimation_result = perform_normal_estimation(&pc, self.args.k);
                     channel.send(PipelineMessage::IndexedPointCloudNormal(normal_estimation_result, i));
                 }
-                PipelineMessage::Metrics(_) | PipelineMessage::IndexedPointCloudNormal(_, _) | PipelineMessage::DummyForIncrement => {}
+                PipelineMessage::Metrics(_) | PipelineMessage::IndexedPointCloudNormal(_, _) | PipelineMessage::DummyForIncrement | PipelineMessage::IndexedPointCloudWithTriangleFaces(_, _, _) => {}
                 PipelineMessage::End => {
                     channel.send(message);
                 }

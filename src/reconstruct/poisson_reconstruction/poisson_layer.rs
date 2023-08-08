@@ -7,7 +7,7 @@ use super::{
     poisson::{self, CellWithId},
     polynomial, Real,
 };
-use crate::formats::pointxyzrgba::PointXyzRgba;
+use crate::formats::pointxyzrgbanormal::PointXyzRgbaNormal;
 use kiddo::KdTree;
 use nalgebra::{vector, DVector, Point3, Vector3};
 use nalgebra_sparse::{CooMatrix, CscMatrix};
@@ -32,7 +32,7 @@ impl PoissonLayer {
 
 impl PoissonLayer {
     pub fn from_points(
-        vertices: &[PointXyzRgba],
+        vertices: &[PointXyzRgbaNormal],
         grid_origin: Point3<Real>,
         cell_width: Real,
         with_colour: bool,
@@ -88,7 +88,7 @@ impl PoissonLayer {
                 let formatted_point: [f64; 3] = [pt.x, pt.y, pt.z];
                 let data = KdTreeData {
                     index: pid,
-                    color: [vertice.r, vertice.g, vertice.b],
+                    color: [vertice.r, vertice.g, vertice.b, vertice.a],
                 };
                 let _ = tree.add(&formatted_point, data);
             }

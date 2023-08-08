@@ -27,7 +27,7 @@ pub struct Args {
     max_relaxation_iters: usize,
     #[clap(long, short, action=ArgAction::SetFalse)]
     colour: bool,
-    #[clap(long, short, action=ArgAction::SetTrue)]
+    #[clap(long, action=ArgAction::SetTrue)]
     faces: bool,
 }
 
@@ -76,11 +76,11 @@ impl Subcommand for Upsampler {
                     let upsampled_pc = upsample(pc, self.factor);
                     channel.send(PipelineMessage::IndexedPointCloud(upsampled_pc, i));
                 }
-                PipelineMessage::Metrics(_) | PipelineMessage::IndexedPointCloudNormal(_, _) | PipelineMessage::DummyForIncrement => {}
                 PipelineMessage::End => {
                     channel.send(message);
                 }
-                PipelineMessage::DummyForIncrement
+                PipelineMessage::Metrics(_) 
+                | PipelineMessage::DummyForIncrement
                 | PipelineMessage::IndexedPointCloudWithTriangleFaces(_, _, _)
                 | PipelineMessage::IndexedPointCloudNormal(_, _)=> {}
             };
@@ -92,7 +92,7 @@ impl Subcommand for Reconstructer {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         for message in messages {
             match message {
-                PipelineMessage::IndexedPointCloud(pc, i) => {
+                PipelineMessage::IndexedPointCloudNormal(pc, i)=> {
                     let start = Instant::now();
                     println!("Doing psr");
                     let (reconstructed_pc, triangle_faces) = reconstruct(
@@ -114,6 +114,9 @@ impl Subcommand for Reconstructer {
                         i,
                         triangle_faces,
                     ));
+                }
+                PipelineMessage::IndexedPointCloud(_, _) => {
+                    panic!("Normals are needed from normal estimation subcommand to perform poisson reconstruction");
                 }
                 PipelineMessage::Metrics(_)
                 | PipelineMessage::DummyForIncrement

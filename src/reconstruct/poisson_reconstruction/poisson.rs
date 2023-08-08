@@ -5,6 +5,7 @@ use super::poisson_vector_field::PoissonVectorField;
 use super::polynomial::{eval_bspline, eval_bspline_diff};
 use super::Real;
 use crate::formats::pointxyzrgba::PointXyzRgba;
+use crate::formats::pointxyzrgbanormal::PointXyzRgbaNormal;
 use nalgebra::{vector, Point3, Vector3};
 use parry3d_f64::bounding_volume::{Aabb, BoundingVolume};
 use parry3d_f64::partitioning::IndexedData;
@@ -58,7 +59,7 @@ impl PoissonReconstruction {
     /// - `max_relaxation_iters`: the maximum number of iterations for the internal
     ///   conjugate-gradient solver. Values around `10` should be enough for most cases.
     pub fn from_points_and_normals(
-        vertices: &[PointXyzRgba],
+        vertices: &[PointXyzRgbaNormal],
         normals: &[Vector3<Real>],
         screening: Real,
         density_estimation_depth: usize,

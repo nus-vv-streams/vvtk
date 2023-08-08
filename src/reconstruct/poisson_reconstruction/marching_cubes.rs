@@ -107,12 +107,14 @@ pub fn march_cube(
         let mut r: u8 = 0;
         let mut g: u8 = 0;
         let mut b: u8 = 0;
+        let mut a: u8 = 0;
         if let Some(tree) = kd_tree {
             match tree.nearest_one(&[vert.x, vert.y, vert.z], &squared_euclidean) {
                 Ok((_, data)) => {
                     r = data.color[0];
                     g = data.color[1];
                     b = data.color[2];
+                    a = data.color[3];
                 }
                 Err(_e) => {
                     // Handle the error here
@@ -126,10 +128,7 @@ pub fn march_cube(
             r: r,
             g: g,
             b: b,
-            a: 0,
-            nx: 0.0,
-            ny: 0.0,
-            nz: 0.0,
+            a: a,
         };
         out_triangles.push(vertice);
     }
