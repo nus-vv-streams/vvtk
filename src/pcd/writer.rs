@@ -1,4 +1,6 @@
-use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud, pointxyzrgbanormal::PointXyzRgbaNormal};
+use crate::formats::{
+    pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal, PointCloud,
+};
 use crate::pcd::{
     PCDDataType, PCDField, PCDFieldDataType, PCDFieldSize, PCDFieldType, PCDHeader, PCDVersion,
     PointCloudData,
@@ -314,7 +316,13 @@ pub fn create_pcd_from_pc_normal(point_cloud: &PointCloud<PointXyzRgbaNormal>) -
             PCDField::new("x".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
             PCDField::new("y".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
             PCDField::new("z".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
-            PCDField::new("rgba".to_string(), PCDFieldSize::Four, PCDFieldType::Unsigned, 1).unwrap(),
+            PCDField::new(
+                "rgba".to_string(),
+                PCDFieldSize::Four,
+                PCDFieldType::Unsigned,
+                1,
+            )
+            .unwrap(),
             PCDField::new("nx".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
             PCDField::new("ny".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),
             PCDField::new("nz".to_string(), PCDFieldSize::Four, PCDFieldType::Float, 1).unwrap(),

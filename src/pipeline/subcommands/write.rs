@@ -4,7 +4,10 @@ use clap::Parser;
 use crate::pcd::{create_pcd, create_pcd_from_pc_normal, write_pcd_file, PCDDataType};
 use crate::pipeline::channel::Channel;
 use crate::pipeline::PipelineMessage;
-use crate::utils::{pcd_to_ply_from_data, pcd_to_ply_from_data_normal, pcd_to_ply_from_data_with_faces, ConvertOutputFormat};
+use crate::utils::{
+    pcd_to_ply_from_data, pcd_to_ply_from_data_normal, pcd_to_ply_from_data_with_faces,
+    ConvertOutputFormat,
+};
 use std::fs::File;
 use std::path::Path;
 
@@ -151,7 +154,7 @@ impl Subcommand for Write {
                         .expect("Should be able to create file to write metrics to");
                 }
                 PipelineMessage::IndexedPointCloudNormal(pc, i) => {
-                     // println!("Writing point cloud with point num {}", pc.points.len());
+                    // println!("Writing point cloud with point num {}", pc.points.len());
                     let pcd_data_type = self
                         .args
                         .storage_type
@@ -184,7 +187,9 @@ impl Subcommand for Write {
                             }
                         }
                         "ply" => {
-                            if let Err(e) = pcd_to_ply_from_data_normal(&output_file, pcd_data_type, pcd) {
+                            if let Err(e) =
+                                pcd_to_ply_from_data_normal(&output_file, pcd_data_type, pcd)
+                            {
                                 println!("Failed to write {:?}\n{e}", output_file);
                             }
                         }
@@ -193,7 +198,6 @@ impl Subcommand for Write {
                             continue;
                         }
                     }
-                
                 }
                 PipelineMessage::End | PipelineMessage::DummyForIncrement => {}
             }

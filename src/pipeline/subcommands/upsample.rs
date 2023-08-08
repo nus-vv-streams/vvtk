@@ -4,8 +4,8 @@ use std::time::Instant;
 
 use crate::{
     pipeline::{channel::Channel, PipelineMessage},
-    upsample::{interpolate::upsample, upsample_methods::UpsampleMethod},
     reconstruct::poisson_reconstruct::reconstruct,
+    upsample::{interpolate::upsample, upsample_methods::UpsampleMethod},
 };
 
 use super::Subcommand;
@@ -48,21 +48,17 @@ impl Upsampler {
     pub fn from_args(args: Vec<String>) -> Box<dyn Subcommand> {
         let args: Args = Args::parse_from(args);
         match args.method {
-            UpsampleMethod::Default => {
-                Box::new(Upsampler {
-                    factor: args.factor,
-                })
-            }
-            UpsampleMethod::Spsr => {
-                Box::new(Reconstructer {
-                    screening: args.screening,
-                    density_estimation_depth: args.density_estimation_depth,
-                    max_depth: args.max_depth,
-                    max_relaxation_iters: args.max_relaxation_iters,
-                    with_colour: args.colour,
-                    with_faces: args.faces,
-                })
-            }
+            UpsampleMethod::Default => Box::new(Upsampler {
+                factor: args.factor,
+            }),
+            UpsampleMethod::Spsr => Box::new(Reconstructer {
+                screening: args.screening,
+                density_estimation_depth: args.density_estimation_depth,
+                max_depth: args.max_depth,
+                max_relaxation_iters: args.max_relaxation_iters,
+                with_colour: args.colour,
+                with_faces: args.faces,
+            }),
         }
     }
 }
@@ -79,10 +75,10 @@ impl Subcommand for Upsampler {
                 PipelineMessage::End => {
                     channel.send(message);
                 }
-                PipelineMessage::Metrics(_) 
+                PipelineMessage::Metrics(_)
                 | PipelineMessage::DummyForIncrement
                 | PipelineMessage::IndexedPointCloudWithTriangleFaces(_, _, _)
-                | PipelineMessage::IndexedPointCloudNormal(_, _)=> {}
+                | PipelineMessage::IndexedPointCloudNormal(_, _) => {}
             };
         }
     }
@@ -92,7 +88,7 @@ impl Subcommand for Reconstructer {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         for message in messages {
             match message {
-                PipelineMessage::IndexedPointCloudNormal(pc, i)=> {
+                PipelineMessage::IndexedPointCloudNormal(pc, i) => {
                     let start = Instant::now();
                     println!("Doing psr");
                     let (reconstructed_pc, triangle_faces) = reconstruct(

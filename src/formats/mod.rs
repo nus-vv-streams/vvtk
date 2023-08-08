@@ -39,7 +39,6 @@ impl Debug for PointCloud<pointxyzrgbanormal::PointXyzRgbaNormal> {
     }
 }
 
-
 impl<T> From<PointCloudData> for PointCloud<T> {
     fn from(pcd: PointCloudData) -> Self {
         let number_of_points = pcd.header.points() as usize;

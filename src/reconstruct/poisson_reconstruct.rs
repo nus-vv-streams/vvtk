@@ -1,4 +1,7 @@
-use crate::formats::{pointxyzrgbanormal::PointXyzRgbaNormal, pointxyzrgba::PointXyzRgba, triangle_face::TriangleFace, PointCloud};
+use crate::formats::{
+    pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal,
+    triangle_face::TriangleFace, PointCloud,
+};
 use crate::reconstruct::poisson_reconstruction::poisson::PoissonReconstruction;
 use crate::reconstruct::poisson_reconstruction::Real;
 use nalgebra::Vector3;
