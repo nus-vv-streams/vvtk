@@ -195,25 +195,67 @@ vv read ./original +output=original \
 
 #### `upsample`
 
-Upsamples a point cloud.
+Upsamples a point cloud using the default interpolation method or poisson reconstruction.
 
 ```shell
-Usage: upsample --factor <FACTOR>
+Usage: upsample --method <METHOD> [OPTIONS]
 
 Options:
-  -f, --factor <FACTOR>  
+  -m, --method <METHOD>                  [default: default]
+  -f, --factor <FACTOR>                  [default: 0]
+  -s, --screening <SCREENING>            [default: 0.0] 
+  -d, --density-estimation-depth <DEPTH> [default: 6] 
+      --max-depth <MAX_DEPTH>            [default: 6] 
+      --max-relaxation-iters <MAX_ITERS> [default: 10] 
+  -c, --colour                           [default: true] 
+      --faces                            [default: false] 
   -h, --help             Print help
 ```
+***Poisson reconstruction***
+* **Usage**
+  * `--method spsr` 
+  * Poisson reconstruction requires the point normals, acquired from the `normal` command, used to estimate point normals
+* **Options**
+  * Screening: relates to the influence of outlier points during the reconstruction. A higher screening value will reduce the influence of potential outliers in the point cloud, making the reconstructed surface less sensitive to noise. A value of 0 means no screening.
+  * Density estimation depth: the depth on the multigrid solver where point density estimation
+is calculated. The estimation kernel radius will be equal to the maximum extent of the
+input point’s AABB, divided by `2.pow(max_depth)`. Smaller value of this parameter results
+in more robustness wrt. occasional holes and sampling irregularities, but reduces thedetail accuracies.
+  * Max depth: the max depth of the multigrid solver. Larger values result in higher accuracy
+(which requires higher sampling densities, or a `density_estimation_depth` set to a smaller
+value). Higher values increases computation times.
+  * Max relaxation iters: the maximum number of iterations for the internal
+conjugate-gradient solver. Values around `10` should be enough for most cases. 
+  * Colour: disables colour on the reconstructed point cloud.
+  * Faces: Adds the reconstructed triangle surface mesh to the output point cloud, only compatible when output is a `ply` file.
+* **Changes from [original algorithm](https://github.com/ForesightMiningSoftwareCorporation/PoissonReconstruction)**
+  * Hierarchical clustering of point constraints optimisation
+  * Added colouring of reconstructed point cloud, stored with a kd-tree
+  * Added ability to construct triangle face mesh
 
-***Upsampling a file***
+More details on the [poisson reconstruction algorithm used](https://github.com/ForesightMiningSoftwareCorporation/PoissonReconstruction)
+
+
+***Upsampling a file using default interpolation***
 
 Upsamples pcd files and write as ply binary
 
 ```shell
 vv read ./pcd +output=pcdb \
-       upsample --factor 2 +input=pcdb +output=pcdb_up \
+       upsample --method default --factor 2 +input=pcdb +output=pcdb_up \
        write ./pcd_up \
              +input=pcdb_up \
+             --storage-type binary \
+             --output-format ply
+```
+
+***Upsampling a file using poisson reconstruction***
+```shell
+vv read ./ply +output=ply \
+       normal +input=ply +output=ply_n \
+       upsample --method spsr --screening 0.5 +input=ply_n +output=ply_spsr \
+       write ./ply_spsr \
+             +input=ply_spsr \
              --storage-type binary \
              --output-format ply
 ```

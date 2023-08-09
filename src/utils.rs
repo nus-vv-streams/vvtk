@@ -316,7 +316,7 @@ pub fn pcd_to_ply_from_data_with_faces(
                 pay_load_vec_faces.push(ply_face);
             })
         }
-        None => {
+        None => {  
             element_faces.count = 0_usize;
         }
     }
