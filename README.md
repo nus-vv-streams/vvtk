@@ -38,6 +38,7 @@ Commands:
                   Then uses write command to write the metrics into a text file.
   downsample  Downsample a pointcloud from the stream
   upsample    Upsamples a pointcloud from the stream
+  normal      Performs normal estimation on point clouds.
   help        Print this message or the help of the given subcommand(s)
 
 Options:
@@ -193,6 +194,24 @@ vv read ./pcd +output=pcdb \
              +input=pcdb_up \
              --storage-type binary \
              --output-format ply
+```
+
+#### `normal`
+
+Performs normal estimation on a point cloud.
+
+```shell
+Usage: normal --k <NUMBER_OF_NEIGHBORING_POINTS>
+```
+
+**Normal Estimation Example**
+
+Performs normal estimation on ply files and write the computed normals back to the ply files.
+
+```shell
+.\vv read ".\Ply" +output=ply_a \
+        normal --k 30 +input=ply_a +output=normal_a \
+        write --output-format ply ./test +input=normal_a
 ```
 
 **Complex Example**

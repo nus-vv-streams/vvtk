@@ -1,6 +1,5 @@
 use clap::Parser;
 use std::collections::VecDeque;
-use std::time::Instant;
 use nalgebra::{Vector3, Matrix3};
 use crate::pipeline::channel::Channel;
 use crate::pipeline::PipelineMessage;
@@ -83,22 +82,16 @@ impl Subcommand for NormalEstimation {
 }
 
 fn perform_normal_estimation(pc: &PointCloud<PointXyzRgba>, k: usize) -> PointCloud<PointXyzRgbaNormal> {
-    let start_total = Instant::now(); // Record start time of the entire process
 
     // Select Neighboring Points
-    let start_neighbors = Instant::now();
     let neighbors = select_neighbors(pc, k);
-    let elapsed_neighbors = start_neighbors.elapsed();
+
 
     // Compute Covariance Matrix
-    let start_covariance = Instant::now();
     let covariance_matrices = compute_covariance_matrices(&pc, &neighbors);
-    let elapsed_covariance = start_covariance.elapsed();
 
     // Compute Eigenvalues and Eigenvectors
-    let start_eigen = Instant::now();
     let eigen_results = compute_eigenvalues_eigenvectors(&covariance_matrices);
-    let elapsed_eigen = start_eigen.elapsed();
 
     // Convert PointCloud<PointXyzRgba> to PointCloud<PointXyzRgbaNormal>
     let mut pc_normal: PointCloud<PointXyzRgbaNormal> = PointCloud {
@@ -119,25 +112,9 @@ fn perform_normal_estimation(pc: &PointCloud<PointXyzRgba>, k: usize) -> PointCl
         }).collect(),
     };
 
-    // Assign Normal Vector
-    let start_assign = Instant::now();
     assign_normal_vectors(&mut pc_normal, &eigen_results);
-    let elapsed_assign = start_assign.elapsed();
 
-    // Complete Normal Estimation
-    let start_propagate = Instant::now();
     propagate_normal_orientation(&mut pc_normal, &neighbors);
-    let elapsed_propagate = start_propagate.elapsed();
-
-    let elapsed_total = start_total.elapsed(); // Record end time of the entire process
-
-    // Output the runtime of each method
-    println!("Select Neighbors: {:?}", elapsed_neighbors);
-    println!("Compute Covariance Matrix: {:?}", elapsed_covariance);
-    println!("Compute Eigenvalues and Eigenvectors: {:?}", elapsed_eigen);
-    println!("Assign Normal Vector: {:?}", elapsed_assign);
-    println!("Complete Normal Estimation: {:?}", elapsed_propagate);
-    println!("Total Runtime: {:?}", elapsed_total);
 
     pc_normal
 }
