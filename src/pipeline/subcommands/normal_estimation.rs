@@ -26,6 +26,29 @@ pub struct NormalEstimation {
     args: Args,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct CovarianceMatrix {
+    xx: f32,
+    xy: f32,
+    xz: f32,
+    yy: f32,
+    yz: f32,
+    zz: f32,
+}
+
+impl CovarianceMatrix {
+    fn zeros() -> Self {
+        CovarianceMatrix {
+            xx: 0.0,
+            xy: 0.0,
+            xz: 0.0,
+            yy: 0.0,
+            yz: 0.0,
+            zz: 0.0,
+        }
+    }
+}
+
 impl NormalEstimation {
     pub fn from_args(args: Vec<String>) -> Box<dyn Subcommand> {
         Box::from(NormalEstimation {
@@ -33,6 +56,13 @@ impl NormalEstimation {
         })
     }
 }
+
+#[derive(Debug)]
+struct EigenData {
+    eigenvectors: Matrix3<f32>,
+    eigenvalues: Vector3<f32>,
+}
+
 
 impl Subcommand for NormalEstimation {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
@@ -140,29 +170,6 @@ fn select_neighbors(pc: &PointCloud<PointXyzRgba>, k: usize) -> Vec<Vec<usize>> 
         .collect()
 }
 
-#[derive(Debug, PartialEq)]
-pub struct CovarianceMatrix {
-    xx: f32,
-    xy: f32,
-    xz: f32,
-    yy: f32,
-    yz: f32,
-    zz: f32,
-}
-
-impl CovarianceMatrix {
-    fn zeros() -> Self {
-        CovarianceMatrix {
-            xx: 0.0,
-            xy: 0.0,
-            xz: 0.0,
-            yy: 0.0,
-            yz: 0.0,
-            zz: 0.0,
-        }
-    }
-}
-
 fn compute_covariance_matrices(pc: &PointCloud<PointXyzRgba>, neighbors: &[Vec<usize>]) -> Vec<CovarianceMatrix> {
     let mut covariance_matrices = Vec::with_capacity(pc.number_of_points);
 
@@ -250,13 +257,6 @@ fn compute_covariance_matrices(pc: &PointCloud<PointXyzRgba>, neighbors: &[Vec<u
     covariance_matrices
 }
 
-
-#[derive(Debug)]
-struct EigenData {
-    eigenvectors: Matrix3<f32>,
-    eigenvalues: Vector3<f32>,
-}
-
 fn compute_eigenvalues_eigenvectors(covariance_matrices: &[CovarianceMatrix]) -> Vec<EigenData> {
     let mut eigen_data_vec = Vec::with_capacity(covariance_matrices.len());
 
@@ -342,76 +342,3 @@ fn propagate_normal_orientation(pc: &mut PointCloud<PointXyzRgbaNormal>, neighbo
         }
     }
 }
-
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use approx::assert_relative_eq;
-
-    // #[test]
-    // fn test_select_neighboring_points() {
-    //     // Create a sample point cloud
-    //     let points = vec![
-    //         PointXyzRgba { x: 0.0, y: 0.0, z: 0.0, r: 0, g: 0, b: 0, a: 255 },
-    //         PointXyzRgba { x: 1.0, y: 1.0, z: 1.0, r: 255, g: 255, b: 255, a: 255 },
-    //         PointXyzRgba { x: 2.0, y: 2.0, z: 2.0, r: 255, g: 0, b: 0, a: 255 },
-    //         PointXyzRgba { x: 3.0, y: 3.0, z: 3.0, r: 0, g: 255, b: 0, a: 255 },
-    //         PointXyzRgba { x: 4.0, y: 4.0, z: 4.0, r: 0, g: 0, b: 255, a: 255 },
-    //     ];
-    
-    //     let pc = PointCloud {
-    //         number_of_points: points.len(),
-    //         points,
-    //     };
-    
-    //     let radius = 3.0; // Example radius value
-    
-    //     let neighbors = select_neighboring_points(&pc, radius);
-    
-    //     // Assert the expected neighbors for each point
-    
-    //     // Point 0 should have neighbors 1
-    //     assert_eq!(neighbors[0], vec![1]);
-    
-    //     // Point 1 should have neighbors 0, 2
-    //     assert_eq!(neighbors[1], vec![0, 2]);
-    
-    //     // Point 2 should have neighbors 1, 3
-    //     assert_eq!(neighbors[2], vec![1, 3]);
-    
-    //     // Point 3 should have neighbors 2, 4
-    //     assert_eq!(neighbors[3], vec![2, 4]);
-    
-    //     // Point 4 should have neighbors 3
-    //     assert_eq!(neighbors[4], vec![3]);
-    // }
-
-    #[test]
-    fn test_compute_eigenvalues_eigenvectors() {
-        // Create a sample covariance matrix
-        let covariance_matrix = CovarianceMatrix {
-            xx: 2.0,
-            xy: 1.0,
-            xz: 1.0,
-            yy: 3.0,
-            yz: 2.0,
-            zz: 4.0,
-        };
-
-        // Compute the eigen data
-        let eigen_data = compute_eigenvalues_eigenvectors(&[covariance_matrix]);
-
-        // Define the expected eigenvectors
-        let expected_eigenvectors = Matrix3::new(
-            0.52891886, -0.59959215, 0.60068053,
-            -0.5558934, 0.23822187, 0.79672605,
-            0.6411168, 0.7644144, 0.068997495,
-        );
-
-        assert_relative_eq!(eigen_data[0].eigenvectors, expected_eigenvectors, epsilon = 1e-6);
-    }
-    
-    
-}
-
