@@ -22,6 +22,35 @@ use winit::window::{Window, WindowBuilder, WindowId};
 use super::metrics_reader::MetricsReader;
 use super::renderable::Renderable;
 
+use color_space::Rgb;
+use regex::bytes::Regex;
+
+pub fn parse_bg_color(bg_color_str: &str) -> Result<Rgb, &str> {
+    if bg_color_str.starts_with("rgb") {
+        let pattern = Regex::new(r"^rgb\((\d{1,3}),(\d{1,3}),(\d{1,3})\)$").unwrap();
+        // check if bg_color_str match this regex pattern
+        if !pattern.is_match(bg_color_str.as_bytes()) {
+            return Err(
+                "Invalid background rgb color format, expected rgb(r,g,b) such as rgb(122,31,212)",
+            );
+        }
+
+        let rgb = bg_color_str[4..bg_color_str.len() - 1]
+            .split(',')
+            .map(|s| s.parse::<u8>().unwrap())
+            .collect::<Vec<_>>();
+        return Ok(Rgb::new(rgb[0] as f64, rgb[1] as f64, rgb[2] as f64));
+    } else if bg_color_str.starts_with("#") {
+        let hex_num = u32::from_str_radix(&bg_color_str[1..], 16);
+        if bg_color_str.len() != 7 || hex_num.is_err() {
+            return Err("Invalid background hex color format, expected #rrggbb such as #7a1fd4");
+        }
+        return Ok(Rgb::from_hex(hex_num.unwrap()));
+    } else {
+        return Err("Invalid background color format, expected rgb(r,g,b) or #rrggbb such as rgb(122,31,212) or #7a1fd4");
+    }
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum PlaybackState {
     Paused,
@@ -39,6 +68,7 @@ where
     reader: T,
     metrics_reader: Option<MetricsReader>,
     _data: PhantomData<U>,
+    bg_color: Rgb,
 }
 
 impl<T, U> Renderer<T, U>
@@ -52,6 +82,7 @@ where
         camera: Camera,
         (width, height): (u32, u32),
         metrics_reader: Option<MetricsReader>,
+        bg_color_str: &str,
     ) -> Self {
         Self {
             reader,
@@ -60,6 +91,7 @@ where
             size: PhysicalSize { width, height },
             metrics_reader,
             _data: PhantomData::default(),
+            bg_color: parse_bg_color(bg_color_str).unwrap(),
         }
     }
 }
@@ -90,6 +122,7 @@ where
             self.fps,
             self.camera_state,
             self.metrics_reader,
+            self.bg_color,
         );
         (state, window)
     }
@@ -193,6 +226,7 @@ where
         fps: f32,
         camera_state: CameraState,
         metrics_reader: Option<MetricsReader>,
+        bg_color: Rgb,
     ) -> Self {
         let initial_render = reader
             .start()
@@ -203,6 +237,7 @@ where
             &initial_render,
             gpu.size,
             &camera_state,
+            bg_color,
         );
 
         let metrics_renderer = MetricsRenderer::new(gpu.size, &gpu.device);
@@ -399,6 +434,7 @@ pub struct PointCloudRenderer<T: Renderable> {
     vertex_buffer: Buffer,
     num_vertices: usize,
     _data: PhantomData<T>,
+    bg_color: Rgb,
 }
 
 impl<T> PointCloudRenderer<T>
@@ -411,6 +447,7 @@ where
         initial_render: &T,
         initial_size: PhysicalSize<u32>,
         camera_state: &CameraState,
+        bg_color: Rgb,
     ) -> Self {
         let (camera_buffer, camera_bind_group_layout, camera_bind_group) =
             camera_state.create_buffer(device);
@@ -441,6 +478,7 @@ where
             vertex_buffer,
             num_vertices,
             _data: PhantomData::default(),
+            bg_color,
         }
     }
 
@@ -479,9 +517,9 @@ where
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color {
-                        r: 0.1,
-                        g: 0.2,
-                        b: 0.3,
+                        r: self.bg_color.r / 255.0,
+                        g: self.bg_color.g / 255.0,
+                        b: self.bg_color.b / 255.0,
                         a: 1.0,
                     }),
                     store: true,
@@ -552,5 +590,36 @@ impl MetricsRenderer {
                 self.size.height,
             )
             .expect("Draw queued");
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_parse_bg_color() {
+        assert_eq!(
+            parse_bg_color("rgb(255,122,11)").unwrap(),
+            Rgb::new(255f64, 122f64, 11f64)
+        );
+        assert_eq!(
+            parse_bg_color("#9ef244").unwrap(),
+            Rgb::new(158f64, 242f64, 68f64)
+        );
+        assert_eq!(
+            parse_bg_color("#9EF24A").unwrap(),
+            Rgb::new(158f64, 242f64, 74f64)
+        );
+
+        assert!(parse_bg_color("rgb(255,122,11, 0.5)").is_err());
+        assert!(parse_bg_color("rgb(255,122)").is_err());
+        assert!(parse_bg_color("rgb(255,122,11, 0.5)").is_err());
+        assert!(parse_bg_color("(255,122,11, 0.5)").is_err());
+
+        assert!(parse_bg_color("#9ef24").is_err());
+        assert!(parse_bg_color("#9ef2444").is_err());
+        assert!(parse_bg_color("9ef244").is_err());
+        assert!(parse_bg_color("#9IJ444").is_err());
     }
 }

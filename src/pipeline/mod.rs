@@ -3,7 +3,6 @@ mod executor;
 pub mod subcommands;
 use clap::Parser;
 use crossbeam_channel::Receiver;
-
 // use std::sync::mpsc::Receiver;
 
 use crate::{
@@ -15,8 +14,8 @@ use self::{
     executor::Executor,
     executor::ExecutorBuilder,
     subcommands::{
-        convert, downsample, metrics, read, to_png, upsample, write, normal_estimation, Convert, Downsampler,
-        MetricsCalculator, Read, Subcommand, ToPng, Upsampler, Write, NormalEstimation,
+        convert, dash, downsample, info, metrics, read, render, upsample, write, Convert, Dash,
+        Downsampler, Info, MetricsCalculator, Read, Render, Subcommand, Upsampler, Write, NormalEstimation, normal_estimation,
     },
 };
 
@@ -25,7 +24,7 @@ pub type SubcommandCreator = Box<dyn Fn(Vec<String>) -> Box<dyn Subcommand>>;
 fn subcommand(s: &str) -> Option<SubcommandCreator> {
     match s {
         "write" => Some(Box::from(Write::from_args)),
-        "render" => Some(Box::from(ToPng::from_args)),
+        "render" => Some(Box::from(Render::from_args)),
         "read" => Some(Box::from(Read::from_args)),
         "metrics" => Some(Box::from(MetricsCalculator::from_args)),
         "downsample" => Some(Box::from(Downsampler::from_args)),
@@ -33,6 +32,8 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
         "convert" => Some(Box::from(Convert::from_args)),
         "normal" => Some(Box::from(NormalEstimation::from_args)),
         // "play" => Some(Box::from(Play::from_args)),
+        "dash" => Some(Box::from(Dash::from_args)),
+        "info" => Some(Box::from(Info::from_args)),
         _ => None,
     }
 }
@@ -56,7 +57,15 @@ pub struct Pipeline;
 
 impl Pipeline {
     pub fn execute() {
-        let (mut executors, progresses) = Self::gather_pipeline_from_args();
+        let (mut executors, progresses) = match Self::gather_pipeline_from_args() {
+            Ok((executors, progresses)) => (executors, progresses),
+            Err(err) => {
+                println!("Error: {}", err);
+                println!("Use --help for more information");
+                return;
+            }
+        };
+
         let mut handles = vec![];
         let mut names = vec![];
         let mut progress_recvs = vec![];
@@ -113,7 +122,7 @@ impl Pipeline {
     }
 
     // !! collect all the arguments from terminal and create the pipeline
-    fn gather_pipeline_from_args() -> (Vec<Executor>, Vec<Receiver<Progress>>) {
+    fn gather_pipeline_from_args() -> Result<(Vec<Executor>, Vec<Receiver<Progress>>), String> {
         let args: Vec<String> = std::env::args().collect();
         let mut executors = vec![];
         let mut progresses = vec![];
@@ -124,10 +133,7 @@ impl Pipeline {
         // !! check argument length
         if args.len() < 2 {
             display_main_help_msg();
-            eprintln!(
-                "Expected at least one valid command, got {}",
-                args.len() - 1
-            );
+            return Err("Expected at least one argument".to_string());
         }
 
         if args[1] == "--help" || args[1] == "-h" || args[1] == "help" {
@@ -136,10 +142,10 @@ impl Pipeline {
 
         // !! check the second argument, which is the name of the subcommand, we want at least one subcommand
         if !Self::if_at_least_one_command(&args[1]) {
-            eprintln!(
+            return Err(format!(
                 "Expected at least one valid command on the first arg, got {}",
                 args[1]
-            );
+            ));
         }
 
         // !! skip the first argument, which is the name of the program
@@ -152,7 +158,7 @@ impl Pipeline {
                     // !! enters here when there are at least two subcommands
                     let forwarded_args = accumulated_args;
                     accumulated_args = vec![];
-                    let (executor, progress) = executor_builder.create(forwarded_args, creator);
+                    let (executor, progress) = executor_builder.create(forwarded_args, creator)?;
                     executors.push(executor);
                     progresses.push(progress);
                 }
@@ -165,12 +171,12 @@ impl Pipeline {
         // !! TODO: maybe better to refactor as "do while" loop
         let creator = command_creator
             .take()
-            .expect("Should have at least one command");
+            .ok_or("Should have at least one command")?;
 
-        let (executor, progress) = executor_builder.create(accumulated_args, creator);
+        let (executor, progress) = executor_builder.create(accumulated_args, creator)?;
         executors.push(executor);
         progresses.push(progress);
-        (executors, progresses)
+        Ok((executors, progresses))
     }
 
     fn if_at_least_one_command(first_arg: &str) -> bool {
@@ -187,7 +193,7 @@ enum VVSubCommand {
     #[clap(name = "read")]
     Read(read::Args),
     #[clap(name = "render")]
-    ToPng(to_png::Args),
+    Render(render::Args),
     #[clap(name = "metrics")]
     Metrics(metrics::Args),
     #[clap(name = "downsample")]
@@ -196,6 +202,10 @@ enum VVSubCommand {
     Upsample(upsample::Args),
     #[clap(name = "normal")]
     NormalEstimation(normal_estimation::Args),
+    #[clap(name = "info")]
+    Info(info::Args),
+    #[clap(name = "dash")]
+    Dash(dash::Args),
 }
 
 fn display_main_help_msg() {

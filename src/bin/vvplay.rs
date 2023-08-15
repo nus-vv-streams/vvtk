@@ -61,6 +61,8 @@ struct Args {
     decoder_type: DecoderType,
     #[clap(long)]
     decoder_path: Option<OsString>,
+    #[clap(long, default_value = "rgb(255,255,255)")]
+    bg_color: OsString,
 }
 
 #[derive(clap::ValueEnum, Clone, Copy)]
@@ -70,24 +72,29 @@ enum DecoderType {
 }
 
 fn infer_format(src: &String) -> String {
-    let choices = ["pcd", "ply", "http"];
+    let choices = ["pcd", "ply", "bin", "http"];
+    const PCD: usize = 0;
+    const PLY: usize = 1;
+    const BIN: usize = 2;
+
     if choices.contains(&src.as_str()) {
         return src.clone();
     }
 
     let path = Path::new(src);
-    // infer by counting extension numbers (pcd count and ply count)
-    // if pcd count > ply count, then pcd
-    let mut pcd_count = 0;
-    let mut ply_count = 0;
+    // infer by counting extension numbers (pcd ply and bin)
+
+    let mut choice_count = [0, 0, 0];
     for file_entry in path.read_dir().unwrap() {
         match file_entry {
             Ok(entry) => {
                 if let Some(ext) = entry.path().extension() {
                     if ext.eq("pcd") {
-                        pcd_count += 1;
+                        choice_count[PCD] += 1;
                     } else if ext.eq("ply") {
-                        ply_count += 1;
+                        choice_count[PLY] += 1;
+                    } else if ext.eq("bin") {
+                        choice_count[BIN] += 1;
                     }
                 }
             }
@@ -96,11 +103,13 @@ fn infer_format(src: &String) -> String {
             }
         }
     }
-    if pcd_count > ply_count {
-        "pcd".to_string()
-    } else {
-        "ply".to_string()
-    }
+
+    let max_index = choice_count
+        .iter()
+        .enumerate()
+        .max_by_key(|(_, &item)| item)
+        .map(|(index, _)| index);
+    choices[max_index.unwrap()].to_string()
 }
 
 fn main() {
@@ -133,6 +142,7 @@ fn main() {
         camera,
         (args.width, args.height),
         metrics,
+        args.bg_color.to_str().unwrap(),
     ));
 
     if args.show_controls {

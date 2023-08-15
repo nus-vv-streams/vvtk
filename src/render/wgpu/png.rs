@@ -1,12 +1,43 @@
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
 use crate::render::wgpu::camera::{Camera, CameraState};
-use crate::render::wgpu::renderer::PointCloudRenderer;
+use crate::render::wgpu::renderer::{parse_bg_color, PointCloudRenderer};
+use color_space::Rgb;
 use std::ffi::OsString;
 use std::num::NonZeroU32;
 use std::path::Path;
+use std::str::FromStr;
 use wgpu::{Buffer, Device, Queue, Texture, TextureDescriptor, TextureView};
 use winit::dpi::PhysicalSize;
+
+use std::process::{Command, Stdio};
+
+#[derive(clap::ValueEnum, Debug, Copy, Clone, Eq, PartialEq)]
+pub enum RenderFormat {
+    Png,
+    Mp4,
+}
+
+impl ToString for RenderFormat {
+    fn to_string(&self) -> String {
+        match self {
+            RenderFormat::Png => "png".to_string(),
+            RenderFormat::Mp4 => "mp4".to_string(),
+        }
+    }
+}
+
+impl FromStr for RenderFormat {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "png" => Ok(RenderFormat::Png),
+            "mp4" => Ok(RenderFormat::Mp4),
+            _ => Err("Invalid render format".to_string()),
+        }
+    }
+}
 
 pub struct PngWriter<'a> {
     output_dir: OsString,
@@ -20,6 +51,8 @@ pub struct PngWriter<'a> {
     output_buffer: Buffer,
     camera_state: CameraState,
     point_renderer: Option<PointCloudRenderer<PointCloud<PointXyzRgba>>>,
+    bg_color: Rgb,
+    render_format: RenderFormat,
 }
 
 impl<'a> PngWriter<'a> {
@@ -32,6 +65,8 @@ impl<'a> PngWriter<'a> {
         camera_pitch: f32,
         width: u32,
         height: u32,
+        bg_color: &str,
+        render_format: RenderFormat,
     ) -> Self {
         let output_path = Path::new(&output_dir);
 
@@ -94,7 +129,13 @@ impl<'a> PngWriter<'a> {
             output_buffer,
             camera_state,
             point_renderer: None,
+            bg_color: parse_bg_color(bg_color).unwrap(),
+            render_format,
         }
+    }
+
+    pub fn render_format(&self) -> RenderFormat {
+        self.render_format
     }
 
     pub fn write_to_png(&mut self, pc: &PointCloud<PointXyzRgba>, filename: &str) {
@@ -105,6 +146,7 @@ impl<'a> PngWriter<'a> {
                 pc,
                 self.size,
                 &self.camera_state,
+                self.bg_color,
             ));
         }
 
@@ -149,5 +191,79 @@ impl<'a> PngWriter<'a> {
             buffer.save(output_path.join(Path::new(&filename))).unwrap();
         }
         self.output_buffer.unmap();
+    }
+
+    pub fn write_to_mp4(&self, name_length: u32, fps: f32, verbose: bool) {
+        let img_dir_path = Path::new(&self.output_dir);
+        let mp4_save_path = img_dir_path.parent().unwrap();
+        let mut mp4_path = mp4_save_path.to_path_buf();
+        mp4_path.push("output.mp4");
+
+        PngWriter::png_to_mp4(img_dir_path, &mp4_path, name_length, fps, verbose);
+
+        // delete tmp png dir
+        std::fs::remove_dir_all(img_dir_path).unwrap();
+    }
+
+    pub fn png_to_mp4(img_dir: &Path, mp4_path: &Path, name_length: u32, fps: f32, verbose: bool) {
+        let tmp_png_dir = Path::new(img_dir);
+        // mp4 dir is parent of tmp_png_dir
+        // read all png file in tmp_png_dir, then sort them lexicographically, then write to mp4
+        let mut png_files: Vec<_> = std::fs::read_dir(tmp_png_dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .collect();
+        png_files.sort();
+
+        // use ffmpeg to convert png to mp4
+        let cmd = Command::new("ffmpeg")
+            .arg("-y")
+            .arg("-framerate")
+            .arg(fps.to_string())
+            .arg("-i")
+            .arg(format!(
+                "{}/%0{}d.png",
+                tmp_png_dir.clone().display(),
+                name_length
+            ))
+            .arg("-c:v")
+            .arg("libx264")
+            .arg("-r")
+            .arg(fps.to_string())
+            // .arg("-pix_fmt")
+            // .arg("yuv420p")
+            .arg(mp4_path.clone())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("Failed to start ffmpeg process");
+
+        if verbose {
+            println!("cmd is {:?}", cmd);
+        }
+
+        let output = cmd
+            .wait_with_output()
+            .expect("Failed to run/wait ffmpeg process");
+
+        if output.status.success() {
+            if verbose {
+                let mut output_string = String::new();
+                if !output.stdout.is_empty() {
+                    output_string
+                        .push_str(String::from_utf8_lossy(&output.stdout).to_string().as_str());
+                }
+                // ffmpeg output all of its logging data to stderr
+                if !output.stderr.is_empty() {
+                    output_string
+                        .push_str(String::from_utf8_lossy(&output.stderr).to_string().as_str());
+                }
+                println!("ffmpeg:\n{}", output_string);
+                println!("mp4 file is saved to {}", mp4_path.display());
+            }
+        } else {
+            eprintln!("ffmpeg error:\n{}", String::from_utf8_lossy(&output.stderr));
+            panic!("ffmpeg error")
+        }
     }
 }

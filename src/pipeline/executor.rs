@@ -28,8 +28,12 @@ impl ExecutorBuilder {
         &mut self,
         args: Vec<String>,
         creator: SubcommandCreator,
-    ) -> (Executor, Receiver<Progress>) {
-        let name = args.first().expect("Should have command name").clone();
+    ) -> Result<(Executor, Receiver<Progress>), String> {
+        let name = match args.first() {
+            Some(command_name) => command_name.clone(),
+            None => return Err("Should have command name".to_string()),
+        };
+
         let mut inner_args = Vec::new();
         let mut input_stream_names = Vec::new();
         let mut output_name = "".to_string();
@@ -44,11 +48,11 @@ impl ExecutorBuilder {
                 has_help = true;
             }
 
-            if arg.starts_with("+input") {
-                let input_streams = arg
-                    .split('=')
-                    .nth(1)
-                    .expect("Expected name of input stream");
+            if arg.starts_with("+input") || arg.starts_with("+in") {
+                let input_streams = match arg.split("=").nth(1) {
+                    Some(input_streams) => input_streams,
+                    None => return Err("Expected name of input stream".to_string()),
+                };
 
                 for input_name in input_streams.split(',') {
                     // check if input stream name is in the set, panic if not
@@ -61,30 +65,39 @@ impl ExecutorBuilder {
                             .collect::<Vec<String>>()
                             .join(", ");
 
-                        panic!(
+                        return Err(format!(
                             "No output stream with name `{}` found, existing outputs are {}",
                             input_streams, existing_output_stream_names
-                        );
+                        ));
                     } else {
                         input_stream_names.push(input_name.to_string());
                     }
                 }
                 has_input = true;
-            } else if arg.starts_with("+output") {
-                output_name = arg
-                    .split('=')
-                    .nth(1)
-                    .expect("Expected name of output stream")
-                    .to_string();
+            } else if arg.starts_with("+output") || arg.starts_with("+out") {
+                output_name = match arg.split('=').nth(1) {
+                    Some(output_name) => output_name.to_string(),
+                    None => return Err("Expected name of output stream".to_string()),
+                };
+
                 self.output_stream_names.insert(output_name.clone());
             } else {
                 inner_args.push(arg);
             }
         }
 
-        if has_input || cmd.as_str() == "read" || cmd.as_str() == "convert" || has_help {
+        if has_input
+            || cmd.as_str() == "read"
+            || cmd.as_str() == "convert"
+            || cmd.as_str() == "info"
+            || cmd.as_str() == "dash"
+            || has_help
+        {
         } else {
-            panic!("`{}` needs to consume an input, but no named input is found, specify it using `+input=input_name`", cmd.as_str())
+            return Err(format!(
+                "`{}` needs to consume an input, but no named input is found, specify it using `+input=input_name`",
+                cmd.as_str()
+            ));
         }
 
         let handler = creator(inner_args);
@@ -99,7 +112,7 @@ impl ExecutorBuilder {
             channel,
             handler,
         };
-        (executor, progress_rx)
+        Ok((executor, progress_rx))
     }
 }
 
@@ -113,7 +126,7 @@ impl Executor {
         let mut input_stream_names = Vec::new();
         let mut output_name = "".to_string();
         for arg in args {
-            if arg.starts_with("+input") {
+            if arg.starts_with("+input") || arg.starts_with("+in") {
                 let input_streams = arg
                     .split('=')
                     .nth(1)
@@ -121,7 +134,7 @@ impl Executor {
                 for input_name in input_streams.split(',') {
                     input_stream_names.push(input_name.to_string());
                 }
-            } else if arg.starts_with("+output") {
+            } else if arg.starts_with("+output") || arg.starts_with("+out") {
                 output_name = arg
                     .split('=')
                     .nth(1)
