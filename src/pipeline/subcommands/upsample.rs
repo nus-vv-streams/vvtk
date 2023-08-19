@@ -35,7 +35,9 @@ impl Subcommand for Upsampler {
                     let upsampled_pc = upsample(pc, self.factor);
                     channel.send(PipelineMessage::IndexedPointCloud(upsampled_pc, i));
                 }
-                PipelineMessage::Metrics(_) | PipelineMessage::IndexedPointCloudNormal(_, _) | PipelineMessage::DummyForIncrement => {}
+                PipelineMessage::Metrics(_)
+                | PipelineMessage::IndexedPointCloudNormal(_, _)
+                | PipelineMessage::DummyForIncrement => {}
                 PipelineMessage::End => {
                     channel.send(message);
                 }

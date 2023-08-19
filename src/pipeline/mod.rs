@@ -6,7 +6,7 @@ use crossbeam_channel::Receiver;
 // use std::sync::mpsc::Receiver;
 
 use crate::{
-    formats::{pointxyzrgbanormal::PointXyzRgbaNormal, pointxyzrgba::PointXyzRgba, PointCloud},
+    formats::{pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal, PointCloud},
     metrics::Metrics,
 };
 
@@ -14,8 +14,9 @@ use self::{
     executor::Executor,
     executor::ExecutorBuilder,
     subcommands::{
-        convert, dash, downsample, info, metrics, read, render, upsample, write, Convert, Dash,
-        Downsampler, Info, MetricsCalculator, Read, Render, Subcommand, Upsampler, Write, NormalEstimation, normal_estimation,
+        convert, dash, downsample, info, metrics, normal_estimation, read, render, upsample, write,
+        Convert, Dash, Downsampler, Info, MetricsCalculator, NormalEstimation, Read, Render,
+        Subcommand, Upsampler, Write,
     },
 };
 

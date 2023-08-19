@@ -1,5 +1,5 @@
 use crate::{
-    formats::{pointxyzrgba::PointXyzRgba, PointCloud, pointxyzrgbanormal::PointXyzRgbaNormal},
+    formats::{pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal, PointCloud},
     pcd::{create_pcd, read_pcd_file, write_pcd_file, PCDDataType, PointCloudData},
     ply::read_ply,
     velodyne::read_velodyn_bin_file,

@@ -1,21 +1,21 @@
-use clap::Parser;
-use std::collections::VecDeque;
-use nalgebra::{Vector3, Matrix3};
+use crate::formats::{
+    pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal, PointCloud,
+};
 use crate::pipeline::channel::Channel;
 use crate::pipeline::PipelineMessage;
-use crate::formats::{PointCloud, pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal};
+use clap::Parser;
 use kdtree::distance::squared_euclidean;
 use kdtree::KdTree;
+use nalgebra::{Matrix3, Vector3};
 use rayon::prelude::*;
+use std::collections::VecDeque;
 
 use super::Subcommand;
 
 type PointType = [f64; 3];
 
 #[derive(Parser)]
-#[clap(
-    about = "Performs normal estimation on point clouds.",
-)]
+#[clap(about = "Performs normal estimation on point clouds.")]
 pub struct Args {
     #[clap(short, long, default_value = "30")]
     k: usize,
@@ -62,7 +62,6 @@ struct EigenData {
     eigenvalues: Vector3<f32>,
 }
 
-
 impl Subcommand for NormalEstimation {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         // Perform normal estimation for each point cloud in the messages
@@ -70,9 +69,14 @@ impl Subcommand for NormalEstimation {
             match message {
                 PipelineMessage::IndexedPointCloud(pc, i) => {
                     let normal_estimation_result = perform_normal_estimation(&pc, self.args.k);
-                    channel.send(PipelineMessage::IndexedPointCloudNormal(normal_estimation_result, i));
+                    channel.send(PipelineMessage::IndexedPointCloudNormal(
+                        normal_estimation_result,
+                        i,
+                    ));
                 }
-                PipelineMessage::Metrics(_) | PipelineMessage::IndexedPointCloudNormal(_, _) | PipelineMessage::DummyForIncrement => {}
+                PipelineMessage::Metrics(_)
+                | PipelineMessage::IndexedPointCloudNormal(_, _)
+                | PipelineMessage::DummyForIncrement => {}
                 PipelineMessage::End => {
                     channel.send(message);
                 }
@@ -81,11 +85,12 @@ impl Subcommand for NormalEstimation {
     }
 }
 
-fn perform_normal_estimation(pc: &PointCloud<PointXyzRgba>, k: usize) -> PointCloud<PointXyzRgbaNormal> {
-
+fn perform_normal_estimation(
+    pc: &PointCloud<PointXyzRgba>,
+    k: usize,
+) -> PointCloud<PointXyzRgbaNormal> {
     // Select Neighboring Points
     let neighbors = select_neighbors(pc, k);
-
 
     // Compute Covariance Matrix
     let covariance_matrices = compute_covariance_matrices(&pc, &neighbors);
@@ -96,20 +101,24 @@ fn perform_normal_estimation(pc: &PointCloud<PointXyzRgba>, k: usize) -> PointCl
     // Convert PointCloud<PointXyzRgba> to PointCloud<PointXyzRgbaNormal>
     let mut pc_normal: PointCloud<PointXyzRgbaNormal> = PointCloud {
         number_of_points: pc.number_of_points,
-        points: pc.points.iter().map(|p| {
-            PointXyzRgbaNormal {
-                x: p.x,
-                y: p.y,
-                z: p.z,
-                r: p.r,
-                g: p.g,
-                b: p.b,
-                a: p.a,
-                nx: 0.0, // Uninitialized normal values
-                ny: 0.0,
-                nz: 0.0,
-            }
-        }).collect(),
+        points: pc
+            .points
+            .iter()
+            .map(|p| {
+                PointXyzRgbaNormal {
+                    x: p.x,
+                    y: p.y,
+                    z: p.z,
+                    r: p.r,
+                    g: p.g,
+                    b: p.b,
+                    a: p.a,
+                    nx: 0.0, // Uninitialized normal values
+                    ny: 0.0,
+                    nz: 0.0,
+                }
+            })
+            .collect(),
     };
 
     assign_normal_vectors(&mut pc_normal, &eigen_results);
@@ -122,7 +131,9 @@ fn perform_normal_estimation(pc: &PointCloud<PointXyzRgba>, k: usize) -> PointCl
 fn build_kd_tree(points: &[PointXyzRgba]) -> KdTree<f64, usize, PointType> {
     let mut kdtree = KdTree::new(3);
     for (i, point) in points.iter().enumerate() {
-        kdtree.add([point.x as f64, point.y as f64, point.z as f64], i).unwrap();
+        kdtree
+            .add([point.x as f64, point.y as f64, point.z as f64], i)
+            .unwrap();
     }
     kdtree
 }
@@ -134,7 +145,13 @@ fn select_neighbors(pc: &PointCloud<PointXyzRgba>, k: usize) -> Vec<Vec<usize>> 
         .enumerate()
         .map(|(i, point)| {
             // Ask for k+1 neighbors to account for the point itself
-            let ret = kdtree.nearest(&[point.x as f64, point.y as f64, point.z as f64], k + 1, &squared_euclidean).unwrap();
+            let ret = kdtree
+                .nearest(
+                    &[point.x as f64, point.y as f64, point.z as f64],
+                    k + 1,
+                    &squared_euclidean,
+                )
+                .unwrap();
             let mut neighbor_indices = Vec::new();
             for &(_dist, &index) in ret.iter() {
                 // Exclude the point itself
@@ -147,7 +164,10 @@ fn select_neighbors(pc: &PointCloud<PointXyzRgba>, k: usize) -> Vec<Vec<usize>> 
         .collect()
 }
 
-fn compute_covariance_matrices(pc: &PointCloud<PointXyzRgba>, neighbors: &[Vec<usize>]) -> Vec<CovarianceMatrix> {
+fn compute_covariance_matrices(
+    pc: &PointCloud<PointXyzRgba>,
+    neighbors: &[Vec<usize>],
+) -> Vec<CovarianceMatrix> {
     let mut covariance_matrices = Vec::with_capacity(pc.number_of_points);
 
     for (i, point_neighbors) in neighbors.iter().enumerate() {
@@ -239,9 +259,15 @@ fn compute_eigenvalues_eigenvectors(covariance_matrices: &[CovarianceMatrix]) ->
 
     for covariance_matrix in covariance_matrices {
         let cov_matrix = Matrix3::new(
-            covariance_matrix.xx, covariance_matrix.xy, covariance_matrix.xz,
-            covariance_matrix.xy, covariance_matrix.yy, covariance_matrix.yz,
-            covariance_matrix.xz, covariance_matrix.yz, covariance_matrix.zz,
+            covariance_matrix.xx,
+            covariance_matrix.xy,
+            covariance_matrix.xz,
+            covariance_matrix.xy,
+            covariance_matrix.yy,
+            covariance_matrix.yz,
+            covariance_matrix.xz,
+            covariance_matrix.yz,
+            covariance_matrix.zz,
         );
 
         let eigendecomp = cov_matrix.symmetric_eigen();
@@ -249,7 +275,10 @@ fn compute_eigenvalues_eigenvectors(covariance_matrices: &[CovarianceMatrix]) ->
         let eigenvectors = eigendecomp.eigenvectors;
         let eigenvalues = eigendecomp.eigenvalues;
 
-        let eigen_data = EigenData { eigenvectors, eigenvalues };
+        let eigen_data = EigenData {
+            eigenvectors,
+            eigenvalues,
+        };
         eigen_data_vec.push(eigen_data);
     }
 
@@ -259,7 +288,8 @@ fn compute_eigenvalues_eigenvectors(covariance_matrices: &[CovarianceMatrix]) ->
 fn assign_normal_vectors(pc: &mut PointCloud<PointXyzRgbaNormal>, eigen_results: &[EigenData]) {
     for (i, eigen_data) in eigen_results.iter().enumerate() {
         // Find the index of the smallest eigenvalue
-        let min_index = eigen_data.eigenvalues
+        let min_index = eigen_data
+            .eigenvalues
             .iter()
             .enumerate()
             .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
