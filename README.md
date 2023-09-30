@@ -238,7 +238,7 @@ Downsamples pcd files and write as ply binary
 vv read ./pcd +output=pcdb \
        downsample -p 2 +input=pcdb +output=pcdb_down \
        write ./pcdb_down \
-             +input=pcdb_up \
+             +input=pcdb_down \
              --storage-type binary \
              --output-format ply
 ```
