@@ -46,6 +46,7 @@ impl PcdFileReader {
             match file_entry {
                 Ok(entry) => {
                     if let Some(ext) = entry.path().extension() {
+                        //t: only add in .pcd file
                         if ext.eq("pcd") {
                             files.push(entry.path());
                         }
@@ -140,6 +141,7 @@ impl RenderReaderLegacy<PointCloud<PointXyzRgba>> for PcdFileReader {
 }
 
 pub struct PcdMemoryReader {
+    //t: not used yet?
     points: Vec<PointCloud<PointXyzRgba>>,
 }
 
@@ -173,6 +175,9 @@ impl RenderReaderLegacy<PointCloud<PointXyzRgba>> for PcdMemoryReader {
 pub struct PcdAsyncReader {
     total_frames: u64,
     rx: Receiver<(FrameRequest, PointCloud<PointXyzRgba>)>,
+    //t: add cache to store rendered point cloud
+    cache: Vec<(u64, PointCloud<PointXyzRgba>)>,
+    //t: the request is sent from here all the time
     tx: UnboundedSender<BufMsg>,
 }
 
@@ -200,13 +205,15 @@ impl PcdAsyncReader {
     pub fn new(
         rx: Receiver<(FrameRequest, PointCloud<PointXyzRgba>)>,
         tx: UnboundedSender<BufMsg>,
-        // buffer_size: Option<u8>,
+        // buffer_size: Option<u8>,rame requst id: {}, offset: {}", new_key.object_id, new_key.frame_offsei
     ) -> Self {
         Self {
             rx,
             tx,
             // buffer_size,
             // cache: HashMap::with_capacity(buffer_size as usize),
+            //t: add the cache here, might need to change to a better data structure if needed
+            cache: vec![],
             total_frames: 30, // default number of frames. Use `set_len` to overwrite this value
         }
     }
@@ -223,13 +230,26 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         index: usize,
         camera_pos: Option<CameraPosition>,
     ) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
+        println!{"get at request index: {}", index};
         let index = index as u64;
+        if let Some(&ref result) = self.cache.iter().find(|&i| i.0 == index) {
+            //it: f the result is already inside the cache, just return
+            return (camera_pos, Some(result.1.clone()));
+        }
+        //t: if it is not found, send the frame request to vvplay async there
         _ = self.tx.send(BufMsg::FrameRequest(FrameRequest {
             object_id: 0,
             frame_offset: index % self.total_frames,
             camera_pos,
         }));
+        //t: if there is any, send the camera pos and the point cloud, to modify, can manually set up the camera pos here
+        //t: if receive something from the rx channel, cache it then return
         if let Ok((frame_req, pc)) = self.rx.recv() {
+            //t: cache the result here first
+            if self.cache.len() >= 10 {
+                self.cache.pop();
+            }
+            self.cache.push((index, pc.clone()));
             (frame_req.camera_pos, Some(pc))
         } else {
             (None, None)

@@ -192,6 +192,7 @@ impl BufferManager {
         to_buf_rx: tokio::sync::mpsc::UnboundedReceiver<BufMsg>,
         buf_in_sx: tokio::sync::mpsc::UnboundedSender<FetchRequest>,
         buf_out_sx: std::sync::mpsc::Sender<(FrameRequest, PointCloud<PointXyzRgba>)>,
+        //t: hard coded the buffer size first
         buffer_size: u64,
         total_frames: usize,
         segment_size: (u64, u64),
@@ -206,7 +207,8 @@ impl BufferManager {
             segment_size: segment_size.0,
             shutdown_recv,
             // buffer size is given in seconds. however our frames are only segment_size.0 / segment_size.1 seconds long.
-            buffer: Buffer::new((buffer_size * segment_size.1 / segment_size.0) as usize),
+            //t: hard code buffer size again here, revert back later if needed
+            buffer: Buffer::new((3) as usize),
         }
     }
 
@@ -220,6 +222,9 @@ impl BufferManager {
     }
 
     fn prefetch_frame(&mut self, camera_pos: Option<CameraPosition>) {
+        println!("--------------------------------");
+        println!("in vvdash_async.rs: ");
+        println!{"prefetch frame start here"};
         assert!(camera_pos.is_some());
         let last_req = FrameRequest {
             camera_pos,
@@ -230,7 +235,7 @@ impl BufferManager {
             .buf_in_sx
             .send(FetchRequest::new(req, self.buffer.len()));
 
-        self.buffer.add(req);
+        self.buffer.add(req);    //let buffer_capacity = args.buffer_capacity.unwrap_or(10);
     }
 
     async fn run(
@@ -244,20 +249,32 @@ impl BufferManager {
         // So, we set this flag to true once the buffer is full, so that when the frames are consumed and the first channels are discarded, we can prefetch again.
         let mut is_desired_buffer_level_reached = false;
         loop {
+            println!{"---------------------------"};
+            println!{"in loop"}
+            println!("buffer: {:?}", &self.buffer);
             trace!("buffer: {:?}", &self.buffer);
+            //wait for message in self.shutdown_recv and self.to_buf_Rx
+            //recv is called to receive message from the channel?
+            //if a message is received, match the message with the bufmsg enum
             tokio::select! {
                 _ = self.shutdown_recv.changed() => {
+                    println!{"---------------------------"};
+                    println!{"in vvplay_async:"}
+                    println!{"[buffer mgr] received shutdown signal"};
                     trace!("[buffer mgr] received shutdown signal");
                     break;
                 }
                 Some(msg) = self.to_buf_rx.recv() => {
                     match msg {
                         BufMsg::FrameRequest(mut renderer_req) => {
+                            println!{"---------------------------"};
+                            println!{"in vvplay_async:"}
+                            println!{"renderer sent a frame request {:?}", &renderer_req};
                             trace!(
                                 "[buffer mgr] renderer sent a frame request {:?}",
                                 &renderer_req
                             );
-
+                            //t: 1. camera part
                             // record camera trace
                             if record_camera_trace.is_some() && renderer_req.camera_pos.is_some() {
                                 if let Some(ct) = record_camera_trace.as_mut() { ct.add(renderer_req.camera_pos.unwrap()) }
@@ -271,13 +288,16 @@ impl BufferManager {
                                 viewport_predictor.add(renderer_req.camera_pos.unwrap_or_else(|| original_position));
                                 renderer_req.camera_pos = viewport_predictor.predict();
                             }
-
+                            
                             // First, attempt to fulfill the request from the buffer.
                             // Check in cache whether it exists
+                            //t: if the top most frma ein the buffer is the requested frame
+                            //t: still unknown how it works?
                             if !self.buffer.is_empty() && self.buffer.front().unwrap().req.frame_offset == renderer_req.frame_offset {
                                 let mut front = self.buffer.pop_front().unwrap();
                                 match front.state {
                                     FrameStatus::Fetching | FrameStatus::Decoding => {
+                                        //t: should not have the decoding part, how to get rid of the decoding part?
                                         // we update frame_to_answer to indicate that we are waiting to send back this data to renderer.
                                         self.frame_to_answer = Some(renderer_req);
                                         self.buffer.push_front(front);
@@ -329,17 +349,27 @@ impl BufferManager {
                         }
                         BufMsg::FetchDone(req) => {
                             // upon receiving fetch result, immediately schedule the next fetch request
+                            println!{"---------------------------"};
+                            println!{"in vvplay_async:"}
+                            println!("the current buffer message is fetch done");
+                            //t: if it is fetch done, they update the frame status to decoding, decoding should't exist, just direct it to ready
+                            //t: todo need change here in future
                             self.buffer.update_state(req, FrameStatus::Decoding);
 
                             if !self.buffer.is_full() {
                                 // If the buffer is not full yet, we can send a request to the fetcher to fetch the next frame
+                                //t: this is acceptable, if the buffer is not full, we can keep requesting, but need to check if it is stored before requesting
+                                //t: flow if the current one is done, and there is space for the next one, we will do the prefetch again, exactlly what we want
                                 self.prefetch_frame(req.camera_pos);
                             } else {
                                 is_desired_buffer_level_reached = true;
                             }
                         }
                         BufMsg::PointCloud((mut metadata, mut rx)) => {
-                            trace!("[buffer mgr] received a point cloud result {:?}", &metadata);
+                            //t: if the point cloud is done, just send it back to renderer?
+                            println!{"---------------------------"};
+                            println!{"in vvplay_async:"}
+                            println!("[buffer mgr] received a point cloud result {:?}", &metadata);
                             let orig_metadata = metadata.into();
 
                             let mut remaining = self.segment_size as usize;
@@ -354,7 +384,6 @@ impl BufferManager {
                                 metadata.frame_offset += 1;
                                 remaining -= 1;
                             }
-
                             // cache the point cloud if there is still point clouds to render
                             self.buffer.update(orig_metadata, metadata.into(), FrameStatus::Ready(remaining, rx));
                         }
@@ -495,7 +524,7 @@ impl CameraTrace {
                 }
             }
         }
-    }
+    }    //let buffer_capacity = args.buffer_capacity.unwrap_or(10);
 
     /// Get the next bandwidth sample. Used when playing back a camera trace.
     fn next(&self) -> CameraPosition {
@@ -617,7 +646,9 @@ fn main() {
     let (total_frames_tx, total_frames_rx) = tokio::sync::oneshot::channel();
 
     // initialize variables based on args
-    let buffer_capacity = args.buffer_capacity.unwrap_or(2);
+    //let buffer_capacity = args.buffer_capacity.unwrap_or(10);
+    //t: hard coded the buffer size
+    let buffer_capacity = 10;
     let simulated_network_trace = args.network_trace.map(|path| NetworkTrace::new(&path));
     let simulated_camera_trace = args.camera_trace.map(|path| CameraTrace::new(&path, false));
     let record_camera_trace = args
@@ -755,6 +786,7 @@ fn main() {
                     }
                 }
             } else {
+                //t: trace this part 
                 let path = Path::new(&args.src);
                 let mut ply_files: Vec<PathBuf> = vec![];
                 debug!("1. Finished downloading to / reading from {:?}", path);
@@ -883,7 +915,7 @@ fn main() {
             )
             .await
     });
-
+    //t: store in buf_our_rx and out_buf_sx, buffer size then read using PcdAsyncReader?
     // let mut pcd_reader = PcdAsyncReader::new(buf_out_rx, out_buf_sx, args.buffer_size);
     let mut pcd_reader = PcdAsyncReader::new(buf_out_rx, to_buf_sx);
     // set the reader max length

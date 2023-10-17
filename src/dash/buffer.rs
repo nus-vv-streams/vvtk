@@ -131,6 +131,9 @@ impl Buffer {
     }
 
     pub fn get(&self, req: FrameRequest) -> Option<&RequestStatus> {
+        println!("-------------------------");
+        println!("in buffer.rs: ");
+        println!("get frame");
         self.frames.iter().find(|f| f.req == req)
     }
 
@@ -139,6 +142,9 @@ impl Buffer {
     }
 
     pub fn remove(&mut self, req: FrameRequest) {
+        println!("-------------------------");
+        println!("in buffer.rs: ");
+        println!("a frame is removed");
         let idx = self
             .frames
             .iter()
