@@ -89,15 +89,50 @@ impl AdaptiveReader {
     pub fn len(&self) -> usize {
         self.readers[0].len()
     }
+
+    fn mid_point(&mut self, index: usize) -> [f32; 3] {
+        let points = self.readers[0].get_at(index).unwrap().points;
+
+        let mut sum_x = 0.0;
+        let mut sum_y = 0.0;
+        let mut sum_z = 0.0;
+        let count = points.len() as f32;
+
+        for p in points.iter() {
+            sum_x += p.x;
+            sum_y += p.y;
+            sum_z += p.z;
+        }
+
+        [sum_x / count, sum_y / count, sum_z / count]
+    }
+
+    fn select_reader(&mut self, index: usize) -> &mut PointCloudFileReader {
+        // if option is none, then we are in the first frame
+        if self.camera_state.is_none() || self.readers.len() == 1 {
+            return &mut self.readers[0];
+        }
+
+        let mid_point = self.mid_point(index);
+        let distance = self.camera_state.as_ref().unwrap().distance(mid_point);
+
+        if distance <= 5.0 {
+            &mut self.readers[2]
+        } else if distance <= 10.0 {
+            &mut self.readers[1]
+        } else {
+            &mut self.readers[0]
+        }
+    }
 }
 
 impl RenderReader<PointCloud<PointXyzRgba>> for AdaptiveReader {
     fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
-        self.readers[0].start()
+        self.select_reader(0).start()
     }
 
     fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-        self.readers[0].get_at(index)
+        self.select_reader(index).get_at(index)
     }
 
     fn len(&self) -> usize {

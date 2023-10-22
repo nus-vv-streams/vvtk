@@ -11,6 +11,7 @@ const PROJECTION_FOXY: f32 = 45.0;
 const PROJECTION_ZNEAR: f32 = 0.1;
 const PROJECTION_ZFAR: f32 = 100.0;
 
+#[derive(Clone)]
 pub struct CameraState {
     camera: Camera,
     camera_controller: CameraController,
@@ -205,6 +206,7 @@ impl Camera {
     }
 }
 
+#[derive(Clone)]
 pub struct Projection {
     aspect: f32,
     fovy: Rad<f32>,
@@ -231,7 +233,7 @@ impl Projection {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum RotateDirection {
     HorizontalClockwise,
     HorizontalCounterClockwise,
@@ -240,7 +242,7 @@ enum RotateDirection {
     NoRotation,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CameraController {
     amount_left: f32,
     amount_right: f32,
