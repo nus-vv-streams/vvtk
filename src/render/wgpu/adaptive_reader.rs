@@ -3,10 +3,12 @@ use crate::formats::PointCloud;
 use core::panic;
 use std::path::Path;
 
+use super::camera::CameraState;
 use super::reader::{PointCloudFileReader, RenderReader};
 
 pub struct AdaptiveReader {
     readers: Vec<PointCloudFileReader>,
+    camera_state: Option<CameraState>,
 }
 
 fn infer_format(src: &String) -> String {
@@ -78,7 +80,10 @@ impl AdaptiveReader {
             }
         }
 
-        Self { readers }
+        Self {
+            readers,
+            camera_state: None,
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -107,5 +112,9 @@ impl RenderReader<PointCloud<PointXyzRgba>> for AdaptiveReader {
         for reader in self.readers.iter_mut() {
             reader.set_len(len);
         }
+    }
+
+    fn set_camera_state(&mut self, camera_state: Option<CameraState>) {
+        self.camera_state = camera_state;
     }
 }
