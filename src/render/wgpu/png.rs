@@ -223,7 +223,7 @@ impl<'a> PngWriter<'a> {
             .arg("-i")
             .arg(format!(
                 "{}/%0{}d.png",
-                tmp_png_dir.clone().display(),
+                tmp_png_dir.display(),
                 name_length
             ))
             .arg("-c:v")
@@ -232,7 +232,7 @@ impl<'a> PngWriter<'a> {
             .arg(fps.to_string())
             // .arg("-pix_fmt")
             // .arg("yuv420p")
-            .arg(mp4_path.clone())
+            .arg(mp4_path)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
