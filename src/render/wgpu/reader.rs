@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
 use tokio::sync::mpsc::UnboundedSender;
 
+use super::camera::CameraState;
 use super::renderable::Renderable;
 
 pub trait RenderReader<T: Renderable> {
@@ -16,6 +17,7 @@ pub trait RenderReader<T: Renderable> {
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
     fn set_len(&mut self, len: usize);
+    fn set_camera_state(&mut self, camera_state: Option<CameraState>);
 }
 
 pub struct PcdFileReader {
@@ -93,6 +95,8 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
     }
 
     fn set_len(&mut self, _len: usize) {}
+
+    fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
 }
 
 impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
@@ -116,6 +120,8 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
     }
 
     fn set_len(&mut self, _len: usize) {}
+
+    fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
 }
 
 pub struct PcdMemoryReader {
@@ -146,6 +152,8 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdMemoryReader {
     }
 
     fn set_len(&mut self, _len: usize) {}
+
+    fn set_camera_state(&mut self, _camera: Option<CameraState>) {}
 }
 
 #[cfg(feature = "dash")]
@@ -275,6 +283,8 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
     fn set_len(&mut self, len: usize) {
         self.total_frames = len as u64;
     }
+
+    fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
 }
 
 // !! BufRenderReader is not used and comments are deleted.

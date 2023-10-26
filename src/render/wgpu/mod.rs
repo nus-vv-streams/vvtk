@@ -1,3 +1,4 @@
+pub mod adaptive_reader;
 pub mod antialias;
 pub mod builder;
 pub mod camera;
