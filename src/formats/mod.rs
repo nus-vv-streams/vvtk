@@ -4,6 +4,7 @@ use crate::pcd::PointCloudData;
 use crate::velodyne::{VelodynPoint, VelodyneBinData};
 
 pub mod pointxyzrgba;
+pub mod pointxyzrgbanormal;
 
 #[derive(Clone)]
 pub struct PointCloud<T> {
@@ -16,6 +17,18 @@ impl Debug for PointCloud<pointxyzrgba::PointXyzRgba> {
     // then for each T in the Vec, print in a new line
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "PointCloud<PointXyzRgba> {{")?;
+        writeln!(f, "   number_of_points: {}", self.number_of_points)?;
+        for point in &self.points {
+            writeln!(f, "   {:?}", point)?;
+        }
+        writeln!(f, "}}")?;
+        Ok(())
+    }
+}
+
+impl Debug for PointCloud<pointxyzrgbanormal::PointXyzRgbaNormal> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "PointCloud<PointXyzRgbaNormal> {{")?;
         writeln!(f, "   number_of_points: {}", self.number_of_points)?;
         for point in &self.points {
             writeln!(f, "   {:?}", point)?;
