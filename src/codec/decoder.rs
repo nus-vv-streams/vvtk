@@ -25,7 +25,10 @@ impl NoopDecoder {
 
 impl Decoder for NoopDecoder {
     fn start(&mut self) -> Result<()> {
+        let now = std::time::Instant::now();
         self.pcd = read_file_to_point_cloud(&self.to_decode);
+        let elapsed = now.elapsed();
+        println!("Read file to point cloud took {:?}", elapsed);
         self.pcd
             .as_ref()
             .map(|_| ())

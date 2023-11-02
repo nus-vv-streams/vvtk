@@ -246,9 +246,11 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         //t: if receive something from the rx channel, cache it then return
         if let Ok((frame_req, pc)) = self.rx.recv() {
             //t: cache the result here first
+            //t: the cache has size 10 for now
             if self.cache.len() >= 10 {
                 self.cache.pop();
             }
+            println!("one frame is added to the point cloud cache: index:{}", index);
             self.cache.push((index, pc.clone()));
             (frame_req.camera_pos, Some(pc))
         } else {

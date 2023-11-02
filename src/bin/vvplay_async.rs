@@ -207,8 +207,8 @@ impl BufferManager {
             segment_size: segment_size.0,
             shutdown_recv,
             // buffer size is given in seconds. however our frames are only segment_size.0 / segment_size.1 seconds long.
-            //t: hard code buffer size again here, revert back later if needed
-            buffer: Buffer::new((3) as usize),
+            //t: hard code message buffer size, which is the prefetching size
+            buffer: Buffer::new((10) as usize),
         }
     }
 
@@ -620,7 +620,7 @@ fn infer_format(src: &String) -> String {
 
 
 fn main() {
-    // initialize logger
+    // initialize logger for trace!()
     env_logger::init();
     let args: Args = Args::parse();
     let play_format = infer_format(&args.src);
@@ -803,7 +803,7 @@ fn main() {
                     .send((ply_files.len(), (1, 30)))
                     .expect("sent total frames");
                 ply_files.sort();
-
+                //t: this is where the ply file fetch request started 
                 loop {
                     tokio::select! {
                         _ = shutdown_recv.changed() => {
@@ -845,22 +845,25 @@ fn main() {
                         debug!("got fetch result {:?}", req);
                         let decoder_path = decoder_path.clone();
                         let to_buf_sx = to_buf_sx.clone();
+                        let now = std::time::Instant::now();
                         tokio::task::spawn_blocking(move || {
                             let mut decoder: Box<dyn Decoder> = match decoder_type {
-                                DecoderType::Draco => Box::new(DracoDecoder::new(
+                                DecoderType::Draco => { 
+                                    Box::new(DracoDecoder::new(
                                     decoder_path
                                         .as_ref()
                                         .expect("must provide decoder path for Draco")
                                         .as_os_str(),
                                     paths[0].take().unwrap().as_os_str(),
-                                )),
+                                )) },
                                 DecoderType::Tmc2rs => {
                                     let paths = paths.into_iter().flatten().collect::<Vec<_>>();
                                     Box::new(Tmc2rsDecoder::new(&paths))
                                 }
-                                _ => Box::new(NoopDecoder::new(paths[0].take().unwrap().as_os_str())),
+                                _ =>{ 
+                                    Box::new(NoopDecoder::new(paths[0].take().unwrap().as_os_str()))
+                                },
                             };
-                            let now = std::time::Instant::now();
                             decoder.start().unwrap();
                             let (output_sx, output_rx) = tokio::sync::mpsc::unbounded_channel();
                             _ = to_buf_sx
@@ -875,7 +878,7 @@ fn main() {
                                 _ = output_sx.send(pcd);
                             }
                             let elapsed = now.elapsed();
-                            debug!("Decoding took {:?}", elapsed);
+                            println!("Decoding took {:?}", elapsed);
                         })
                         .await
                         .unwrap();
