@@ -234,6 +234,7 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         let index = index as u64;
         if let Some(&ref result) = self.cache.iter().find(|&i| i.0 == index) {
             //it: f the result is already inside the cache, just return
+            //can improve this find algorithm
             return (camera_pos, Some(result.1.clone()));
         }
         //t: if it is not found, send the frame request to vvplay async there

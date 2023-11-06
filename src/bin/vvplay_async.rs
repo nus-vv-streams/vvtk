@@ -1,10 +1,7 @@
 use cgmath::Point3;
 use clap::Parser;
 use log::{debug, info, trace, warn};
-use std::cell::RefCell;
 use std::ffi::OsString;
-use std::fs::File;
-use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 use vivotk::abr::quetra::{Quetra, QuetraMultiview};
@@ -30,6 +27,8 @@ use vivotk::utils::{
 };
 use vivotk::{BufMsg, PCMetadata};
 use vivotk::vvplay_async_prefetch::network_trace::NetworkTrace;
+use vivotk::vvplay_async_prefetch::camera_trace::CameraTrace;
+use vivotk::vvplay_async_prefetch::fetch_request::FetchRequest;
 
 /// Plays a folder of pcd files in lexicographical order
 #[derive(Parser)]
@@ -389,148 +388,6 @@ impl BufferManager {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-struct FetchRequest {
-    pub object_id: u8,
-    // pub quality: u8,
-    /// Frame offset from the start of the video.
-    ///
-    /// To get the frame number, add the offset to the frame number of the first frame in the video.
-    pub frame_offset: u64,
-    /// The camera position when the frame was requested.
-    pub camera_pos: Option<CameraPosition>,
-    buffer_occupancy: usize,
-}
-
-impl FetchRequest {
-    fn new(req: FrameRequest, buffer_occupancy: usize) -> Self {
-        FetchRequest {
-            object_id: req.object_id,
-            frame_offset: req.frame_offset,
-            camera_pos: req.camera_pos,
-            buffer_occupancy,
-        }
-    }
-}
-
-impl From<FetchRequest> for PCMetadata {
-    fn from(val: FetchRequest) -> Self {
-        PCMetadata {
-            object_id: val.object_id,
-            frame_offset: val.frame_offset,
-        }
-    }
-}
-
-impl From<FetchRequest> for FrameRequest {
-    fn from(val: FetchRequest) -> Self {
-        FrameRequest {
-            object_id: val.object_id,
-            frame_offset: val.frame_offset,
-            camera_pos: val.camera_pos,
-        }
-    }
-}
-
-struct CameraTrace {
-    data: Vec<CameraPosition>,
-    index: RefCell<usize>,
-    path: PathBuf,
-}
-
-impl CameraTrace {
-    /// The network trace file to contain the network bandwidth in Kbps, each line representing 1 bandwidth sample.
-    /// # Arguments
-    ///
-    /// * `path` - The path to the network trace file.
-    fn new(path: &Path, is_record: bool) -> Self {
-        use std::io::BufRead;
-        match File::open(path) {
-            Err(err) => {
-                if !is_record {
-                    panic!("Failed to open camera trace file: {err:?}");
-                }
-                Self {
-                    data: Vec::new(),
-                    index: RefCell::new(0),
-                    path: path.to_path_buf(),
-                }
-            }
-            Ok(file) => {
-                if is_record {
-                    panic!("Camera trace file already exists: {path:?}");
-                }
-                let reader = BufReader::new(file);
-                let data = reader
-                    .lines()
-                    .map(|line| {
-                        let line = line.unwrap();
-                        let mut it = line.trim().split(',').map(|s| s.parse::<f32>().unwrap());
-                        let position =
-                            Point3::new(it.next().unwrap(), it.next().unwrap(), it.next().unwrap());
-                        let pitch = cgmath::Deg(it.next().unwrap()).into();
-                        let yaw = cgmath::Deg(it.next().unwrap()).into();
-                        CameraPosition {
-                            position,
-                            pitch,
-                            yaw,
-                        }
-                    })
-                    .collect();
-                Self {
-                    data,
-                    index: RefCell::new(0),
-                    path: path.to_path_buf(),
-                }
-            }
-        }
-    }    
-
-    /// Get the next bandwidth sample. Used when playing back a camera trace.
-    fn next(&self) -> CameraPosition {
-        let idx = *self.index.borrow();
-        let next_idx = (idx + 1) % self.data.len();
-        *self.index.borrow_mut() = next_idx;
-        self.data[idx]
-    }
-
-    /// Add a new position to the trace. Used when recording a camera trace.
-    fn add(&mut self, pos: CameraPosition) {
-        self.data.push(pos);
-    }
-}
-
-impl Drop for CameraTrace {
-    fn drop(&mut self) {
-        use std::io::BufWriter;
-        use std::io::Write;
-
-        match std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&self.path)
-        {
-            Ok(mut file) => {
-                let mut writer = BufWriter::new(&mut file);
-                for pos in &self.data {
-                    writeln!(
-                        writer,
-                        "{},{},{},{},{},0.0",
-                        pos.position.x,
-                        pos.position.y,
-                        pos.position.z,
-                        pos.pitch.0.to_degrees(),
-                        pos.yaw.0.to_degrees()
-                    )
-                    .unwrap();
-                }
-            }
-            Err(_) => {
-                warn!("Camera trace file already exists, not writing");
-            }
-        }
-    }
-}
 
 /// Returns if the source file is remote
 fn is_remote_src(src: &str) -> bool {
