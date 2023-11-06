@@ -29,6 +29,7 @@ use vivotk::utils::{
     LPEMA,
 };
 use vivotk::{BufMsg, PCMetadata};
+use vivotk::vvplay_async_prefetch::network_trace::NetworkTrace;
 
 /// Plays a folder of pcd files in lexicographical order
 #[derive(Parser)]
@@ -208,7 +209,7 @@ impl BufferManager {
             shutdown_recv,
             // buffer size is given in seconds. however our frames are only segment_size.0 / segment_size.1 seconds long.
             //t: hard code message buffer size, which is the prefetching size
-            buffer: Buffer::new((10) as usize),
+            buffer: Buffer::new(buffer_size as usize),
         }
     }
 
@@ -274,7 +275,6 @@ impl BufferManager {
                                 "[buffer mgr] renderer sent a frame request {:?}",
                                 &renderer_req
                             );
-                            //t: 1. camera part
                             // record camera trace
                             if record_camera_trace.is_some() && renderer_req.camera_pos.is_some() {
                                 if let Some(ct) = record_camera_trace.as_mut() { ct.add(renderer_req.camera_pos.unwrap()) }
@@ -291,13 +291,10 @@ impl BufferManager {
                             
                             // First, attempt to fulfill the request from the buffer.
                             // Check in cache whether it exists
-                            //t: if the top most frma ein the buffer is the requested frame
-                            //t: still unknown how it works?
                             if !self.buffer.is_empty() && self.buffer.front().unwrap().req.frame_offset == renderer_req.frame_offset {
                                 let mut front = self.buffer.pop_front().unwrap();
                                 match front.state {
                                     FrameStatus::Fetching | FrameStatus::Decoding => {
-                                        //t: should not have the decoding part, how to get rid of the decoding part?
                                         // we update frame_to_answer to indicate that we are waiting to send back this data to renderer.
                                         self.frame_to_answer = Some(renderer_req);
                                         self.buffer.push_front(front);
@@ -352,8 +349,6 @@ impl BufferManager {
                             println!{"---------------------------"};
                             println!{"in vvplay_async:"}
                             println!("the current buffer message is fetch done");
-                            //t: if it is fetch done, they update the frame status to decoding, decoding should't exist, just direct it to ready
-                            //t: todo need change here in future
                             self.buffer.update_state(req, FrameStatus::Decoding);
 
                             if !self.buffer.is_full() {
@@ -366,7 +361,6 @@ impl BufferManager {
                             }
                         }
                         BufMsg::PointCloud((mut metadata, mut rx)) => {
-                            //t: if the point cloud is done, just send it back to renderer?
                             println!{"---------------------------"};
                             println!{"in vvplay_async:"}
                             println!("[buffer mgr] received a point cloud result {:?}", &metadata);
@@ -438,40 +432,6 @@ impl From<FetchRequest> for FrameRequest {
     }
 }
 
-struct NetworkTrace {
-    data: Vec<f64>,
-    index: RefCell<usize>,
-}
-
-impl NetworkTrace {
-    /// The network trace file to contain the network bandwidth in Kbps, each line representing 1 bandwidth sample.
-    /// # Arguments
-    ///
-    /// * `path` - The path to the network trace file.
-    fn new(path: &Path) -> Self {
-        use std::io::BufRead;
-
-        let file = File::open(path).unwrap();
-        let reader = BufReader::new(file);
-        let data = reader
-            .lines()
-            .map(|line| line.unwrap().trim().parse::<f64>().unwrap())
-            .collect();
-        NetworkTrace {
-            data,
-            index: RefCell::new(0),
-        }
-    }
-
-    // Get the next bandwidth sample
-    fn next(&self) -> f64 {
-        let idx = *self.index.borrow();
-        let next_idx = (idx + 1) % self.data.len();
-        *self.index.borrow_mut() = next_idx;
-        self.data[idx]
-    }
-}
-
 struct CameraTrace {
     data: Vec<CameraPosition>,
     index: RefCell<usize>,
@@ -524,7 +484,7 @@ impl CameraTrace {
                 }
             }
         }
-    }    //let buffer_capacity = args.buffer_capacity.unwrap_or(10);
+    }    
 
     /// Get the next bandwidth sample. Used when playing back a camera trace.
     fn next(&self) -> CameraPosition {
@@ -646,9 +606,9 @@ fn main() {
     let (total_frames_tx, total_frames_rx) = tokio::sync::oneshot::channel();
 
     // initialize variables based on args
-    //let buffer_capacity = args.buffer_capacity.unwrap_or(10);
+    //t: why is this not used?
+    let buffer_capacity = args.buffer_capacity.unwrap_or(11);
     //t: hard coded the buffer size
-    let buffer_capacity = 10;
     let simulated_network_trace = args.network_trace.map(|path| NetworkTrace::new(&path));
     let simulated_camera_trace = args.camera_trace.map(|path| CameraTrace::new(&path, false));
     let record_camera_trace = args
@@ -786,7 +746,6 @@ fn main() {
                     }
                 }
             } else {
-                //t: trace this part 
                 let path = Path::new(&args.src);
                 let mut ply_files: Vec<PathBuf> = vec![];
                 debug!("1. Finished downloading to / reading from {:?}", path);

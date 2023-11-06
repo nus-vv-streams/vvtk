@@ -16,6 +16,7 @@ pub mod render;
 pub mod upsample;
 pub mod utils;
 pub mod velodyne;
+pub mod vvplay_async_prefetch;
 
 use formats::{pointxyzrgba::PointXyzRgba, PointCloud};
 
