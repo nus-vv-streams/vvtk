@@ -90,7 +90,7 @@ impl AdaptiveReader {
         self.readers[0].len()
     }
 
-    fn mid_point(&mut self, index: usize) -> [f32; 3] {
+    fn centroid(&mut self, index: usize) -> [f32; 3] {
         let points = self.readers[0].get_at(index).unwrap().points;
 
         let mut sum_x = 0.0;
@@ -113,7 +113,7 @@ impl AdaptiveReader {
             return &mut self.readers[0];
         }
 
-        let mid_point = self.mid_point(index);
+        let mid_point = self.centroid(index);
         let distance = self.camera_state.as_ref().unwrap().distance(mid_point);
 
         if distance <= 5.0 {
