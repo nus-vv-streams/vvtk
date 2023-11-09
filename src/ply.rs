@@ -21,6 +21,7 @@ pub fn read_ply_header<P: AsRef<Path>>(path_buf: P) -> Result<Header, String> {
 }
 
 pub fn read_ply<P: AsRef<Path>>(path_buf: P) -> Option<PointCloud<PointXyzRgba>> {
+    let now = std::time::Instant::now();
     let vertex_parser = ply_rs::parser::Parser::<PointXyzRgba>::new();
     let f = std::fs::File::open(path_buf.as_ref())
         .unwrap_or_else(|_| panic!("Unable to open file {:?}", path_buf.as_ref()));
@@ -42,7 +43,8 @@ pub fn read_ply<P: AsRef<Path>>(path_buf: P) -> Option<PointCloud<PointXyzRgba>>
             }
         }
     }
-
+    let elapsed = now.elapsed();
+    println!("read_ply took {:?}", elapsed);
     Some(PointCloud {
         number_of_points: vertex_list.len(),
         points: vertex_list,
