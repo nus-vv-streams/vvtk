@@ -27,10 +27,10 @@ use vivotk::vvplay_async_prefetch::camera_trace::CameraTrace;
 use vivotk::vvplay_async_prefetch::fetch_request::FetchRequest;
 use vivotk::vvplay_async_prefetch::buffer_manager::BufferManager;
 use vivotk::vvplay_async_prefetch::args::Args;
-use vivotk::vvplay_async_prefetch::args::ViewportPredictionType;
-use vivotk::vvplay_async_prefetch::args::ThroughputPredictionType;
-use vivotk::vvplay_async_prefetch::args::AbrType;
-use vivotk::vvplay_async_prefetch::args::DecoderType;
+use vivotk::vvplay_async_prefetch::enums::ViewportPredictionType;
+use vivotk::vvplay_async_prefetch::enums::ThroughputPredictionType;
+use vivotk::vvplay_async_prefetch::enums::AbrType;
+use vivotk::vvplay_async_prefetch::enums::DecoderType;
 
 /// Plays a folder of pcd files in lexicographical order
 
