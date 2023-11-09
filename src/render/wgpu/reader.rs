@@ -46,7 +46,6 @@ impl PcdFileReader {
             match file_entry {
                 Ok(entry) => {
                     if let Some(ext) = entry.path().extension() {
-                        //t: only add in .pcd file
                         if ext.eq("pcd") {
                             files.push(entry.path());
                         }

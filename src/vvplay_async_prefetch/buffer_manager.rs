@@ -73,9 +73,6 @@ impl BufferManager {
     }
 
     pub fn prefetch_frame(&mut self, camera_pos: Option<CameraPosition>) {
-        println!("--------------------------------");
-        println!("in vvdash_async.rs: ");
-        println!{"prefetch frame start here"};
         assert!(camera_pos.is_some());
         let last_req = FrameRequest {
             camera_pos,
