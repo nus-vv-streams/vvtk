@@ -18,6 +18,7 @@ pub struct CameraState {
     camera_uniform: CameraUniform,
     projection: Projection,
     mouse_pressed: bool,
+    window_size: winit::dpi::PhysicalSize<u32>,
 }
 
 impl CameraState {
@@ -40,6 +41,7 @@ impl CameraState {
             camera_uniform,
             projection,
             mouse_pressed: false,
+            window_size: winit::dpi::PhysicalSize::new(width, height),
         }
     }
 
@@ -97,6 +99,7 @@ impl CameraState {
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
             self.projection.resize(new_size.width, new_size.height);
+            self.window_size = new_size;
         }
     }
 
@@ -135,6 +138,14 @@ impl CameraState {
         let transformed_point_h = view_matrix.transform_point(point_h);
 
         (self.camera.position - transformed_point_h).magnitude()
+    }
+
+    pub fn get_fovy(&self) -> Rad<f32> {
+        self.projection.fovy
+    }
+
+    pub fn get_window_size(&self) -> winit::dpi::PhysicalSize<u32> {
+        self.window_size
     }
 }
 

@@ -5,10 +5,12 @@ use std::path::Path;
 
 use super::camera::CameraState;
 use super::reader::{PointCloudFileReader, RenderReader};
+use super::resolution_controller::ResolutionController;
 
 pub struct AdaptiveReader {
     readers: Vec<PointCloudFileReader>,
     camera_state: Option<CameraState>,
+    resolution_controller: ResolutionController,
 }
 
 fn infer_format(src: &String) -> String {
@@ -83,28 +85,12 @@ impl AdaptiveReader {
         Self {
             readers,
             camera_state: None,
+            resolution_controller: ResolutionController::new(),
         }
     }
 
     pub fn len(&self) -> usize {
         self.readers[0].len()
-    }
-
-    fn centroid(&mut self, index: usize) -> [f32; 3] {
-        let points = self.readers[0].get_at(index).unwrap().points;
-
-        let mut sum_x = 0.0;
-        let mut sum_y = 0.0;
-        let mut sum_z = 0.0;
-        let count = points.len() as f32;
-
-        for p in points.iter() {
-            sum_x += p.x;
-            sum_y += p.y;
-            sum_z += p.z;
-        }
-
-        [sum_x / count, sum_y / count, sum_z / count]
     }
 
     fn select_reader(&mut self, index: usize) -> &mut PointCloudFileReader {
@@ -113,16 +99,43 @@ impl AdaptiveReader {
             return &mut self.readers[0];
         }
 
-        let mid_point = self.centroid(index);
-        let distance = self.camera_state.as_ref().unwrap().distance(mid_point);
+        let point_cloud = self.readers[index].get_at(index).unwrap();
 
-        if distance <= 5.0 {
-            &mut self.readers[2]
-        } else if distance <= 10.0 {
-            &mut self.readers[1]
-        } else {
-            &mut self.readers[0]
+        let desired_num_points = self.resolution_controller.get_desired_num_points(
+            self.camera_state.as_ref().unwrap(),
+            &point_cloud.points,
+            point_cloud.number_of_points,
+        );
+
+        let num_points_by_reader = [388368, 509977, 834315];
+        let resolution = self.find_resolution(&num_points_by_reader, desired_num_points);
+
+        if resolution.is_none() {
+            return &mut self.readers[0];
         }
+
+        &mut self.readers[resolution.unwrap()]
+    }
+
+    fn find_resolution(&self, num_points: &[u64], desired_num_points: u64) -> Option<usize> {
+        let size = num_points.len();
+        if size == 0 {
+            return None;
+        }
+
+        let mut left = 0;
+        let mut right = size - 1;
+
+        while left < right {
+            let mid = left + (right - left) / 2;
+            if num_points[mid] <= desired_num_points {
+                left = mid + 1;
+            } else {
+                right = mid;
+            }
+        }
+
+        Some(left.min(size - 1))
     }
 }
 
