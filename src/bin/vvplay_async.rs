@@ -1,7 +1,6 @@
 use cgmath::Point3;
 use clap::Parser;
 use log::{debug, info, trace, warn};
-use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 use vivotk::abr::quetra::{Quetra, QuetraMultiview};
@@ -27,114 +26,13 @@ use vivotk::vvplay_async_prefetch::network_trace::NetworkTrace;
 use vivotk::vvplay_async_prefetch::camera_trace::CameraTrace;
 use vivotk::vvplay_async_prefetch::fetch_request::FetchRequest;
 use vivotk::vvplay_async_prefetch::buffer_manager::BufferManager;
+use vivotk::vvplay_async_prefetch::args::Args;
+use vivotk::vvplay_async_prefetch::args::ViewportPredictionType;
+use vivotk::vvplay_async_prefetch::args::ThroughputPredictionType;
+use vivotk::vvplay_async_prefetch::args::AbrType;
+use vivotk::vvplay_async_prefetch::args::DecoderType;
 
 /// Plays a folder of pcd files in lexicographical order
-#[derive(Parser)]
-struct Args {
-    /// src can be:
-    ///
-    /// 1. Directory with all the ply files
-    /// 2. location of the mpd url (dash)
-    src: String,
-    #[clap(short, long, default_value_t = 30.0)]
-    fps: f32,
-    #[clap(short = 'x', long, default_value_t = 0.0)]
-    camera_x: f32,
-    #[clap(short = 'y', long, default_value_t = 0.0)]
-    camera_y: f32,
-    #[clap(short = 'z', long, default_value_t = 1.5)]
-    camera_z: f32,
-    #[clap(long = "pitch", default_value_t = 0.0)]
-    camera_pitch: f32,
-    #[clap(long = "yaw", default_value_t = -90.0)]
-    camera_yaw: f32,
-    /// Set the screen width.
-    ///
-    /// To enable rendering at full screen, compile with `--features fullscreen` (depends on device gpu support)
-    #[clap(short = 'W', long, default_value_t = 1600)]
-    width: u32,
-    /// Set the screen height.
-    ///
-    /// To enable rendering at full screen, compile with `--features fullscreen` (depends on device gpu support)
-    #[clap(short = 'H', long, default_value_t = 900)]
-    height: u32,
-    #[clap(long = "controls", action = clap::ArgAction::SetTrue, default_value_t = true)]
-    show_controls: bool,
-    /// buffer capacity in seconds
-    #[clap(short, long)]
-    buffer_capacity: Option<u64>,
-    #[clap(short, long)]
-    metrics: Option<OsString>,
-    #[clap(long = "abr", value_enum, default_value_t = AbrType::Quetra)]
-    abr_type: AbrType,
-    #[clap(long = "decoder", value_enum, default_value_t = DecoderType::Noop)]
-    decoder_type: DecoderType,
-    /// Set this flag if each view is encoded separately, i.e. multiview
-    #[clap(long, action = clap::ArgAction::SetTrue)]
-    multiview: bool,
-    /// Path to the decoder binary (only for Draco)
-    #[clap(long)]
-    decoder_path: Option<PathBuf>,
-    #[clap(long = "tp", value_enum, default_value_t = ThroughputPredictionType::Last)]
-    throughput_prediction_type: ThroughputPredictionType,
-    /// Alpha for throughput prediction. Only used for EMA, GAEMA, and LPEMA
-    #[clap(long, default_value_t = 0.1)]
-    throughput_alpha: f64,
-    #[clap(long = "vp", value_enum, default_value_t = ViewportPredictionType::Last)]
-    viewport_prediction_type: ViewportPredictionType,
-    /// Path to network trace for repeatable simulation. Network trace is expected to be given in Kbps
-    #[clap(long)]
-    network_trace: Option<PathBuf>,
-    /// Path to camera trace for repeatable simulation. Camera trace is expected to be given in (pos_x, pos_y, pos_z, rot_pitch, rot_yaw, rot_roll).
-    /// Rotation is in degrees
-    #[clap(long)]
-    camera_trace: Option<PathBuf>,
-    /// Path to record camera trace from the player.
-    #[clap(long)]
-    record_camera_trace: Option<PathBuf>,
-    /// Enable fetcher optimizations
-    ///
-    /// 1. Not fetching when file has been previously downloaded.
-    #[clap(long, action = clap::ArgAction::SetTrue)]
-    enable_fetcher_optimizations: bool,
-    #[clap(long, default_value = "rgb(255,255,255)")]
-    bg_color: OsString,
-}
-
-//Noop for operation that will not use a decoder
-#[derive(clap::ValueEnum, Clone, Copy)]
-enum DecoderType {
-    Noop,
-    Draco,
-    Tmc2rs,
-}
-
-#[derive(clap::ValueEnum, Clone, Copy)]
-enum AbrType {
-    Quetra,
-    QuetraMultiview,
-    Mckp,
-}
-
-#[derive(clap::ValueEnum, Clone, Copy)]
-enum ThroughputPredictionType {
-    /// Last throughput
-    Last,
-    /// Average of last 3 throughput
-    Avg,
-    /// ExponentialMovingAverage,
-    Ema,
-    /// Gradient Adaptive Exponential Moving Average
-    Gaema,
-    /// Low Pass Exponential Moving Average
-    Lpema,
-}
-
-#[derive(clap::ValueEnum, Clone, Copy)]
-enum ViewportPredictionType {
-    /// Last viewport
-    Last,
-}
 
 //t: what is this for?
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -279,6 +177,8 @@ fn main() {
                         fetcher.mpd_parser.segment_duration(),
                     ))
                     .expect("sent total frames");
+
+                //t: predict quality here
 
                 let qualities = fetcher
                     .mpd_parser
