@@ -34,32 +34,6 @@ use vivotk::vvplay_async_prefetch::enums::DecoderType;
 
 /// Plays a folder of pcd files in lexicographical order
 
-//t: what is this for?
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-struct BufferCacheKey {
-    pub object_id: u8,
-    pub frame_offset: u64,
-}
-
-impl From<FrameRequest> for BufferCacheKey {
-    fn from(req: FrameRequest) -> Self {
-        Self {
-            object_id: req.object_id,
-            frame_offset: req.frame_offset,
-        }
-    }
-}
-
-impl From<PCMetadata> for BufferCacheKey {
-    fn from(metadata: PCMetadata) -> Self {
-        Self {
-            object_id: metadata.object_id,
-            frame_offset: metadata.frame_offset,
-        }
-    }
-}
-
-
 /// Returns if the source file is remote
 fn is_remote_src(src: &str) -> bool {
     src.starts_with("http://") || src.starts_with("https://")

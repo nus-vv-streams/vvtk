@@ -1,4 +1,5 @@
 pub mod args;
+pub mod buffer_cache_key;
 pub mod buffer_manager;
 pub mod camera_trace;
 pub mod enums;
