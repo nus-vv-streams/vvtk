@@ -390,6 +390,7 @@ where
 
     fn update_vertices(&mut self) -> bool {
         if let Some(data) = self.current() {
+            println!("num vertices: {}", data.vertices());
             self.pcd_renderer
                 .update_vertices(&self.gpu.device, &self.gpu.queue, &data);
             return true;

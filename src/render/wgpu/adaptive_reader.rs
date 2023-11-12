@@ -82,10 +82,16 @@ impl AdaptiveReader {
             }
         }
 
+        let anchor_point_cloud = readers[0].start().unwrap();
+        let resolution_controller = ResolutionController::new(
+            &anchor_point_cloud.points,
+            anchor_point_cloud.number_of_points,
+        );
+
         Self {
             readers,
             camera_state: None,
-            resolution_controller: ResolutionController::new(),
+            resolution_controller,
         }
     }
 
@@ -99,13 +105,11 @@ impl AdaptiveReader {
             return &mut self.readers[0];
         }
 
-        let point_cloud = self.readers[index].get_at(index).unwrap();
+        let point_cloud = self.readers[0].get_at(index).unwrap();
 
-        let desired_num_points = self.resolution_controller.get_desired_num_points(
-            self.camera_state.as_ref().unwrap(),
-            &point_cloud.points,
-            point_cloud.number_of_points,
-        );
+        let desired_num_points = self
+            .resolution_controller
+            .get_desired_num_points(self.camera_state.as_ref().unwrap(), &point_cloud.points);
 
         let num_points_by_reader = [388368, 509977, 834315];
         let resolution = self.find_resolution(&num_points_by_reader, desired_num_points);
@@ -113,6 +117,12 @@ impl AdaptiveReader {
         if resolution.is_none() {
             return &mut self.readers[0];
         }
+
+        println!(
+            "Resolution: {}, Desired: {}",
+            resolution.unwrap(),
+            desired_num_points
+        );
 
         &mut self.readers[resolution.unwrap()]
     }

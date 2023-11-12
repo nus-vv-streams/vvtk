@@ -2,58 +2,83 @@ use crate::formats::pointxyzrgba::PointXyzRgba;
 
 use super::camera::CameraState;
 
-use cgmath::Angle;
 use kdtree::distance::squared_euclidean;
 use kdtree::KdTree;
 use std::vec::Vec;
 
-pub struct ResolutionController {}
+pub struct ResolutionController {
+    anchor_spacing: f32,
+    anchor_num_points: usize,
+    centroid: [f32; 3],
+}
 
 impl ResolutionController {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(points: &Vec<PointXyzRgba>, anchor_num_points: usize) -> Self {
+        let anchor_spacing = Self::calculate_spacing(&points);
+        let centroid = Self::centroid(&points);
+
+        Self {
+            anchor_spacing,
+            anchor_num_points,
+            centroid,
+        }
     }
 
     pub fn get_desired_num_points(
         &mut self,
         camera_state: &CameraState,
-        points: &Vec<PointXyzRgba>,
-        num_of_points: usize,
+        _points: &Vec<PointXyzRgba>,
     ) -> u64 {
-        let fovy = camera_state.get_fovy();
         let window_size = camera_state.get_window_size();
-        let aspect = window_size.width as f32 / window_size.height as f32;
-        let z = camera_state.distance(self.centroid(&points));
+        let z = camera_state.distance(self.centroid);
+        let (clip_width, clip_height) = camera_state.get_clip_plane_at_z(z);
+        let (width, height) =
+            camera_state.transform_clip_to_world_plane(clip_width, clip_height, self.centroid);
 
-        let height = 2.0 * z * (fovy / 2.0).tan();
-        let width = height * aspect;
+        println!("z: {}, width: {}, height: {}", z, width, height);
 
         let x_spacing = width / window_size.width as f32;
         let y_spacing = height / window_size.height as f32;
 
-        let desired_spacing = (x_spacing.powi(2) + y_spacing.powi(2)).sqrt();
-        let current_spacing = self.calculate_spacing(&points);
+        println!("x_spacing: {}, y_spacing: {}", x_spacing, y_spacing);
 
-        let scaling_factor = (desired_spacing / current_spacing).powi(2);
-        return (num_of_points as f32 * scaling_factor as f32) as u64;
+        let desired_spacing = (x_spacing.powi(2) + y_spacing.powi(2)).sqrt();
+        // let scaling_factor = (self.anchor_spacing / desired_spacing).powi(2);
+        let scaling_factor = self.anchor_spacing / desired_spacing;
+
+        println!(
+            "desired_spacing: {}, anchor_spacing: {}, scaling_factor: {}",
+            desired_spacing, self.anchor_spacing, scaling_factor
+        );
+
+        return (self.anchor_num_points as f32 * scaling_factor as f32) as u64;
     }
 
-    fn centroid(&mut self, points: &Vec<PointXyzRgba>) -> [f32; 3] {
-        let mut sum_x = 0.0;
-        let mut sum_y = 0.0;
-        let mut sum_z = 0.0;
-        let count = points.len() as f32;
+    fn centroid(points: &Vec<PointXyzRgba>) -> [f32; 3] {
+        let mut min_x = f32::MAX;
+        let mut min_y = f32::MAX;
+        let mut min_z = f32::MAX;
+        let mut max_x = f32::MIN;
+        let mut max_y = f32::MIN;
+        let mut max_z = f32::MIN;
 
         for p in points.iter() {
-            sum_x += p.x;
-            sum_y += p.y;
-            sum_z += p.z;
+            min_x = min_x.min(p.x);
+            min_y = min_y.min(p.y);
+            min_z = min_z.min(p.z);
+            max_x = max_x.max(p.x);
+            max_y = max_y.max(p.y);
+            max_z = max_z.max(p.z);
         }
 
-        [sum_x / count, sum_y / count, sum_z / count]
+        [
+            (min_x + max_x) / 2.0,
+            (min_y + max_y) / 2.0,
+            (min_z + max_z) / 2.0,
+        ]
     }
 
-    fn calculate_spacing(&mut self, points: &Vec<PointXyzRgba>) -> f32 {
+    fn calculate_spacing(points: &Vec<PointXyzRgba>) -> f32 {
         let mut tree = KdTree::new(3);
         for (i, p) in points.iter().enumerate() {
             tree.add([p.x, p.y, p.z], i).unwrap();
@@ -63,17 +88,16 @@ impl ResolutionController {
         let mut count = 0;
 
         for p in points.iter() {
-            let result = tree
-                .nearest(&[p.x, p.y, p.z], 2, &squared_euclidean)
-                .unwrap();
-            let (_, index) = result[1];
-            let other_point = &points[*index];
+            let avg_spacing = tree
+                .nearest(&[p.x, p.y, p.z], 4, &squared_euclidean)
+                .unwrap()
+                .iter()
+                .skip(1) // dont count the first point
+                .map(|(d, _)| d.sqrt())
+                .sum::<f32>()
+                / 3.0;
 
-            sum += squared_euclidean(
-                &[p.x, p.y, p.z],
-                &[other_point.x, other_point.y, other_point.z],
-            )
-            .sqrt();
+            sum += avg_spacing;
             count += 1;
         }
 
