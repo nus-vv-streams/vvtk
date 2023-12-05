@@ -18,6 +18,7 @@ pub trait RenderReader<T: Renderable> {
     fn is_empty(&self) -> bool;
     fn set_len(&mut self, len: usize);
     fn set_camera_state(&mut self, camera_state: Option<CameraState>);
+    fn get_path_at(&self, _index: usize) -> Option<&PathBuf>;
 }
 
 pub struct PcdFileReader {
@@ -97,6 +98,10 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
     fn set_len(&mut self, _len: usize) {}
 
     fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
+
+    fn get_path_at(&self, index: usize) -> Option<&PathBuf> {
+        self.files.get(index)
+    }
 }
 
 impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
@@ -122,6 +127,10 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
     fn set_len(&mut self, _len: usize) {}
 
     fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
+
+    fn get_path_at(&self, index: usize) -> Option<&PathBuf> {
+        self.files.get(index)
+    }
 }
 
 pub struct PcdMemoryReader {
@@ -154,6 +163,10 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdMemoryReader {
     fn set_len(&mut self, _len: usize) {}
 
     fn set_camera_state(&mut self, _camera: Option<CameraState>) {}
+
+    fn get_path_at(&self, _index: usize) -> Option<&PathBuf> {
+        None
+    }
 }
 
 #[cfg(feature = "dash")]
@@ -285,6 +298,10 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
     }
 
     fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
+
+    fn get_path_at(&self, _index: usize) -> Option<&PathBuf> {
+        None
+    }
 }
 
 // !! BufRenderReader is not used and comments are deleted.

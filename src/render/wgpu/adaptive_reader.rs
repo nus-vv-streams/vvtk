@@ -1,5 +1,6 @@
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
+use crate::utils::read_file_header;
 use core::panic;
 use std::path::Path;
 
@@ -56,11 +57,6 @@ fn infer_format(src: &String) -> String {
 
 impl AdaptiveReader {
     pub fn new(src: &Vec<String>) -> Self {
-        // TODO: remove the hard limit on the src len
-        if src.len() != 1 && src.len() != 3 {
-            panic!("src can only be of size 1 or 3")
-        }
-
         let play_format = infer_format(&src[0]);
         let paths = src.iter().map(|s| Path::new(s)).collect::<Vec<_>>();
 
@@ -111,7 +107,17 @@ impl AdaptiveReader {
             .resolution_controller
             .get_desired_num_points(self.camera_state.as_ref().unwrap(), &point_cloud.points);
 
-        let num_points_by_reader = [388368, 509977, 834315];
+        let num_points_by_reader = self
+            .readers
+            .iter()
+            .map(|reader| {
+                reader
+                    .get_path_at(index)
+                    .and_then(|p| read_file_header(p).ok())
+                    .unwrap()
+                    .num_of_points
+            })
+            .collect::<Vec<_>>();
         let resolution = self.find_resolution(&num_points_by_reader, desired_num_points);
 
         if resolution.is_none() {
@@ -127,7 +133,11 @@ impl AdaptiveReader {
         &mut self.readers[resolution.unwrap()]
     }
 
-    fn find_resolution(&self, num_points: &[u64], desired_num_points: u64) -> Option<usize> {
+    fn find_resolution(
+        &self,
+        num_points: &std::vec::Vec<u64>,
+        desired_num_points: u64,
+    ) -> Option<usize> {
         let size = num_points.len();
         if size == 0 {
             return None;
@@ -138,7 +148,7 @@ impl AdaptiveReader {
 
         while left < right {
             let mid = left + (right - left) / 2;
-            if num_points[mid] <= desired_num_points {
+            if num_points[mid] < desired_num_points {
                 left = mid + 1;
             } else {
                 right = mid;
@@ -151,7 +161,7 @@ impl AdaptiveReader {
 
 impl RenderReader<PointCloud<PointXyzRgba>> for AdaptiveReader {
     fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
-        self.select_reader(0).start()
+        self.select_reader(self.readers.len() - 1).start()
     }
 
     fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
@@ -174,5 +184,9 @@ impl RenderReader<PointCloud<PointXyzRgba>> for AdaptiveReader {
 
     fn set_camera_state(&mut self, camera_state: Option<CameraState>) {
         self.camera_state = camera_state;
+    }
+
+    fn get_path_at(&self, _index: usize) -> Option<&std::path::PathBuf> {
+        None
     }
 }

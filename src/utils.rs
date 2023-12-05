@@ -1,13 +1,16 @@
 use crate::{
     formats::{pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal, PointCloud},
-    pcd::{create_pcd, read_pcd_file, write_pcd_file, PCDDataType, PointCloudData},
-    ply::read_ply,
+    pcd::{
+        create_pcd, read_pcd_file, read_pcd_header, write_pcd_file, PCDDataType, PCDHeader,
+        PointCloudData,
+    },
+    ply::{read_ply, read_ply_header},
     velodyne::read_velodyn_bin_file,
 };
 use ply_rs::{
     parser, ply,
     ply::DefaultElement,
-    ply::{Encoding, Payload},
+    ply::{Encoding, Header as PLYHeader, Payload},
     writer,
 };
 use std::fs::File;
@@ -16,6 +19,27 @@ use std::{
     ffi::OsString,
     path::{Path, PathBuf},
 };
+
+#[derive(Clone)]
+pub struct PointCloudInfo {
+    pub num_of_points: u64,
+}
+
+impl From<PCDHeader> for PointCloudInfo {
+    fn from(value: PCDHeader) -> Self {
+        PointCloudInfo {
+            num_of_points: value.points(),
+        }
+    }
+}
+
+impl From<PLYHeader> for PointCloudInfo {
+    fn from(value: PLYHeader) -> Self {
+        PointCloudInfo {
+            num_of_points: value.elements.get("vertex").unwrap().count as u64,
+        }
+    }
+}
 
 pub fn read_file_to_point_cloud(file: &PathBuf) -> Option<PointCloud<PointXyzRgba>> {
     if let Some(ext) = file.extension().and_then(|ext| ext.to_str()) {
@@ -28,6 +52,18 @@ pub fn read_file_to_point_cloud(file: &PathBuf) -> Option<PointCloud<PointXyzRgb
         return point_cloud;
     }
     None
+}
+
+pub fn read_file_header(file: &PathBuf) -> Result<PointCloudInfo, String> {
+    if let Some(ext) = file.extension().and_then(|ext| ext.to_str()) {
+        let pc_info = match ext {
+            "ply" => Some(read_ply_header(file).unwrap().into()),
+            "pcd" => Some(read_pcd_header(file).unwrap().into()),
+            _ => None,
+        };
+        return pc_info.ok_or(format!("Unsupported file format: {}", ext));
+    }
+    Err("Unsupported file format.".to_string())
 }
 
 fn check_files_existence(files: &Vec<OsString>) -> bool {
