@@ -1,5 +1,6 @@
 use crate::formats::pointxyzrgba::PointXyzRgba;
 
+use super::antialias::AntiAlias;
 use super::camera::CameraState;
 
 use kdtree::distance::squared_euclidean;
@@ -13,7 +14,12 @@ pub struct ResolutionController {
 }
 
 impl ResolutionController {
-    pub fn new(points: &Vec<PointXyzRgba>, anchor_num_points: usize) -> Self {
+    pub fn new(
+        points: &Vec<PointXyzRgba>,
+        anchor_num_points: usize,
+        anti_alias: AntiAlias,
+    ) -> Self {
+        let points = anti_alias.apply(points);
         let anchor_spacing = Self::calculate_spacing(&points);
         let centroid = Self::centroid(&points);
 
@@ -24,16 +30,10 @@ impl ResolutionController {
         }
     }
 
-    pub fn get_desired_num_points(
-        &mut self,
-        camera_state: &CameraState,
-        _points: &Vec<PointXyzRgba>,
-    ) -> u64 {
+    pub fn get_desired_num_points(&mut self, camera_state: &CameraState) -> u64 {
         let window_size = camera_state.get_window_size();
         let z = camera_state.distance(self.centroid);
-        let (clip_width, clip_height) = camera_state.get_clip_plane_at_z(z);
-        let (width, height) =
-            camera_state.transform_clip_to_world_plane(clip_width, clip_height, self.centroid);
+        let (width, height) = camera_state.get_plane_at_z(z);
 
         println!("z: {}, width: {}, height: {}", z, width, height);
 
@@ -42,9 +42,9 @@ impl ResolutionController {
 
         println!("x_spacing: {}, y_spacing: {}", x_spacing, y_spacing);
 
-        let desired_spacing = (x_spacing.powi(2) + y_spacing.powi(2)).sqrt();
-        // let scaling_factor = (self.anchor_spacing / desired_spacing).powi(2);
-        let scaling_factor = self.anchor_spacing / desired_spacing;
+        let desired_spacing = x_spacing.min(y_spacing);
+        let scaling_factor = (self.anchor_spacing / desired_spacing).powi(2);
+        // let scaling_factor = self.anchor_spacing / desired_spacing;
 
         println!(
             "desired_spacing: {}, anchor_spacing: {}, scaling_factor: {}",
@@ -92,7 +92,7 @@ impl ResolutionController {
                 .nearest(&[p.x, p.y, p.z], 4, &squared_euclidean)
                 .unwrap()
                 .iter()
-                .skip(1) // dont count the first point
+                .skip(1) // ignore the first point (same point)
                 .map(|(d, _)| d.sqrt())
                 .sum::<f32>()
                 / 3.0;
@@ -101,6 +101,6 @@ impl ResolutionController {
             count += 1;
         }
 
-        (sum / count as f32).sqrt()
+        sum / count as f32
     }
 }

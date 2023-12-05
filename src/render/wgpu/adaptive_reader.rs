@@ -6,6 +6,7 @@ use std::path::Path;
 
 use super::camera::CameraState;
 use super::reader::{PointCloudFileReader, RenderReader};
+use super::renderable::Renderable;
 use super::resolution_controller::ResolutionController;
 
 pub struct AdaptiveReader {
@@ -82,6 +83,7 @@ impl AdaptiveReader {
         let resolution_controller = ResolutionController::new(
             &anchor_point_cloud.points,
             anchor_point_cloud.number_of_points,
+            anchor_point_cloud.antialias(),
         );
 
         Self {
@@ -101,11 +103,9 @@ impl AdaptiveReader {
             return &mut self.readers[0];
         }
 
-        let point_cloud = self.readers[0].get_at(index).unwrap();
-
         let desired_num_points = self
             .resolution_controller
-            .get_desired_num_points(self.camera_state.as_ref().unwrap(), &point_cloud.points);
+            .get_desired_num_points(self.camera_state.as_ref().unwrap());
 
         let num_points_by_reader = self
             .readers

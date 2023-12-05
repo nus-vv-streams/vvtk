@@ -132,102 +132,17 @@ impl CameraState {
     }
 
     pub fn distance(&self, point: [f32; 3]) -> f32 {
-        let point_h = Point3::from(point);
-
-        let view_matrix = Matrix4::from(self.camera_uniform.view_proj);
-        let transformed_point_h = view_matrix.transform_point(point_h);
-
-        // let transformed_point_h = self.camera.calc_matrix() * point_h;
-        // let transformed_point = Point3::from_homogeneous(transformed_point_h);
-        // println!("transformed_point: {:?}", transformed_point_h);
-        // println!("original: {:?}", point_h);
-        // println!(
-        //     "original point: {:?}",
-        //     self.inverse_point(transformed_point_h.into())
-        // );
-
-        (transformed_point_h - self.camera.position).magnitude()
+        let point = Point3::from(point);
+        (point - self.camera.position).magnitude()
     }
 
-    pub fn get_clip_plane_at_z(&self, z: f32) -> (f32, f32) {
+    pub fn get_plane_at_z(&self, z: f32) -> (f32, f32) {
         let fovy = self.projection.fovy;
         let aspect = self.projection.aspect;
         let height = 2.0 * z * (fovy / 2.0).tan();
         let width = height * aspect;
 
         (width, height)
-    }
-
-    pub fn transform_clip_to_world_plane(
-        &self,
-        width: f32,
-        height: f32,
-        centroid: [f32; 3],
-    ) -> (f32, f32) {
-        let width = -width;
-        let height = -height;
-        let centroid = self.world_to_clip(centroid);
-
-        let lt = self.inverse_point([
-            centroid[0] - width / 2.0,
-            centroid[1] + height / 2.0,
-            centroid[2],
-        ]);
-        let rt = self.inverse_point([
-            centroid[0] + width / 2.0,
-            centroid[1] + height / 2.0,
-            centroid[2],
-        ]);
-        let lb = self.inverse_point([
-            centroid[0] - width / 2.0,
-            centroid[1] - height / 2.0,
-            centroid[2],
-        ]);
-        let rb = self.inverse_point([
-            centroid[0] + width / 2.0,
-            centroid[1] - height / 2.0,
-            centroid[2],
-        ]);
-
-        // println!("centroid: {:?}", self.inverse_point(centroid));
-        // println!("lt: {:?}", lt);
-        // println!("rt: {:?}", rt);
-        // println!("lb: {:?}", lb);
-        // println!("rb: {:?}", rb);
-
-        let avg_width = (rt[0] - lt[0] + rb[0] - lb[0]) / 2.0;
-        let avg_height = (lt[1] - lb[1] + rt[1] - rb[1]) / 2.0;
-
-        (avg_width, avg_height)
-    }
-
-    fn world_to_camera(&self, point: [f32; 3]) -> [f32; 3] {
-        let point_h = Point3::from(point);
-
-        let view_matrix = self.camera.calc_matrix();
-        let transformed_point_h = view_matrix.transform_point(point_h);
-
-        transformed_point_h.into()
-    }
-
-    fn world_to_clip(&self, point: [f32; 3]) -> [f32; 3] {
-        let point_h = Point3::from(point);
-
-        let view_matrix = Matrix4::from(self.camera_uniform.view_proj);
-        let transformed_point_h = view_matrix.transform_point(point_h);
-
-        transformed_point_h.into()
-    }
-
-    fn inverse_point(&self, point: [f32; 3]) -> [f32; 3] {
-        let point_h = Point3::from(point);
-
-        let inverse_matrix = Matrix4::from(self.camera_uniform.view_proj)
-            .invert()
-            .unwrap();
-        let transformed_point_h = inverse_matrix.transform_point(point_h);
-
-        transformed_point_h.into()
     }
 
     pub fn get_window_size(&self) -> winit::dpi::PhysicalSize<u32> {
@@ -262,8 +177,8 @@ impl CameraUniform {
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     1.0, 0.0, 0.0, 0.0,
     0.0, 1.0, 0.0, 0.0,
-    0.0, 0.0, 0.5, 0.0,
-    0.0, 0.0, 0.5, 1.0,
+    0.0, 0.0, 0.5, 0.5,
+    0.0, 0.0, 0.0, 1.0,
 );
 
 #[allow(dead_code)]
