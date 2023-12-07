@@ -72,13 +72,14 @@ impl BufferManager {
         }
     }
 
-    //send fetch request for the next frame and add it to the buffer
+    //Send fetch request for the next frame and add it to the buffer
     pub fn prefetch_frame(&mut self, camera_pos: Option<CameraPosition>) {
         assert!(camera_pos.is_some());
         let last_req = FrameRequest {
             camera_pos,
             ..self.buffer.back().unwrap().req
         };
+        // The frame prefetched is the next frame of the frame at the back of the buffer
         let req = self.get_next_frame_req(&last_req);
         _ = self
             .buf_in_sx
@@ -88,11 +89,7 @@ impl BufferManager {
         self.buffer.add(req);
     }
 
-    // overloading prefetch_frame such that the index of next frame can be updated, used for special request (jump to certain frame using ui)
-    // ensure correctness after special reqeust (jump to certain frame using ui)
-    //prefetch frame above take the last FrameRequest from the buffer where this take from the parameter
-    //
-
+    // Overloading prefetch_frame such that we can specify which frame to be prefetched 
     pub fn prefetch_frame_with_request(&mut self, camera_pos: Option<CameraPosition>, last_req: FrameRequest) {
         assert!(camera_pos.is_some());
         let req = self.get_next_frame_req(&last_req);
@@ -114,13 +111,22 @@ impl BufferManager {
         // Since we prefetch after a `FetchDone` event, once the buffer is full, we can't prefetch anymore.
         // So, we set this flag to true once the buffer is full, so that when the frames are consumed and the first channels are discarded, we can prefetch again.
         let mut is_desired_buffer_level_reached = false;
+        //t: store the last request such that prefetch_frame_with_request can be called when the buffer size is only 1
+        let mut last_req:Option<FrameRequest> = None;
         loop {
             println!{"---------------------------"};
             println!("buffer: {:?}", &self.buffer);
             trace!("buffer: {:?}", &self.buffer);
             //wait for message in self.shutdown_recv and self.to_buf_Rx
-            //recv is called to receive message from the channel?
             //if a message is received, match the message with the bufmsg enum
+            if !self.buffer.is_full() && !self.buffer.is_empty() {
+                //t: if the buffer is not empty and not full, add fetch request to populate the buffer
+                self.prefetch_frame(Some(CameraPosition::default()));
+            } else if self.buffer.is_empty() && last_req.is_some(){
+                //t: for the case where the buffer is empty and buffer size = 1
+                //need fix: right now only make the camera position to be the default one
+                self.prefetch_frame_with_request(Some(CameraPosition::default()), last_req.unwrap());
+            }
             tokio::select! {
                 _ = self.shutdown_recv.changed() => {
                     println!{"---------------------------"};
@@ -171,7 +177,6 @@ impl BufferManager {
                                                 let original_camera_pos = if camera_trace.is_none() {
                                                     renderer_req.camera_pos.take()
                                                 } else {
-                                                    //t: todo what's going on here, need fix
                                                     renderer_req.camera_pos
                                                 };
                                                 // send to point cloud to renderer
@@ -183,25 +188,8 @@ impl BufferManager {
                                                 if remaining_frames > 1 {
                                                     // we only reinsert it if there are more frames to render
                                                     self.buffer.push_front(front);
-                                                } else if is_desired_buffer_level_reached {
-                                                    println!("in FrameStatus::Ready::is_desired_buffer_level_reached");
-                                                    //t: todo, fix this logic 
-                                                    //temporary fix for this, todo, fix again before commit
-                                                    //if there is something ready, even if the desired_buffer_level reached
-                                                    //after a frame is ready, should prefetch the frame again
-                                                    //the frame is cleared here since the start, for buffer size, the buffer will be empty if there is didn't push it back 
-                                                    //hence special frame_request need to be used
-                                                    //renderer req is the last request
-                                                    //should change to if the buffer is empty, automatically prefetch
-                                                    //what's wrong with this implementation?
-                                                    //this look very wrong, the original point is to render another one after it is ready
-                                                    //this violate the original size requirement, should clear the cache first?
-                                                    //this caused [0(ready), 1(fetching), 1(fetching behaviour)]
-                                                    self.prefetch_frame_with_request(original_camera_pos, renderer_req);
-                                                    is_desired_buffer_level_reached = false;
                                                 } else if !is_desired_buffer_level_reached {
                                                     println!("in FrameStatus::Ready::!is_desired_buffer_level_reached");
-                                                    //todo: combine this two logic
                                                     //if the desired buffer level is not reached, should add in a new frame
                                                     self.prefetch_frame(original_camera_pos);
                                                 }
@@ -261,15 +249,8 @@ impl BufferManager {
                             // cache the point cloud if there is still point clouds to render
                             //t: at here, the shown frame will automatically removed from the buffer not sure how
                             self.buffer.update(orig_metadata, metadata.into(), FrameStatus::Ready(remaining, rx));
-                            if !self.buffer.is_full() {
-                                //only here then the buffer will remove the special request frame rendered
-                                //because orig_metadata's camera pos is none, we just use the default one for now
-                                //need fix
-                                //made a bit of progress, will go from 0 -> 1 automatically
-                                //t: todo, why is this necessary
-                                println!("in bufmsg::PointCloud::prefetch_frame_wtih_request");
-                                self.prefetch_frame_with_request(Some(CameraPosition::default()), orig_metadata);
-                            } 
+                            //t: update the last request stored after a point cloud is rendered
+                            last_req = Some(orig_metadata);
                         }
                     }
                 }
