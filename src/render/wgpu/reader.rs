@@ -229,6 +229,7 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         index: usize,
         camera_pos: Option<CameraPosition>,
     ) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
+        println!("----------------------------------");
         println!{"get at request index: {}", index};
         let index = index as u64;
         if let Some(&ref result) = self.cache.iter().find(|&i| i.0 == index) {

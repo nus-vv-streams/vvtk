@@ -14,7 +14,7 @@ use vivotk::render::wgpu::{
     camera::{Camera, CameraPosition},
     controls::Controller,
     metrics_reader::MetricsReader,
-    reader::{FrameRequest, PcdAsyncReader, RenderReader},
+    reader::{PcdAsyncReader, RenderReader},
     renderer::Renderer,
 };
 use vivotk::utils::{
@@ -182,6 +182,7 @@ fn main() {
                              _ = tmpdir.close();
                             break;
                         },
+                        //if there is a fetch request for remote source, do something with the camera_pos and network throughput
                         Some(req) = buf_in_rx.recv() => {
                             let camera_pos = req.camera_pos.expect("camera position is always provided");
 
@@ -250,6 +251,7 @@ fn main() {
                     }
                 }
             } else {
+                //if the source is not remote, load the file and update the status as fetchdone
                 let path = Path::new(&args.src);
                 let mut ply_files: Vec<PathBuf> = vec![];
                 debug!("1. Finished downloading to / reading from {:?}", path);
@@ -266,7 +268,6 @@ fn main() {
                     .send((ply_files.len(), (1, 30)))
                     .expect("sent total frames");
                 ply_files.sort();
-                //t: this is where the ply file fetch request started 
                 loop {
                     tokio::select! {
                         _ = shutdown_recv.changed() => {
@@ -292,6 +293,7 @@ fn main() {
     // We run the decoder as a separate tokio task.
     // Decoder will read the buffer and send it over to the renderer.
     {
+        //t: will keep cloning buf wasted a lot of time?
         let to_buf_sx = to_buf_sx.clone();
         let mut shutdown_recv = shutdown_recv.clone();
         rt.spawn(async move {
@@ -308,7 +310,6 @@ fn main() {
                         debug!("got fetch result {:?}", req);
                         let decoder_path = decoder_path.clone();
                         let to_buf_sx = to_buf_sx.clone();
-                        let now = std::time::Instant::now();
                         tokio::task::spawn_blocking(move || {
                             let mut decoder: Box<dyn Decoder> = match decoder_type {
                                 DecoderType::Draco => { 
@@ -329,6 +330,7 @@ fn main() {
                             };
                             decoder.start().unwrap();
                             let (output_sx, output_rx) = tokio::sync::mpsc::unbounded_channel();
+                            //t: inform message buffer that a point cloud is ready
                             _ = to_buf_sx
                                 .send(BufMsg::PointCloud((
                                     PCMetadata {
@@ -340,8 +342,6 @@ fn main() {
                             while let Some(pcd) = decoder.poll() {
                                 _ = output_sx.send(pcd);
                             }
-                            let elapsed = now.elapsed();
-                            println!("Decoding took {:?}", elapsed);
                         })
                         .await
                         .unwrap();
