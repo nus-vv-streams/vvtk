@@ -182,9 +182,10 @@ impl BufferManager {
                                                 // send to point cloud to renderer
                                                 _ = self.buf_out_sx.send((renderer_req, pc));
                                                 self.frame_to_answer = None;
-
-                                                front.req.frame_offset += 1;
+                                                //t: no idea how this work
+                                                front.req.frame_offset += 1; 
                                                 front.state = FrameStatus::Ready(remaining_frames - 1, rx);
+                                                println!("In FrameStatus::Ready, the front is {:?}", front);
                                                 if remaining_frames > 1 {
                                                     // we only reinsert it if there are more frames to render
                                                     self.buffer.push_front(front);
@@ -243,11 +244,10 @@ impl BufferManager {
                                 self.frame_to_answer = None;
                                 metadata.frame_offset += 1;
                                 remaining -= 1;
-                                //t: send another frame request after the current fraeme is used, or I should not put it here?
+                                //t: send another frame request after the current frame is used, or I should not put it here?
                             }
-                            // if this one is not the one that the buffer is awaiting, just update the status and leave it there
+                            //t: if this one does not match frame to answer, just update the status of current frame to Ready
                             // cache the point cloud if there is still point clouds to render
-                            //t: at here, the shown frame will automatically removed from the buffer not sure how
                             self.buffer.update(orig_metadata, metadata.into(), FrameStatus::Ready(remaining, rx));
                             //t: update the last request stored after a point cloud is rendered
                             last_req = Some(orig_metadata);
