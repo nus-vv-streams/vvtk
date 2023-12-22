@@ -1,6 +1,6 @@
 use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
 
-use std::iter::zip;
+use rayon::prelude::*;
 
 const DELTA: f32 = 1e-4;
 
@@ -157,7 +157,9 @@ fn octree_downsample(
         }
     }
 
-    zip(voxels, split_bounds)
+    voxels
+        .into_par_iter()
+        .zip(split_bounds.into_par_iter())
         .flat_map(|(p, b)| octree_downsample(p, b, points_per_voxel))
         .collect()
 }

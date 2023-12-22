@@ -39,6 +39,9 @@ tmc2rs = { git = "https://github.com/benclmnt/tmc2-rs", branch = "main" }
 clap = { version = "4.2.7", features = ["derive", "cargo"] }
 
 image = "0.24.3"
+nalgebra = "0.32.3"
+approx = "0.5.1"
+clipboard = "0.5.0"
 thiserror = "1.0"
 byteorder = "1.4.3"
 bytemuck = { version = "1.7.3", features = [ "derive" ] }
@@ -68,6 +71,7 @@ serde = { version = "1", features = ["derive"], optional = true }
 serde_with = { version = "3.0.0", optional = true }
 quick-xml = { version = "0.25", features = ["serialize"], optional = true }
 crossbeam-channel = "0.5.6"
+kdtree = "0.7.0"
 num-traits = "0.2"
 float-ord = "0.3"
 color_space = "0.5"

@@ -143,7 +143,15 @@ impl RenderBuilder {
                                 *control_flow = ControlFlow::Exit;
                             }
                             WindowEvent::Resized(physical_size) => {
-                                windowed_object.state.resize(*physical_size);
+                                #[cfg(target_os = "macos")]
+                                if physical_size.width == u32::MAX
+                                    || physical_size.height == u32::MAX
+                                {
+                                    // HACK to fix a bug on Macos 14
+                                    // https://github.com/rust-windowing/winit/issues/2876
+                                    return;
+                                }
+                                windowed_object.object.resize(*physical_size);
                             }
                             WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                                 windowed_object.state.resize(**new_inner_size);

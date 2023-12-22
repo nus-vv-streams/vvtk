@@ -12,6 +12,7 @@ const PROJECTION_FOXY: f32 = 45.0;
 const PROJECTION_ZNEAR: f32 = 0.1;
 const PROJECTION_ZFAR: f32 = 100.0;
 
+#[derive(Clone)]
 pub struct CameraState {
     pub(super) camera: Camera,
     camera_controller: CameraController,
@@ -122,6 +123,15 @@ impl CameraState {
             }
             _ => false,
         }
+    }
+
+    pub fn distance(&self, point: [f32; 3]) -> f32 {
+        let point_h = Point3::from(point);
+
+        let view_matrix = Matrix4::from(self.camera_uniform.view_proj);
+        let transformed_point_h = view_matrix.transform_point(point_h);
+
+        (self.camera.position - transformed_point_h).magnitude()
     }
 }
 
@@ -241,6 +251,7 @@ impl Camera {
     }
 }
 
+#[derive(Clone)]
 pub struct Projection {
     aspect: f32,
     fovy: Rad<f32>,
@@ -268,7 +279,7 @@ impl Projection {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum RotateDirection {
     HorizontalClockwise,
     HorizontalCounterClockwise,
@@ -277,7 +288,7 @@ enum RotateDirection {
     NoRotation,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CameraController {
     amount_left: f32,
     amount_right: f32,
