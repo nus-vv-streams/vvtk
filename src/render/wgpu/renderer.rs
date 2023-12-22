@@ -358,6 +358,8 @@ where
 
     fn update(&mut self, dt: Duration) -> Result<(), SurfaceError> {
         self.camera_state.update(dt);
+        self.reader
+            .set_camera_state(Some(self.camera_state.clone())); // TODO might be expensive
         self.pcd_renderer
             .update_camera(&self.gpu.queue, self.camera_state.camera_uniform());
 

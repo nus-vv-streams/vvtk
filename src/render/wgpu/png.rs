@@ -221,18 +221,14 @@ impl<'a> PngWriter<'a> {
             .arg("-framerate")
             .arg(fps.to_string())
             .arg("-i")
-            .arg(format!(
-                "{}/%0{}d.png",
-                tmp_png_dir.clone().display(),
-                name_length
-            ))
+            .arg(format!("{}/%0{}d.png", tmp_png_dir.display(), name_length))
             .arg("-c:v")
             .arg("libx264")
             .arg("-r")
             .arg(fps.to_string())
             // .arg("-pix_fmt")
             // .arg("yuv420p")
-            .arg(mp4_path.clone())
+            .arg(mp4_path)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
