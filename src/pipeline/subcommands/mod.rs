@@ -1,4 +1,5 @@
 pub mod convert;
+pub mod dash;
 pub mod downsample;
 pub mod info;
 pub mod metrics;
@@ -8,6 +9,7 @@ pub mod upsample;
 pub mod write;
 
 pub use convert::Convert;
+pub use dash::Dash;
 pub use downsample::Downsampler;
 pub use info::Info;
 pub use metrics::MetricsCalculator;

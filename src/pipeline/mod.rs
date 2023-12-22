@@ -14,8 +14,8 @@ use self::{
     executor::Executor,
     executor::ExecutorBuilder,
     subcommands::{
-        convert, downsample, info, metrics, read, render, upsample, write, Convert, Downsampler,
-        Info, MetricsCalculator, Read, Render, Subcommand, Upsampler, Write,
+        convert, dash, downsample, info, metrics, read, render, upsample, write, Convert, Dash,
+        Downsampler, Info, MetricsCalculator, Read, Render, Subcommand, Upsampler, Write,
     },
 };
 
@@ -30,7 +30,7 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
         "downsample" => Some(Box::from(Downsampler::from_args)),
         "upsample" => Some(Box::from(Upsampler::from_args)),
         "convert" => Some(Box::from(Convert::from_args)),
-        // "play" => Some(Box::from(Play::from_args)),
+        "dash" => Some(Box::from(Dash::from_args)),
         "info" => Some(Box::from(Info::from_args)),
         _ => None,
     }
@@ -199,6 +199,8 @@ enum VVSubCommand {
     Upsample(upsample::Args),
     #[clap(name = "info")]
     Info(info::Args),
+    #[clap(name = "dash")]
+    Dash(dash::Args),
 }
 
 fn display_main_help_msg() {

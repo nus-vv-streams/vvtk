@@ -150,7 +150,7 @@ impl Drop for Render<'_> {
                 .write_to_mp4(self.name_length, self.fps, self.verbose);
         }
         // drop writer
-        drop(&self.writer);
+        // drop(&self.writer);
     }
 }
 

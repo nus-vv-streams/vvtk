@@ -30,7 +30,7 @@ impl CameraState {
             PROJECTION_ZFAR,
         );
         let camera_controller =
-            CameraController::new(CAMERA_SPEED, CAMERA_SENSITIVITY, camera.position.clone());
+            CameraController::new(CAMERA_SPEED, CAMERA_SENSITIVITY, camera.clone());
         let mut camera_uniform = CameraUniform::default();
         camera_uniform.update_view_proj(&camera, &projection);
 
@@ -158,7 +158,10 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.5, 1.0,
 );
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(dead_code)]
+const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
+
+#[derive(Debug, Copy, Clone)]
 pub struct Camera {
     current: CameraPosition,
     /// original position of the camera
@@ -177,6 +180,7 @@ pub struct CameraPosition {
     /// - 0deg is looking down the z axis
     /// - 90deg is looking down the positive y axis
     pub pitch: Rad<f32>,
+    pub up: Vector3<f32>, // either unit_y or -unit_y
 }
 
 impl Default for CameraPosition {
@@ -216,11 +220,7 @@ impl Camera {
             position: position.into(),
             yaw: yaw.into(),
             pitch: pitch.into(),
-        };
-
-        Self {
-            current: position,
-            orig: position,
+            up: Vector3::unit_y(),
         }
     }
 
@@ -231,7 +231,7 @@ impl Camera {
         Matrix4::look_to_rh(
             self.position,
             Vector3::new(cos_pitch * cos_yaw, sin_pitch, cos_pitch * sin_yaw).normalize(),
-            Vector3::unit_y(),
+            self.up,
         )
     }
 
@@ -269,7 +269,15 @@ impl Projection {
 }
 
 #[derive(Debug)]
-/// Used to control the camera movement by processing user inputs
+enum RotateDirection {
+    HorizontalClockwise,
+    HorizontalCounterClockwise,
+    VerticalClockwise,
+    VerticalCounterClockwise,
+    NoRotation,
+}
+
+#[derive(Debug)]
 pub struct CameraController {
     amount_left: f32,
     amount_right: f32,
@@ -284,11 +292,12 @@ pub struct CameraController {
     sensitivity: f32,
     reset_view_requested: bool,
     if_reset: bool,
-    initial_position: Point3<f32>,
+    initial_camera: Camera,
+    rotate_direction: RotateDirection,
 }
 
 impl CameraController {
-    pub fn new(speed: f32, sensitivity: f32, initial_position: Point3<f32>) -> Self {
+    pub fn new(speed: f32, sensitivity: f32, initial_camera: Camera) -> Self {
         Self {
             amount_left: 0.0,
             amount_right: 0.0,
@@ -303,7 +312,8 @@ impl CameraController {
             sensitivity,
             reset_view_requested: false,
             if_reset: false,
-            initial_position,
+            initial_camera,
+            rotate_direction: RotateDirection::NoRotation,
         }
     }
 
@@ -346,6 +356,22 @@ impl CameraController {
                 self.if_reset = true;
                 true
             }
+            VirtualKeyCode::L => {
+                self.rotate_direction = RotateDirection::HorizontalClockwise;
+                true
+            }
+            VirtualKeyCode::J => {
+                self.rotate_direction = RotateDirection::HorizontalCounterClockwise;
+                true
+            }
+            VirtualKeyCode::I => {
+                self.rotate_direction = RotateDirection::VerticalClockwise;
+                true
+            }
+            VirtualKeyCode::K => {
+                self.rotate_direction = RotateDirection::VerticalCounterClockwise;
+                true
+            }
             _ => false,
         }
     }
@@ -362,6 +388,55 @@ impl CameraController {
         };
     }
 
+    fn update_camera_rotation(&mut self, camera: &mut Camera, dt: Duration) {
+        let rotate_angle_speed = std::f32::consts::PI; // 90 degree per second
+        let rotate_angle = Rad(rotate_angle_speed * dt.as_secs_f32());
+        let clock_wise = match self.rotate_direction {
+            RotateDirection::HorizontalClockwise | RotateDirection::VerticalClockwise => 1.0f32,
+            RotateDirection::HorizontalCounterClockwise
+            | RotateDirection::VerticalCounterClockwise => -1f32,
+            _ => 0f32,
+        };
+        match self.rotate_direction {
+            RotateDirection::HorizontalClockwise | RotateDirection::HorizontalCounterClockwise => {
+                // the camera rotates around the y axis, radius is the abs(y) which stays the unchanged
+                // radius = sqrt(x^2 + z^2)
+                let radius = camera.position.x.hypot(camera.position.z);
+                // get the angle of the camera position with z axis
+                let z_angle = Rad(camera.position.x.atan2(camera.position.z));
+                let updated_z_angle = z_angle + rotate_angle * clock_wise;
+                let updated_z_angle = updated_z_angle % Rad(2.0 * std::f32::consts::PI);
+
+                // y remains the same, x and z change based on rotate_angle
+                camera.position.x = updated_z_angle.0.sin() * radius;
+                camera.position.z = updated_z_angle.0.cos() * radius;
+                // yaw needs to be updated as well
+                camera.yaw = camera.yaw - rotate_angle * clock_wise;
+                camera.yaw = camera.yaw % Rad(2.0 * std::f32::consts::PI);
+            }
+
+            RotateDirection::VerticalClockwise | RotateDirection::VerticalCounterClockwise => {
+                // the camera rotates around the x axis, radius is the abs(x) which stays the unchanged
+                // radius = sqrt(y^2 + z^2)
+                let radius = camera.position.y.hypot(camera.position.z);
+                // get the angle of the camera position with z axis
+                let z_angle = Rad(camera.position.y.atan2(camera.position.z));
+                let updated_z_angle = z_angle + rotate_angle * clock_wise;
+                let updated_z_angle = updated_z_angle % Rad(2.0 * std::f32::consts::PI);
+
+                // x remains the same, y and z change based on rotate_angle
+                camera.position.y = updated_z_angle.0.sin() * radius;
+                camera.position.z = updated_z_angle.0.cos() * radius;
+                // pitch needs to be updated as well
+                camera.pitch = camera.pitch - rotate_angle * clock_wise;
+                camera.pitch = camera.pitch % Rad(2.0 * std::f32::consts::PI);
+                camera.up = camera.pitch.cos().signum() * Vector3::new(0.0, 1.0, 0.0);
+            }
+            _ => {}
+        }
+        self.rotate_direction = RotateDirection::NoRotation;
+    }
+
     pub fn update_camera(&mut self, camera: &mut Camera, dt: Duration) {
         if self.reset_view_requested {
             camera.reset();
@@ -369,9 +444,14 @@ impl CameraController {
             return;
         }
         if self.if_reset {
-            camera.position = self.initial_position.clone();
+            camera.position = self.initial_camera.position.clone();
+            camera.yaw = self.initial_camera.yaw.clone();
+            camera.pitch = self.initial_camera.pitch.clone();
+            camera.up = self.initial_camera.up.clone();
             self.if_reset = false;
         }
+
+        self.update_camera_rotation(camera, dt);
 
         let dt = dt.as_secs_f32();
 
@@ -411,16 +491,13 @@ impl CameraController {
         // when moving in a non cardinal direction.
         self.rotate_horizontal = 0.0;
         self.rotate_vertical = 0.0;
-    }
-}
 
-fn delta_with_clamp(orig: Rad<f32>, delta: Rad<f32>) -> Rad<f32> {
-    let result = orig + delta;
-    if result < -Rad(PI) {
-        Rad(2.0 * PI) + result
-    } else if result > Rad(PI) {
-        -Rad(2.0 * PI) + result
-    } else {
-        result
+        // Keep the camera's angle from going too high/low.
+        // if camera.pitch < -Rad(SAFE_FRAC_PI_2) {
+        //     camera.pitch = -Rad(SAFE_FRAC_PI_2);
+        // } else if camera.pitch > Rad(SAFE_FRAC_PI_2) {
+        //     camera.pitch = Rad(SAFE_FRAC_PI_2);
+        // }
+        // since we want to rotate the camera vertically, we don't need to limit the pitch
     }
 }

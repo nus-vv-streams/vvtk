@@ -23,28 +23,20 @@ use formats::{pointxyzrgba::PointXyzRgba, PointCloud};
 #[cfg(feature = "render")]
 use render::wgpu::reader::FrameRequest;
 
-/// Message types sent to the Buffer Manager of ply_play
 #[derive(Debug)]
 pub enum BufMsg {
-    /// Point cloud message.
-    ///
-    /// Contains the point cloud and the metadata info for the point cloud.
     PointCloud(
         (
             PCMetadata,
             tokio::sync::mpsc::UnboundedReceiver<PointCloud<PointXyzRgba>>,
         ),
     ),
-    /// Fetch result from the fetcher
     FetchDone(FrameRequest),
     #[cfg(feature = "render")]
-    /// Frame request message.
     FrameRequest(FrameRequest),
 }
 
 /// Metadata for point cloud. Used in BufMsg.
-///
-/// Includes statistics for the point cloud
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PCMetadata {
     pub object_id: u8,
