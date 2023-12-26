@@ -1,5 +1,5 @@
 use cgmath::*;
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_2, PI};
 use std::ops::{Deref, DerefMut};
 use std::time::Duration;
 use wgpu::util::DeviceExt;
@@ -199,6 +199,7 @@ impl Default for CameraPosition {
             position: Point3::new(0.0, 0.0, 0.0),
             yaw: Rad(0.0),
             pitch: Rad(0.0),
+            up: Vector3::unit_y(),
         }
     }
 }
@@ -231,6 +232,11 @@ impl Camera {
             yaw: yaw.into(),
             pitch: pitch.into(),
             up: Vector3::unit_y(),
+        };
+
+        Self {
+            current: position,
+            orig: position,
         }
     }
 
@@ -510,5 +516,16 @@ impl CameraController {
         //     camera.pitch = Rad(SAFE_FRAC_PI_2);
         // }
         // since we want to rotate the camera vertically, we don't need to limit the pitch
+    }
+}
+
+ fn delta_with_clamp(orig: Rad<f32>, delta: Rad<f32>) -> Rad<f32> {
+    let result = orig + delta;
+    if result < -Rad(PI) {
+        Rad(2.0 * PI) + result
+    } else if result > Rad(PI) {
+        -Rad(2.0 * PI) + result
+    } else {
+        result
     }
 }

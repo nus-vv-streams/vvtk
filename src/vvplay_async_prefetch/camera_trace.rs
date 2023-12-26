@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::fs::File;
 use std::io::BufReader;
-use cgmath::Point3;
+use cgmath::{Point3, Vector3};
 
 
 /**
@@ -49,10 +49,12 @@ impl CameraTrace {
                             Point3::new(it.next().unwrap(), it.next().unwrap(), it.next().unwrap());
                         let pitch = cgmath::Deg(it.next().unwrap()).into();
                         let yaw = cgmath::Deg(it.next().unwrap()).into();
+                        //temporary fix: not sure what up is doing for now
                         CameraPosition {
                             position,
                             pitch,
                             yaw,
+                            up: Vector3::new(0.0, 0.0, 0.0), //t: not sure what is this for, temporary fix
                         }
                     })
                     .collect();

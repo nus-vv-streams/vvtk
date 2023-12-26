@@ -11,8 +11,6 @@ pub mod pointxyzrgbanormal;
 
 #[derive(Clone)]
 pub struct PointCloud<T>
-where
-    T: Clone + Serialize,
 {
     pub number_of_points: usize,
     pub points: Vec<T>,

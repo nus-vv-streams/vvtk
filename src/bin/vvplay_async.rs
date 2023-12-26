@@ -1,4 +1,4 @@
-use cgmath::Point3;
+use cgmath::{Point3, Vector3};
 use clap::Parser;
 use log::{debug, info, trace, warn};
 use std::path::{Path, PathBuf};
@@ -375,6 +375,8 @@ fn main() {
                     position: Point3::new(args.camera_x, args.camera_y, args.camera_z),
                     yaw: cgmath::Deg(args.camera_yaw).into(),
                     pitch: cgmath::Deg(args.camera_pitch).into(),
+                    //temporary fix: not sure what should be set for up
+                    up: cgmath::Vector3::unit_y(),
                 },
                 simulated_camera_trace,
                 record_camera_trace,

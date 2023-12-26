@@ -4,7 +4,6 @@ use crate::pcd::read_pcd_file;
 use crate::BufMsg;
 
 use crate::utils::read_file_to_point_cloud;
-// use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
@@ -14,6 +13,7 @@ use super::camera::CameraPosition;
 use super::camera::CameraState;
 use super::renderable::Renderable;
 
+//RenderReaderLegacy for the original RenderReader
 pub trait RenderReaderLegacy<T: Renderable> {
     fn start(&mut self) -> Option<T>;
     fn get_at(&mut self, index: usize) -> Option<T>;
@@ -22,7 +22,7 @@ pub trait RenderReaderLegacy<T: Renderable> {
     fn set_len(&mut self, len: usize);
     fn set_camera_state(&mut self, camera_state: Option<CameraState>);
 }
-
+//RenderReader for the one with CameraPosition
 pub trait RenderReader<T: Renderable> {
     /// Initialize the input reader for our renderer. Returns the first frame, if any.
     fn start(&mut self) -> (Option<CameraPosition>, Option<T>);
@@ -35,6 +35,7 @@ pub trait RenderReader<T: Renderable> {
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
     fn set_len(&mut self, len: usize);
+    fn set_camera_state(&mut self, camera_state: Option<CameraState>);
 }
 
 pub struct PcdFileReader {
@@ -66,6 +67,59 @@ impl PcdFileReader {
         self.files.get(index)
     }
 }
+
+//Temporary fix: The new PointCloudFileReader got CameraPosition which is not always needed
+// Hence created PointCloudFileReaderLegacy which is the same as PointCloudFileReader but without CameraPosition
+pub struct PointCloudFileReaderLegacy {
+    files: Vec<PathBuf>,
+}
+
+impl PointCloudFileReaderLegacy {
+    pub fn from_directory(directory: &Path, file_type: &str) -> Self {
+        let mut files = vec![];
+        for file_entry in directory.read_dir().unwrap() {
+            match file_entry {
+                Ok(entry) => {
+                    if let Some(ext) = entry.path().extension() {
+                        if ext.eq(file_type) {
+                            files.push(entry.path());
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("{e}")
+                }
+            }
+        }
+        files.sort();
+        Self { files }
+    }
+}
+
+impl RenderReaderLegacy<PointCloud<PointXyzRgba>> for PointCloudFileReaderLegacy {
+    fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
+        self.get_at(0)
+    }
+
+    fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
+        let file_path = self.files.get(index)?;
+        read_file_to_point_cloud(file_path)
+    }
+
+    fn len(&self) -> usize {
+        self.files.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.files.is_empty()
+    }
+
+    fn set_len(&mut self, _len: usize) {}
+
+    fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
+}
+
+
 
 pub struct PointCloudFileReader {
     files: Vec<PathBuf>,
