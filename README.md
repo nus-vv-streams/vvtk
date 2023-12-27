@@ -345,7 +345,7 @@ number of points: 693899
 vv info ./longdress/Ply
 ```
 
-The encoding format(ascii or binary) of the file in the directory, the number frames and the adverage of points will be printed.
+The encoding format(ascii or binary) of the file in the directory, the number frames and the average of points will be printed.
 
 ```shell
 format: pcd BINARY
@@ -401,7 +401,7 @@ Options:
 
 ***Preparation***  
 
-An example of netowrk setting file is provided in `./test_files/dash/sim_nw_avg_14050.txt`
+An example of network setting file is provided in `./test_files/dash/sim_nw_avg_14050.txt`
 
 The structure of input directory with different quality of point clouds should be the following.
 
