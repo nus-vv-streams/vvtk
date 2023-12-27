@@ -1,7 +1,6 @@
 use cgmath::Point3;
 use clap::Parser;
 use log::{debug, info, trace, warn};
-use vivotk::render::wgpu::reader::RenderReaderCameraPos;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 use vivotk::abr::quetra::{Quetra, QuetraMultiview};
@@ -10,6 +9,7 @@ use vivotk::codec::decoder::{DracoDecoder, NoopDecoder, Tmc2rsDecoder};
 use vivotk::codec::Decoder;
 use vivotk::dash::fetcher::{FetchResult, Fetcher};
 use vivotk::dash::{ThroughputPrediction, ViewportPrediction};
+use vivotk::render::wgpu::reader::RenderReaderCameraPos;
 use vivotk::render::wgpu::{
     builder::{EventType, RenderBuilder, RenderEvent},
     camera::{Camera, CameraPosition},
@@ -22,7 +22,6 @@ use vivotk::utils::{
     get_cosines, predict_quality, ExponentialMovingAverage, LastValue, SimpleRunningAverage, GAEMA,
     LPEMA,
 };
-use vivotk::{BufMsg, PCMetadata};
 use vivotk::vvplay_async_prefetch::args::Args;
 use vivotk::vvplay_async_prefetch::buffer_manager::BufferManager;
 use vivotk::vvplay_async_prefetch::camera_trace::CameraTrace;
@@ -32,6 +31,7 @@ use vivotk::vvplay_async_prefetch::enums::ThroughputPredictionType;
 use vivotk::vvplay_async_prefetch::enums::ViewportPredictionType;
 use vivotk::vvplay_async_prefetch::fetch_request::FetchRequest;
 use vivotk::vvplay_async_prefetch::network_trace::NetworkTrace;
+use vivotk::{BufMsg, PCMetadata};
 
 /// Plays a folder of pcd files in lexicographical order
 
@@ -87,7 +87,7 @@ fn main() {
     env_logger::init();
     let args: Args = Args::parse();
     let play_format = infer_format(&args.src);
-    
+
     let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(8)
         .enable_all()
@@ -309,7 +309,7 @@ fn main() {
                         let to_buf_sx = to_buf_sx.clone();
                         tokio::task::spawn_blocking(move || {
                             let mut decoder: Box<dyn Decoder> = match decoder_type {
-                                DecoderType::Draco => { 
+                                DecoderType::Draco => {
                                     Box::new(DracoDecoder::new(
                                     decoder_path
                                         .as_ref()
@@ -321,7 +321,7 @@ fn main() {
                                     let paths = paths.into_iter().flatten().collect::<Vec<_>>();
                                     Box::new(Tmc2rsDecoder::new(&paths))
                                 }
-                                _ =>{ 
+                                _ =>{
                                     Box::new(NoopDecoder::new(paths[0].take().unwrap().as_os_str()))
                                 },
                             };

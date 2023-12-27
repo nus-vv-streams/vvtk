@@ -10,8 +10,7 @@ pub mod pointxyzrgba;
 pub mod pointxyzrgbanormal;
 
 #[derive(Clone)]
-pub struct PointCloud<T>
-{
+pub struct PointCloud<T> {
     pub number_of_points: usize,
     pub points: Vec<T>,
 }

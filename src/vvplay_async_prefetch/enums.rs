@@ -2,7 +2,6 @@
  * This file contains all the enums that is used by vvplay_async_prefetch.rs
  */
 
-
 //Noop for operation that will not use a decoder
 #[derive(clap::ValueEnum, Clone, Copy)]
 pub enum DecoderType {

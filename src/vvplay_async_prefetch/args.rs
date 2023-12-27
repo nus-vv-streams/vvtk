@@ -1,7 +1,6 @@
 use clap::Parser;
 use std::ffi::OsString;
-use std::path:: PathBuf;
-
+use std::path::PathBuf;
 
 use crate::vvplay_async_prefetch::enums::AbrType;
 use crate::vvplay_async_prefetch::enums::DecoderType;
@@ -10,7 +9,6 @@ use crate::vvplay_async_prefetch::enums::ViewportPredictionType;
 /**
  * This file contains all the command line argumentfor vvplay_async_prefetch.rs
  */
-
 
 #[derive(Parser)]
 pub struct Args {

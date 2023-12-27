@@ -101,7 +101,6 @@ impl RenderBuilder {
         self.window_objects.keys().copied().collect()
     }
 
-
     pub fn run(mut self) {
         self.event_loop.run(move |new_event, _, control_flow| {
             *control_flow = ControlFlow::Poll;

@@ -1,11 +1,10 @@
+use crate::render::wgpu::camera::CameraPosition;
+use cgmath::{Point3, Vector3};
 use log::warn;
-use crate::render::wgpu::camera:: CameraPosition;
 use std::cell::RefCell;
-use std::path::{Path, PathBuf};
 use std::fs::File;
 use std::io::BufReader;
-use cgmath::{Point3, Vector3};
-
+use std::path::{Path, PathBuf};
 
 /**
  * This file contains struct CameraTrace and all CameraTrace related implementation
@@ -49,12 +48,12 @@ impl CameraTrace {
                             Point3::new(it.next().unwrap(), it.next().unwrap(), it.next().unwrap());
                         let pitch = cgmath::Deg(it.next().unwrap()).into();
                         let yaw = cgmath::Deg(it.next().unwrap()).into();
-                        //temporary fix: assigned random value to up right now, not sure what should be put for "up" 
+                        //temporary fix: assigned random value to up right now, not sure what should be put for "up"
                         CameraPosition {
                             position,
                             pitch,
                             yaw,
-                            up: Vector3::new(0.0, 0.0, 0.0), 
+                            up: Vector3::new(0.0, 0.0, 0.0),
                         }
                     })
                     .collect();
@@ -65,7 +64,7 @@ impl CameraTrace {
                 }
             }
         }
-    }    
+    }
 
     /// Get the next bandwidth sample. Used when playing back a camera trace.
     pub fn next(&self) -> CameraPosition {

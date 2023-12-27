@@ -390,7 +390,7 @@ where
     // use the original update_vertices function for now
 
     /// Update the vertices and optionally updates camera position
-    /* 
+    /*
     fn update_vertices(&mut self) -> bool {
         if let (camera_pos, Some(data)) = self
             .reader

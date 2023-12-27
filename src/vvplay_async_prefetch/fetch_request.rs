@@ -2,10 +2,9 @@ use crate::render::wgpu::camera::CameraPosition;
 use crate::render::wgpu::reader::FrameRequest;
 use crate::PCMetadata;
 
-/** 
+/**
  * This file contains all FetchRequest struct and related implementation
  */
-
 
 #[derive(Debug, Clone, Copy)]
 pub struct FetchRequest {

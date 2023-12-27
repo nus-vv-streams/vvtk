@@ -519,7 +519,7 @@ impl CameraController {
     }
 }
 
- fn delta_with_clamp(orig: Rad<f32>, delta: Rad<f32>) -> Rad<f32> {
+fn delta_with_clamp(orig: Rad<f32>, delta: Rad<f32>) -> Rad<f32> {
     let result = orig + delta;
     if result < -Rad(PI) {
         Rad(2.0 * PI) + result

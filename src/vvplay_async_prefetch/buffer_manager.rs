@@ -1,11 +1,11 @@
-use crate::BufMsg;
-use crate::dash:: ViewportPrediction;
 use crate::dash::buffer::{Buffer, FrameStatus};
-use crate::formats::PointCloud;
+use crate::dash::ViewportPrediction;
 use crate::formats::pointxyzrgba::PointXyzRgba;
-use crate::render::wgpu::{camera::CameraPosition,reader::FrameRequest};
+use crate::formats::PointCloud;
+use crate::render::wgpu::{camera::CameraPosition, reader::FrameRequest};
 use crate::vvplay_async_prefetch::camera_trace::CameraTrace;
 use crate::vvplay_async_prefetch::fetch_request::FetchRequest;
+use crate::BufMsg;
 
 /**
  * This file contains Buffer Manager struct and related implementation
@@ -88,8 +88,12 @@ impl BufferManager {
         self.buffer.add(req);
     }
 
-    // Overloading prefetch_frame so we can specify which frame to be prefetched 
-    pub fn prefetch_frame_with_request(&mut self, camera_pos: Option<CameraPosition>, last_req: FrameRequest) {
+    // Overloading prefetch_frame so we can specify which frame to be prefetched
+    pub fn prefetch_frame_with_request(
+        &mut self,
+        camera_pos: Option<CameraPosition>,
+        last_req: FrameRequest,
+    ) {
         assert!(camera_pos.is_some());
         let req = self.get_next_frame_req(&last_req);
         _ = self
@@ -110,9 +114,9 @@ impl BufferManager {
         // Since we prefetch after a `FetchDone` event, once the buffer is full, we can't prefetch anymore.
         // So, we set this flag to true once the buffer is full, so that when the frames are consumed and the first channels are discarded, we can prefetch again.
         let mut is_desired_buffer_level_reached = false;
-        let mut last_req:Option<FrameRequest> = None;
+        let mut last_req: Option<FrameRequest> = None;
         loop {
-            /* 
+            /*
             println!{"---------------------------"};
             println!("buffer: {:?}", &self.buffer);
             */
@@ -120,13 +124,16 @@ impl BufferManager {
             //if a message is received, match the message with the bufmsg enum
             if !self.buffer.is_full() && !self.buffer.is_empty() {
                 self.prefetch_frame(Some(CameraPosition::default()));
-            } else if self.buffer.is_empty() && last_req.is_some(){
+            } else if self.buffer.is_empty() && last_req.is_some() {
                 //temporary fix: right not just assign default camera position
-                self.prefetch_frame_with_request(Some(CameraPosition::default()), last_req.unwrap());
+                self.prefetch_frame_with_request(
+                    Some(CameraPosition::default()),
+                    last_req.unwrap(),
+                );
             }
             tokio::select! {
                 _ = self.shutdown_recv.changed() => {
-                    /* 
+                    /*
                     println!{"---------------------------"};
                     println!{"in vvplay_async:"}
                     println!{"[buffer mgr] received shutdown signal"};
@@ -153,7 +160,7 @@ impl BufferManager {
                                 viewport_predictor.add(renderer_req.camera_pos.unwrap_or_else(|| original_position));
                                 renderer_req.camera_pos = viewport_predictor.predict();
                             }
-                            
+
                             // First, attempt to fulfill the request from the buffer.
                             // Check in cache whether it exists
                             if !self.buffer.is_empty() && self.buffer.front().unwrap().req.frame_offset == renderer_req.frame_offset {
@@ -178,7 +185,7 @@ impl BufferManager {
                                                 // send to point cloud to renderer
                                                 _ = self.buf_out_sx.send((renderer_req, pc));
                                                 self.frame_to_answer = None;
-                                                front.req.frame_offset += 1; 
+                                                front.req.frame_offset += 1;
                                                 front.state = FrameStatus::Ready(remaining_frames - 1, rx);
                                                 //println!("In FrameStatus::Ready, the front is {:?}", front);
                                                 if remaining_frames > 1 {
@@ -212,7 +219,7 @@ impl BufferManager {
                         }
                         BufMsg::FetchDone(req) => {
                             // upon receiving fetch result, immediately schedule the next fetch request
-                            /* 
+                            /*
                             println!{"---------------------------"};
                             println!("the current buffer message is fetch done for {:?}", req);
                             */

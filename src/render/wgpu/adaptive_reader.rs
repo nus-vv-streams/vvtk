@@ -4,7 +4,7 @@ use core::panic;
 use std::path::Path;
 
 use super::camera::CameraState;
-use super::reader::{RenderReader, PointCloudFileReader};
+use super::reader::{PointCloudFileReader, RenderReader};
 
 pub struct AdaptiveReader {
     readers: Vec<PointCloudFileReader>,
@@ -107,7 +107,7 @@ impl AdaptiveReader {
         [sum_x / count, sum_y / count, sum_z / count]
     }
 
-    fn select_reader(&mut self, index: usize) -> &mut PointCloudFileReader{
+    fn select_reader(&mut self, index: usize) -> &mut PointCloudFileReader {
         // if option is none, then we are in the first frame
         if self.camera_state.is_none() || self.readers.len() == 1 {
             return &mut self.readers[0];

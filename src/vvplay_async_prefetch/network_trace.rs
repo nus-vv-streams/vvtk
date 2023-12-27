@@ -1,7 +1,7 @@
 use std::cell::RefCell;
-use std::path::Path;
 use std::fs::File;
 use std::io::BufReader;
+use std::path::Path;
 /**
  * Network trace for vvplay_async
  */
@@ -38,4 +38,3 @@ impl NetworkTrace {
         self.data[idx]
     }
 }
-
