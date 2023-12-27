@@ -235,7 +235,6 @@ where
     ) -> Self {
         let initial_render = reader
             .start()
-            .1
             .expect("There should be at least one point cloud to render!");
         let pcd_renderer = PointCloudRenderer::new(
             &gpu.device,
@@ -387,7 +386,11 @@ where
         self.render()
     }
 
+    // temporary fix: remove this function because CameraPosition is not yet compatible with the rest of the code
+    // use the original update_vertices function for now
+
     /// Update the vertices and optionally updates camera position
+    /* 
     fn update_vertices(&mut self) -> bool {
         if let (camera_pos, Some(data)) = self
             .reader
@@ -398,6 +401,16 @@ where
             if let Some(pos) = camera_pos {
                 *self.camera_state.camera = pos;
             }
+            return true;
+        }
+        false
+    }
+    */
+
+    fn update_vertices(&mut self) -> bool {
+        if let Some(data) = self.reader.get_at(self.current_position) {
+            self.pcd_renderer
+                .update_vertices(&self.gpu.device, &self.gpu.queue, &data);
             return true;
         }
         false

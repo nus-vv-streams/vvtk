@@ -4,10 +4,10 @@ use core::panic;
 use std::path::Path;
 
 use super::camera::CameraState;
-use super::reader::{RenderReaderLegacy, PointCloudFileReaderLegacy};
+use super::reader::{RenderReader, PointCloudFileReader};
 
 pub struct AdaptiveReader {
-    readers: Vec<PointCloudFileReaderLegacy>,
+    readers: Vec<PointCloudFileReader>,
     camera_state: Option<CameraState>,
 }
 
@@ -66,7 +66,7 @@ impl AdaptiveReader {
         let mut readers = vec![];
 
         for path in paths.iter() {
-            readers.push(PointCloudFileReaderLegacy::from_directory(path, &play_format));
+            readers.push(PointCloudFileReader::from_directory(path, &play_format));
         }
 
         if readers.is_empty() || readers[0].is_empty() {
@@ -107,7 +107,7 @@ impl AdaptiveReader {
         [sum_x / count, sum_y / count, sum_z / count]
     }
 
-    fn select_reader(&mut self, index: usize) -> &mut PointCloudFileReaderLegacy {
+    fn select_reader(&mut self, index: usize) -> &mut PointCloudFileReader{
         // if option is none, then we are in the first frame
         if self.camera_state.is_none() || self.readers.len() == 1 {
             return &mut self.readers[0];
@@ -126,7 +126,7 @@ impl AdaptiveReader {
     }
 }
 
-impl RenderReaderLegacy<PointCloud<PointXyzRgba>> for AdaptiveReader {
+impl RenderReader<PointCloud<PointXyzRgba>> for AdaptiveReader {
     fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
         self.select_reader(0).start()
     }

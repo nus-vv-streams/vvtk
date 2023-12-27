@@ -14,7 +14,7 @@ use vivotk::render::wgpu::{
     camera::{Camera, CameraPosition},
     controls::Controller,
     metrics_reader::MetricsReader,
-    reader::{PcdAsyncReader, RenderReader},
+    reader::PcdAsyncReader,
     renderer::Renderer,
 };
 use vivotk::utils::{
