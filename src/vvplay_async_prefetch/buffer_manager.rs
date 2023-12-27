@@ -111,7 +111,6 @@ impl BufferManager {
         // Since we prefetch after a `FetchDone` event, once the buffer is full, we can't prefetch anymore.
         // So, we set this flag to true once the buffer is full, so that when the frames are consumed and the first channels are discarded, we can prefetch again.
         let mut is_desired_buffer_level_reached = false;
-        //t: store the last request such that prefetch_frame_with_request can be called when the buffer size is only 1
         let mut last_req:Option<FrameRequest> = None;
         loop {
             println!{"---------------------------"};
@@ -120,11 +119,9 @@ impl BufferManager {
             //wait for message in self.shutdown_recv and self.to_buf_Rx
             //if a message is received, match the message with the bufmsg enum
             if !self.buffer.is_full() && !self.buffer.is_empty() {
-                //t: if the buffer is not empty and not full, add fetch request to populate the buffer
                 self.prefetch_frame(Some(CameraPosition::default()));
             } else if self.buffer.is_empty() && last_req.is_some(){
-                //t: for the case where the buffer is empty and buffer size = 1
-                //need fix: right now only make the camera position to be the default one
+                //temporary fix: right not just assign default camera position
                 self.prefetch_frame_with_request(Some(CameraPosition::default()), last_req.unwrap());
             }
             tokio::select! {
@@ -182,7 +179,6 @@ impl BufferManager {
                                                 // send to point cloud to renderer
                                                 _ = self.buf_out_sx.send((renderer_req, pc));
                                                 self.frame_to_answer = None;
-                                                //t: no idea how this work
                                                 front.req.frame_offset += 1; 
                                                 front.state = FrameStatus::Ready(remaining_frames - 1, rx);
                                                 println!("In FrameStatus::Ready, the front is {:?}", front);
@@ -244,12 +240,9 @@ impl BufferManager {
                                 self.frame_to_answer = None;
                                 metadata.frame_offset += 1;
                                 remaining -= 1;
-                                //t: send another frame request after the current frame is used, or I should not put it here?
                             }
-                            //t: if this one does not match frame to answer, just update the status of current frame to Ready
                             // cache the point cloud if there is still point clouds to render
                             self.buffer.update(orig_metadata, metadata.into(), FrameStatus::Ready(remaining, rx));
-                            //t: update the last request stored after a point cloud is rendered
                             last_req = Some(orig_metadata);
                         }
                     }

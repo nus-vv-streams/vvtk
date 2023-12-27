@@ -108,9 +108,7 @@ fn main() {
     let (total_frames_tx, total_frames_rx) = tokio::sync::oneshot::channel();
 
     // initialize variables based on args
-    //t: why is this not used?
     let buffer_capacity = args.buffer_capacity.unwrap_or(11);
-    //t: hard coded the buffer size
     let simulated_network_trace = args.network_trace.map(|path| NetworkTrace::new(&path));
     let simulated_camera_trace = args.camera_trace.map(|path| CameraTrace::new(&path, false));
     let record_camera_trace = args
@@ -152,7 +150,6 @@ fn main() {
                     ))
                     .expect("sent total frames");
 
-                //t: predict quality here
 
                 let qualities = fetcher
                     .mpd_parser
@@ -293,7 +290,6 @@ fn main() {
     // We run the decoder as a separate tokio task.
     // Decoder will read the buffer and send it over to the renderer.
     {
-        //t: will keep cloning buf wasted a lot of time?
         let to_buf_sx = to_buf_sx.clone();
         let mut shutdown_recv = shutdown_recv.clone();
         rt.spawn(async move {
@@ -330,7 +326,6 @@ fn main() {
                             };
                             decoder.start().unwrap();
                             let (output_sx, output_rx) = tokio::sync::mpsc::unbounded_channel();
-                            //t: inform message buffer that a point cloud is ready
                             _ = to_buf_sx
                                 .send(BufMsg::PointCloud((
                                     PCMetadata {
@@ -375,7 +370,6 @@ fn main() {
                     position: Point3::new(args.camera_x, args.camera_y, args.camera_z),
                     yaw: cgmath::Deg(args.camera_yaw).into(),
                     pitch: cgmath::Deg(args.camera_pitch).into(),
-                    //temporary fix: not sure what should be set for up
                     up: cgmath::Vector3::unit_y(),
                 },
                 simulated_camera_trace,
@@ -383,7 +377,6 @@ fn main() {
             )
             .await
     });
-    //t: store in buf_our_rx and out_buf_sx, buffer size then read using PcdAsyncReader?
     // let mut pcd_reader = PcdAsyncReader::new(buf_out_rx, out_buf_sx, args.buffer_size);
     let mut pcd_reader = PcdAsyncReader::new(buf_out_rx, to_buf_sx);
     // set the reader max length

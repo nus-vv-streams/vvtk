@@ -49,12 +49,12 @@ impl CameraTrace {
                             Point3::new(it.next().unwrap(), it.next().unwrap(), it.next().unwrap());
                         let pitch = cgmath::Deg(it.next().unwrap()).into();
                         let yaw = cgmath::Deg(it.next().unwrap()).into();
-                        //temporary fix: not sure what up is doing for now
+                        //temporary fix: assigned random value to up right now, not sure what should be put for "up" 
                         CameraPosition {
                             position,
                             pitch,
                             yaw,
-                            up: Vector3::new(0.0, 0.0, 0.0), //t: not sure what is this for, temporary fix
+                            up: Vector3::new(0.0, 0.0, 0.0), 
                         }
                     })
                     .collect();

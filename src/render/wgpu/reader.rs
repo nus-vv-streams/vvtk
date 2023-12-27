@@ -172,7 +172,6 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
 }
 
 pub struct PcdMemoryReader {
-    //t: not used yet?
     points: Vec<PointCloud<PointXyzRgba>>,
 }
 
@@ -208,9 +207,7 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdMemoryReader {
 pub struct PcdAsyncReader {
     total_frames: u64,
     rx: Receiver<(FrameRequest, PointCloud<PointXyzRgba>)>,
-    //t: add cache to store rendered point cloud
     cache: Vec<(u64, PointCloud<PointXyzRgba>)>,
-    //t: the request is sent from here all the time
     tx: UnboundedSender<BufMsg>,
 }
 
@@ -245,7 +242,6 @@ impl PcdAsyncReader {
             tx,
             // buffer_size,
             // cache: HashMap::with_capacity(buffer_size as usize),
-            //t: add the cache here, might need to change to a better data structure if needed
             cache: vec![],
             total_frames: 30, // default number of frames. Use `set_len` to overwrite this value
         }
@@ -267,21 +263,17 @@ impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         println!{"get at request index: {}", index};
         let index = index as u64;
         if let Some(&ref result) = self.cache.iter().find(|&i| i.0 == index) {
+            //t: 
             //it: f the result is already inside the cache, just return
             //can improve this find algorithm
             return (camera_pos, Some(result.1.clone()));
         }
-        //t: if it is not found, send the frame request to vvplay async there
         _ = self.tx.send(BufMsg::FrameRequest(FrameRequest {
             object_id: 0,
             frame_offset: index % self.total_frames,
             camera_pos,
         }));
-        //t: if there is any, send the camera pos and the point cloud, to modify, can manually set up the camera pos here
-        //t: if receive something from the rx channel, cache it then return
         if let Ok((frame_req, pc)) = self.rx.recv() {
-            //t: cache the result here first
-            //t: the cache has size 10 for now
             if self.cache.len() >= 10 {
                 self.cache.pop();
             }
