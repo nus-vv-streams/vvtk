@@ -1,6 +1,7 @@
-use cgmath::{Point3, Vector3};
+use cgmath::Point3;
 use clap::Parser;
 use log::{debug, info, trace, warn};
+use vivotk::render::wgpu::reader::RenderReaderCameraPos;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 use vivotk::abr::quetra::{Quetra, QuetraMultiview};
@@ -405,6 +406,7 @@ fn main() {
     //         metrics,
     //     ))
     // } else {
+        //t: pcd reader still using normal render reader, and it is not implemented now
         builder.add_window(Renderer::new(
             pcd_reader,
             args.fps,

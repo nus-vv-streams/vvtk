@@ -6,7 +6,6 @@ use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::render::wgpu::{camera::CameraPosition,reader::FrameRequest};
 use crate::vvplay_async_prefetch::camera_trace::CameraTrace;
 use crate::vvplay_async_prefetch::fetch_request::FetchRequest;
-use log::trace;
 
 /**
  * This file contains Buffer Manager struct and related implementation
@@ -127,21 +126,20 @@ impl BufferManager {
             }
             tokio::select! {
                 _ = self.shutdown_recv.changed() => {
+                    /* 
                     println!{"---------------------------"};
                     println!{"in vvplay_async:"}
                     println!{"[buffer mgr] received shutdown signal"};
-                    trace!("[buffer mgr] received shutdown signal");
+                    */
                     break;
                 }
                 Some(msg) = self.to_buf_rx.recv() => {
                     match msg {
                         BufMsg::FrameRequest(mut renderer_req) => {
+                            /*
                             println!{"---------------------------"};
                             println!{"[buffer mgr] renderer sent a frame request {:?}", &renderer_req};
-                            trace!(
-                                "[buffer mgr] renderer sent a frame request {:?}",
-                                &renderer_req
-                            );
+                            */
                             // record camera trace
                             if record_camera_trace.is_some() && renderer_req.camera_pos.is_some() {
                                 if let Some(ct) = record_camera_trace.as_mut() { ct.add(renderer_req.camera_pos.unwrap()) }

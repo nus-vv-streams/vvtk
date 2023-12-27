@@ -251,7 +251,7 @@ impl PcdAsyncReader {
 #[cfg(feature = "dash")]
 impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PcdAsyncReader {
     fn start(&mut self) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
-        self.get_at(0, None)
+        RenderReaderCameraPos::get_at(self, 0, None)
     }
 
     fn get_at(
@@ -259,8 +259,10 @@ impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         index: usize,
         camera_pos: Option<CameraPosition>,
     ) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
+        /* 
         println!("----------------------------------");
         println!{"get at request index: {}", index};
+        */
         let index = index as u64;
         if let Some(&ref result) = self.cache.iter().find(|&i| i.0 == index) {
             //t: 
@@ -282,6 +284,57 @@ impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PcdAsyncReader {
             (frame_req.camera_pos, Some(pc))
         } else {
             (None, None)
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.total_frames as usize
+    }
+
+    fn is_empty(&self) -> bool {
+        false
+    }
+
+    fn set_len(&mut self, len: usize) {
+        self.total_frames = len as u64;
+    }
+
+    fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
+}
+
+
+impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
+    fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
+        RenderReader::get_at(self, 0)
+    }
+
+    fn get_at(
+        &mut self,
+        index: usize,
+    ) -> Option<PointCloud<PointXyzRgba>> {
+        /*
+        println!("----------------------------------");
+        println!{"get at request index: {}", index};
+        */
+        let index = index as u64;
+        if let Some(&ref result) = self.cache.iter().find(|&i| i.0 == index) {
+            //can improve this O(n) find algorithm in future
+            return Some(result.1.clone());
+        }
+        _ = self.tx.send(BufMsg::FrameRequest(FrameRequest {
+            object_id: 0,
+            frame_offset: index % self.total_frames,
+            camera_pos: None
+        }));
+        if let Ok((frame_req, pc)) = self.rx.recv() {
+            if self.cache.len() >= 10 {
+                self.cache.pop();
+            }
+            //println!("one frame is added to the point cloud cache: index:{}", index);
+            self.cache.push((index, pc.clone()));
+            Some(pc)
+        } else {
+            None
         }
     }
 
