@@ -84,19 +84,19 @@ impl BufferManager {
         _ = self
             .buf_in_sx
             .send(FetchRequest::new(req, self.buffer.len()));
-        println!("In prefetch_frame, the request is {:?}", req);
+        //println!("In prefetch_frame, the request is {:?}", req);
 
         self.buffer.add(req);
     }
 
-    // Overloading prefetch_frame such that we can specify which frame to be prefetched 
+    // Overloading prefetch_frame so we can specify which frame to be prefetched 
     pub fn prefetch_frame_with_request(&mut self, camera_pos: Option<CameraPosition>, last_req: FrameRequest) {
         assert!(camera_pos.is_some());
         let req = self.get_next_frame_req(&last_req);
         _ = self
             .buf_in_sx
             .send(FetchRequest::new(req, self.buffer.len()));
-        println!("In prefetch_frame_with_request, the request is {:?}", req);
+        //println!("In prefetch_frame_with_request, the request is {:?}", req);
 
         self.buffer.add(req);
     }
@@ -113,9 +113,10 @@ impl BufferManager {
         let mut is_desired_buffer_level_reached = false;
         let mut last_req:Option<FrameRequest> = None;
         loop {
+            /* 
             println!{"---------------------------"};
             println!("buffer: {:?}", &self.buffer);
-            trace!("buffer: {:?}", &self.buffer);
+            */
             //wait for message in self.shutdown_recv and self.to_buf_Rx
             //if a message is received, match the message with the bufmsg enum
             if !self.buffer.is_full() && !self.buffer.is_empty() {
@@ -181,12 +182,12 @@ impl BufferManager {
                                                 self.frame_to_answer = None;
                                                 front.req.frame_offset += 1; 
                                                 front.state = FrameStatus::Ready(remaining_frames - 1, rx);
-                                                println!("In FrameStatus::Ready, the front is {:?}", front);
+                                                //println!("In FrameStatus::Ready, the front is {:?}", front);
                                                 if remaining_frames > 1 {
                                                     // we only reinsert it if there are more frames to render
                                                     self.buffer.push_front(front);
                                                 } else if !is_desired_buffer_level_reached {
-                                                    println!("in FrameStatus::Ready::!is_desired_buffer_level_reached");
+                                                    //println!("in FrameStatus::Ready::!is_desired_buffer_level_reached");
                                                     //if the desired buffer level is not reached, should add in a new frame
                                                     self.prefetch_frame(original_camera_pos);
                                                 }
@@ -213,8 +214,10 @@ impl BufferManager {
                         }
                         BufMsg::FetchDone(req) => {
                             // upon receiving fetch result, immediately schedule the next fetch request
+                            /* 
                             println!{"---------------------------"};
                             println!("the current buffer message is fetch done for {:?}", req);
+                            */
                             self.buffer.update_state(req, FrameStatus::Decoding);
 
                             if !self.buffer.is_full() {
@@ -225,8 +228,10 @@ impl BufferManager {
                             }
                         }
                         BufMsg::PointCloud((mut metadata, mut rx)) => {
+                            /*
                             println!{"---------------------------"};
                             println!("[buffer mgr] received a point cloud result {:?}", &metadata);
+                             */
                             let orig_metadata: FrameRequest = metadata.into();
                             //if this frame is the one that the renderer is awaiting, do not put it back and send it to the renderer
                             let mut remaining = self.segment_size as usize;
