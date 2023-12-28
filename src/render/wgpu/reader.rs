@@ -314,16 +314,19 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         println!{"get at request index: {}", index};
         */
         let index = index as u64;
+        // Everytime a request is made, find it from the playback cache first
         if let Some(&ref result) = self.cache.iter().find(|&i| i.0 == index) {
             //can improve this O(n) find algorithm in future
             return Some(result.1.clone());
         }
+        // Send request to prepare for the frame
         _ = self.tx.send(BufMsg::FrameRequest(FrameRequest {
             object_id: 0,
             frame_offset: index % self.total_frames,
             camera_pos: None,
         }));
-        if let Ok((frame_req, pc)) = self.rx.recv() {
+        // Wait for the point cloud to be ready, cache it then return
+        if let Ok((_frame_req, pc)) = self.rx.recv() {
             if self.cache.len() >= 10 {
                 self.cache.pop();
             }
