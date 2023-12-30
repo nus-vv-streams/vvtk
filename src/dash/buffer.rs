@@ -183,7 +183,7 @@ impl Buffer {
     }
 
     pub fn is_frame_in_buffer(&self, req: FrameRequest) -> bool {
-        // This implementation assumes that the frame stored in the buffer is sequential.
+        // This implementation assumes that the frame index stored in the buffer form contiguous sequence.
         // If the first frame offset is 2, last frame offset is 5, then frame 3, 4 will also exist in current buffer.
         if req.frame_offset >= self.front().unwrap().req.frame_offset
             && req.frame_offset <= self.back().unwrap().req.frame_offset
