@@ -157,20 +157,20 @@ impl BufferManager {
                                 viewport_predictor.add(renderer_req.camera_pos.unwrap_or_else(|| original_position));
                                 renderer_req.camera_pos = viewport_predictor.predict();
                             }
-                            
+
                             // First, attempt to fulfill the request from the renderer.
-                            // If the requested frame is not inside the buffer, we will clear the buffer. 
+                            // If the requested frame is not inside the buffer, we will clear the buffer.
                             if !self.buffer.is_empty() && !self.buffer.is_frame_in_buffer(renderer_req) {
                                 self.buffer.clear();
                             } else if !self.buffer.is_empty() && self.buffer.is_frame_in_buffer(renderer_req)  {
-                                // If the frame requested is inside the buffer, we will pop all previous frame such that the requested frame is at front. 
+                                // If the frame requested is inside the buffer, we will pop all previous frame such that the requested frame is at front.
                                 let num_frames_to_remove = renderer_req.frame_offset - self.buffer.front().unwrap().req.frame_offset;
                                 for _ in 0..num_frames_to_remove {
                                     self.buffer.pop_front();
                                 }
                             }
 
-                            // When the requested frame is in front of the buffer 
+                            // When the requested frame is in front of the buffer
                             if !self.buffer.is_empty() && self.buffer.front().unwrap().req.frame_offset == renderer_req.frame_offset {
                                 let mut front = self.buffer.pop_front().unwrap();
                                 match front.state {
@@ -241,7 +241,7 @@ impl BufferManager {
                             //println!{"---------------------------"};
                             //println!("[buffer mgr] received a point cloud result {:?}", &metadata);
                             let orig_metadata: FrameRequest = metadata.into();
-                            // Only update the frame state in buffer when the frame is still in the buffer  
+                            // Only update the frame state in buffer when the frame is still in the buffer
                             if !self.buffer.is_empty() && self.buffer.is_frame_in_buffer(orig_metadata) {
                             let mut remaining = self.segment_size as usize;
                             if self.frame_to_answer.is_some()

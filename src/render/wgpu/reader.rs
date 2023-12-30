@@ -308,7 +308,7 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
     }
 
     fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-        /* 
+        /*
         println!("----------------------------------");
         println!{"get at request index: {}", index};
         */
