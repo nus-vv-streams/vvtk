@@ -102,9 +102,6 @@ impl Buffer {
     #[inline]
     /// Update the request and state of a frame. Panics if key is not found. If the new_state is Ready(0, _), the frame is removed.
     pub fn update(&mut self, key: FrameRequest, new_key: FrameRequest, new_state: FrameStatus) {
-        //t: who called this while the frame is decoding in the buffer
-        //t: this caused a crash because the frames are removed 
-        println!("update is called from {:?} to {:?} with state {:?}", key, new_key, new_state);
         let idx = self
             .frames
             .iter()
@@ -183,5 +180,16 @@ impl Buffer {
 
     pub fn clear(&mut self) {
         self.frames.clear();
+    }
+
+    pub fn is_frame_in_buffer(&self, req: FrameRequest) -> bool {
+        // This implementation assumes that the frame stored in the buffer is sequential.
+        // If the first frame offset is 2, last frame offset is 5, then frame 3, 4 will also exist in current buffer.
+        if req.frame_offset >= self.front().unwrap().req.frame_offset
+            && req.frame_offset <= self.back().unwrap().req.frame_offset
+        {
+            return true;
+        }
+        return false;
     }
 }
