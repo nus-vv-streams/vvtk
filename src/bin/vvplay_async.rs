@@ -326,7 +326,11 @@ fn main() {
                                 },
                             };
                             decoder.start().unwrap();
+                            //t: the unbound receiver for PointCloud is here, trace this down
+                            // Everytime a PointCloud is ready, an unbounded channel is created
+                            // t: For case of Noop, only one PointCloud will be produced each time, not sure about other decoder
                             let (output_sx, output_rx) = tokio::sync::mpsc::unbounded_channel();
+                            // Send BufMsg to inform the buffer that the PointCloud is ready
                             _ = to_buf_sx
                                 .send(BufMsg::PointCloud((
                                     PCMetadata {

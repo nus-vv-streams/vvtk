@@ -102,6 +102,9 @@ impl Buffer {
     #[inline]
     /// Update the request and state of a frame. Panics if key is not found. If the new_state is Ready(0, _), the frame is removed.
     pub fn update(&mut self, key: FrameRequest, new_key: FrameRequest, new_state: FrameStatus) {
+        //t: who called this while the frame is decoding in the buffer
+        //t: this caused a crash because the frames are removed 
+        println!("update is called from {:?} to {:?} with state {:?}", key, new_key, new_state);
         let idx = self
             .frames
             .iter()
@@ -176,5 +179,9 @@ impl Buffer {
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut RequestStatus> {
         self.frames.iter_mut()
+    }
+
+    pub fn clear(&mut self) {
+        self.frames.clear();
     }
 }
