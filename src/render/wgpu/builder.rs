@@ -11,12 +11,22 @@ pub struct RenderEvent {
     pub(crate) event_type: EventType,
 }
 
+impl RenderEvent {
+    pub fn new(window_id: WindowId, event_type: EventType) -> Self {
+        Self {
+            window_id,
+            event_type,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum EventType {
     MoveTo(usize),
     Toggle,
     Info(RenderInformation),
     Repaint,
+    Shutdown,
     ResizeControlInMainLoop(PhysicalSize<u32>),
 }
 
@@ -81,6 +91,14 @@ impl RenderBuilder {
 
     pub fn get_windowed_mut(&mut self, id: WindowId) -> Option<&mut Box<dyn Windowed>> {
         self.window_objects.get_mut(&id).map(|obj| &mut obj.object)
+    }
+
+    pub fn get_proxy(&self) -> winit::event_loop::EventLoopProxy<RenderEvent> {
+        self.event_loop.create_proxy()
+    }
+
+    pub fn get_window_ids(&self) -> Vec<WindowId> {
+        self.window_objects.keys().copied().collect()
     }
 
     pub fn run(mut self) {

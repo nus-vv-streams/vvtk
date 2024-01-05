@@ -4,6 +4,7 @@ use crate::render::wgpu::builder::{
 use crate::render::wgpu::camera::{Camera, CameraState, CameraUniform};
 use crate::render::wgpu::gpu::WindowGpu;
 use crate::render::wgpu::reader::RenderReader;
+use log::debug;
 use std::iter;
 use std::marker::PhantomData;
 use std::time::{Duration, Instant};
@@ -128,6 +129,7 @@ where
     }
 }
 
+/// Renderer's state
 pub struct State<T, U>
 where
     T: RenderReader<U>,
@@ -189,10 +191,13 @@ where
                 let now = Instant::now();
                 let dt = now - last_render_time;
                 self.last_render_time = Some(now);
-                match self.update(dt) {
+                match self.redraw(dt) {
                     Ok(_) => {}
+                    // Reconfigure the surface if lost
+                    Err(wgpu::SurfaceError::Lost) => self.resize(self.gpu.size),
+                    // TODO: The system is out of memory, we should probably quit
                     Err(wgpu::SurfaceError::OutOfMemory) => {}
-                    Err(e) => eprintln!("Dropped frame due to {:?}", e),
+                    Err(e) => eprintln!("Dropped frame due to {e:?}"),
                 }
             }
             Event::UserEvent(RenderEvent {
@@ -267,8 +272,8 @@ where
         state.update_stats();
         match state.render() {
             Ok(_) => {}
-            Err(wgpu::SurfaceError::OutOfMemory) => {}
-            Err(e) => eprintln!("Dropped frame due to {:?}", e),
+            Err(wgpu::SurfaceError::OutOfMemory) => eprintln!("Out of memory"),
+            Err(e) => eprintln!("Dropped frame due to {e:?}"),
         }
         state
     }
@@ -301,6 +306,7 @@ where
         self.update_stats();
         // FIXME: avg_fps might not be accurately when a frame fails to render. but it's not a big deal
         let time_taken = now.elapsed();
+        debug!("move_to {} takes: {} µs", position, time_taken.as_micros());
         // println!(
         //     "time taken: {}",
         //     time_taken.max(self.time_to_advance).as_secs_f32()
@@ -316,19 +322,11 @@ where
     }
 
     fn advance(&mut self) {
-        // println!(
-        //     "[renderer.rs] advanced called. current_position: {}",
-        //     self.current_position
-        // );
         if self.current_position == self.reader.len() - 1 {
             self.move_to(0);
         } else {
             self.move_to(self.current_position + 1);
         }
-    }
-
-    fn current(&mut self) -> Option<U> {
-        self.reader.get_at(self.current_position)
     }
 
     fn handle_device_event(&mut self, event: &DeviceEvent) {
@@ -356,12 +354,12 @@ where
         }
     }
 
-    fn update(&mut self, dt: Duration) -> Result<(), SurfaceError> {
+    fn redraw(&mut self, dt: Duration) -> Result<(), SurfaceError> {
         self.camera_state.update(dt);
         self.reader
             .set_camera_state(Some(self.camera_state.clone())); // TODO might be expensive
         self.pcd_renderer
-            .update_camera(&self.gpu.queue, self.camera_state.camera_uniform());
+            .update_camera(&self.gpu.queue, self.camera_state.camera_uniform);
 
         if self.state == PlaybackState::Play {
             self.time_since_last_update += dt;
@@ -372,7 +370,7 @@ where
         };
 
         let info = RenderInformation {
-            camera: self.camera_state.camera(),
+            camera: self.camera_state.camera,
             current_position: self.current_position,
             fps: self.fps,
         };
@@ -388,8 +386,29 @@ where
         self.render()
     }
 
+    // temporary fix: remove this function because CameraPosition is not yet compatible with the rest of the code
+    // use the original update_vertices function for now
+
+    /// Update the vertices and optionally updates camera position
+    /*
     fn update_vertices(&mut self) -> bool {
-        if let Some(data) = self.current() {
+        if let (camera_pos, Some(data)) = self
+            .reader
+            .get_at(self.current_position, Some(*self.camera_state.camera))
+        {
+            self.pcd_renderer
+                .update_vertices(&self.gpu.device, &self.gpu.queue, &data);
+            if let Some(pos) = camera_pos {
+                *self.camera_state.camera = pos;
+            }
+            return true;
+        }
+        false
+    }
+    */
+
+    fn update_vertices(&mut self) -> bool {
+        if let Some(data) = self.reader.get_at(self.current_position) {
             self.pcd_renderer
                 .update_vertices(&self.gpu.device, &self.gpu.queue, &data);
             return true;
@@ -419,6 +438,7 @@ where
         );
 
         self.staging_belt.finish();
+        // Calls encoder.finish() to obtain a CommandBuffer and submits it to the queue.
         self.gpu.queue.submit(iter::once(encoder.finish()));
         output.present();
         self.staging_belt.recall();
@@ -468,7 +488,7 @@ where
         let (depth_texture, depth_view) = T::create_depth_texture(device, initial_size);
 
         let vertex_buffer = initial_render.create_buffer(device);
-        let num_vertices = initial_render.vertices();
+        let num_vertices = initial_render.num_vertices();
 
         Self {
             camera_buffer,
@@ -492,7 +512,7 @@ where
         }
     }
 
-    pub fn update_camera(&self, queue: &Queue, camera_uniform: CameraUniform) {
+    fn update_camera(&self, queue: &Queue, camera_uniform: CameraUniform) {
         queue.write_buffer(
             &self.camera_buffer,
             0,
@@ -501,7 +521,7 @@ where
     }
 
     pub fn update_vertices(&mut self, device: &Device, queue: &Queue, data: &T) {
-        let vertices = data.vertices();
+        let vertices = data.num_vertices();
         if vertices > self.num_vertices {
             self.vertex_buffer.destroy();
             self.vertex_buffer = data.create_buffer(device);
@@ -511,19 +531,26 @@ where
         self.num_vertices = vertices;
     }
 
+    /// Stores render commands into encoder, specifying which texture to save the colors to.
     pub fn render(&mut self, encoder: &mut CommandEncoder, view: &TextureView) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                // which texture to save the colors to
                 view,
+                // the texture that will receive the resolved output. Same as `view` unless multisampling is enabled.
+                // As we don't need to specify this, we leave it as None.
                 resolve_target: None,
                 ops: wgpu::Operations {
+                    // `load` field tells wgpu how to handle colors stored from the previous frame.
+                    // This will clear the screen with a bluish color.
                     load: wgpu::LoadOp::Clear(wgpu::Color {
                         r: self.bg_color.r / 255.0,
                         g: self.bg_color.g / 255.0,
                         b: self.bg_color.b / 255.0,
                         a: 1.0,
                     }),
+                    // true if we want to store the rendered results to the Texture behind our TextureView (in this case it's the SurfaceTexture).
                     store: true,
                 },
             })],

@@ -94,7 +94,7 @@ impl Metrics {
         W: Write,
     {
         for (key, val) in self.0.iter() {
-            writeln!(writer, "{},{}", key, val)?;
+            writeln!(writer, "{key},{val}")?;
         }
         Ok(())
     }

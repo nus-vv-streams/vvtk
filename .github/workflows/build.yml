@@ -17,6 +17,10 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Setup FFmpeg
-      uses: FedericoCarboni/setup-ffmpeg@v3      
+      uses: FedericoCarboni/setup-ffmpeg@v3
+    - name: Install AV Libraries
+      uses: awalsh128/cache-apt-pkgs-action@v1.3.1
+      with:
+        packages: libavcodec-dev libavutil-dev libavformat-dev libavfilter-dev libavdevice-dev
     - name: Build
       run: cargo build --all-targets --all-features

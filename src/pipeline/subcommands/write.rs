@@ -1,5 +1,6 @@
 use cgmath::num_traits::pow;
 use clap::Parser;
+// use log::warn;
 
 use crate::pcd::{create_pcd, create_pcd_from_pc_normal, write_pcd_file, PCDDataType};
 use crate::pipeline::channel::Channel;
@@ -44,9 +45,11 @@ impl Write {
 
 impl Subcommand for Write {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
+        println!("Start writing...");
         let output_path = Path::new(&self.args.output_dir);
         let max_count = pow(10, self.args.name_length);
         for message in messages {
+            println!("message: {:?}", message);
             match &message {
                 PipelineMessage::IndexedPointCloud(pc, i) => {
                     // println!("Writing point cloud with point num {}", pc.points.len());

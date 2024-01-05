@@ -1,5 +1,6 @@
 use cgmath::*;
-use std::f32::consts::FRAC_PI_2;
+use std::f32::consts::{FRAC_PI_2, PI};
+use std::ops::{Deref, DerefMut};
 use std::time::Duration;
 use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalPosition;
@@ -13,9 +14,9 @@ const PROJECTION_ZFAR: f32 = 100.0;
 
 #[derive(Clone)]
 pub struct CameraState {
-    camera: Camera,
+    pub(super) camera: Camera,
     camera_controller: CameraController,
-    camera_uniform: CameraUniform,
+    pub(super) camera_uniform: CameraUniform,
     projection: Projection,
     mouse_pressed: bool,
 }
@@ -80,14 +81,6 @@ impl CameraState {
         (camera_buffer, camera_bind_group_layout, camera_bind_group)
     }
 
-    pub fn camera_uniform(&self) -> CameraUniform {
-        self.camera_uniform
-    }
-
-    pub fn camera(&self) -> Camera {
-        self.camera
-    }
-
     pub fn update(&mut self, dt: std::time::Duration) {
         self.camera_controller.update_camera(&mut self.camera, dt);
         self.camera_uniform
@@ -112,6 +105,10 @@ impl CameraState {
                 true
             }
             DeviceEvent::Button {
+                button: 0, // in mac: touchpad pressed
+                state,
+            }
+            | DeviceEvent::Button {
                 button: 1, // Left Mouse Button
                 state,
             } => {
@@ -140,6 +137,8 @@ impl CameraState {
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+/// Create a uniform buffer: a blob of data that is available to every invocation of a set of shaders.
+/// This buffer is used to store our view projection matrix
 pub struct CameraUniform {
     view_position: [f32; 4],
     view_proj: [[f32; 4]; 4],
@@ -157,7 +156,7 @@ impl Default for CameraUniform {
 impl CameraUniform {
     fn update_view_proj(&mut self, camera: &Camera, projection: &Projection) {
         self.view_position = camera.position.to_homogeneous().into();
-        self.view_proj = (projection.calc_matrix() * camera.calc_matrix()).into()
+        self.view_proj = (projection.matrix() * camera.calc_matrix()).into()
     }
 }
 
@@ -174,23 +173,70 @@ const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Camera {
+    current: CameraPosition,
+    /// original position of the camera
+    orig: CameraPosition,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+/// The position of the camera
+pub struct CameraPosition {
     pub position: Point3<f32>,
+    /// Yaw is the rotation around the y axis
+    /// - -90deg is looking down the negative z axis
+    /// - 0deg is looking down the positive x axis
     pub yaw: Rad<f32>,
+    /// Pitch is the rotation around the x axis
+    /// - 0deg is looking down the z axis
+    /// - 90deg is looking down the positive y axis
     pub pitch: Rad<f32>,
     pub up: Vector3<f32>, // either unit_y or -unit_y
 }
 
+impl Default for CameraPosition {
+    fn default() -> Self {
+        Self {
+            position: Point3::new(0.0, 0.0, 0.0),
+            yaw: Rad(0.0),
+            pitch: Rad(0.0),
+            up: Vector3::unit_y(),
+        }
+    }
+}
+
+impl Deref for Camera {
+    type Target = CameraPosition;
+    fn deref(&self) -> &Self::Target {
+        &self.current
+    }
+}
+
+impl DerefMut for Camera {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.current
+    }
+}
+
 impl Camera {
-    pub fn new<V: Into<Point3<f32>>, Y: Into<Rad<f32>>, P: Into<Rad<f32>>>(
+    pub fn new<
+        V: Into<Point3<f32>> + Clone,
+        Y: Into<Rad<f32>> + Clone,
+        P: Into<Rad<f32>> + Clone,
+    >(
         position: V,
         yaw: Y,
         pitch: P,
     ) -> Self {
-        Self {
+        let position = CameraPosition {
             position: position.into(),
             yaw: yaw.into(),
             pitch: pitch.into(),
             up: Vector3::unit_y(),
+        };
+
+        Self {
+            current: position,
+            orig: position,
         }
     }
 
@@ -203,6 +249,11 @@ impl Camera {
             Vector3::new(cos_pitch * cos_yaw, sin_pitch, cos_pitch * sin_yaw).normalize(),
             self.up,
         )
+    }
+
+    /// Resets camera to its first state
+    fn reset(&mut self) {
+        self.current = self.orig;
     }
 }
 
@@ -228,7 +279,8 @@ impl Projection {
         self.aspect = width as f32 / height as f32;
     }
 
-    pub fn calc_matrix(&self) -> Matrix4<f32> {
+    /// Get projection matrix
+    pub fn matrix(&self) -> Matrix4<f32> {
         OPENGL_TO_WGPU_MATRIX * perspective(self.fovy, self.aspect, self.znear, self.zfar)
     }
 }
@@ -255,6 +307,7 @@ pub struct CameraController {
     scroll: f32,
     speed: f32,
     sensitivity: f32,
+    reset_view_requested: bool,
     if_reset: bool,
     initial_camera: Camera,
     rotate_direction: RotateDirection,
@@ -274,6 +327,7 @@ impl CameraController {
             scroll: 0.0,
             speed,
             sensitivity,
+            reset_view_requested: false,
             if_reset: false,
             initial_camera,
             rotate_direction: RotateDirection::NoRotation,
@@ -309,6 +363,10 @@ impl CameraController {
             }
             VirtualKeyCode::E => {
                 self.amount_down = amount;
+                true
+            }
+            VirtualKeyCode::R => {
+                self.reset_view_requested = true;
                 true
             }
             VirtualKeyCode::Key0 => {
@@ -397,6 +455,11 @@ impl CameraController {
     }
 
     pub fn update_camera(&mut self, camera: &mut Camera, dt: Duration) {
+        if self.reset_view_requested {
+            camera.reset();
+            self.reset_view_requested = false;
+            return;
+        }
         if self.if_reset {
             camera.position = self.initial_camera.position.clone();
             camera.yaw = self.initial_camera.yaw.clone();
@@ -431,8 +494,14 @@ impl CameraController {
         camera.position.y += (self.amount_up - self.amount_down) * self.speed * dt * 0.5;
 
         // Rotate
-        camera.yaw += Rad(self.rotate_horizontal) * self.sensitivity * dt;
-        camera.pitch += Rad(-self.rotate_vertical) * self.sensitivity * dt;
+        camera.yaw = delta_with_clamp(
+            camera.yaw,
+            Rad(self.rotate_horizontal) * self.sensitivity * dt,
+        );
+        camera.pitch = delta_with_clamp(
+            camera.pitch,
+            Rad(-self.rotate_vertical) * self.sensitivity * dt,
+        );
 
         // If process_mouse isn't called every frame, these values
         // will not get set to zero, and the camera will rotate
@@ -447,5 +516,16 @@ impl CameraController {
         //     camera.pitch = Rad(SAFE_FRAC_PI_2);
         // }
         // since we want to rotate the camera vertically, we don't need to limit the pitch
+    }
+}
+
+fn delta_with_clamp(orig: Rad<f32>, delta: Rad<f32>) -> Rad<f32> {
+    let result = orig + delta;
+    if result < -Rad(PI) {
+        Rad(2.0 * PI) + result
+    } else if result > Rad(PI) {
+        -Rad(2.0 * PI) + result
+    } else {
+        result
     }
 }
