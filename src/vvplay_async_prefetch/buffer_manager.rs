@@ -115,21 +115,21 @@ impl BufferManager {
         // Since we prefetch after a `FetchDone` event, once the buffer is full, we can't prefetch anymore.
         // So, we set this flag to true once the buffer is full, so that when the frames are consumed and the first channels are discarded, we can prefetch again.
         let mut is_desired_buffer_level_reached = false;
-        // last_req is only use for buffer size = 1, and it is update after the last PointCloud is received. 
+        // last_req is only use for buffer size = 1, and it is update after the last PointCloud is received.
         let mut last_req: Option<FrameRequest> = None;
         loop {
-            println!{"---------------------------"};
-            println!("buffer: {:?}", &self.buffer);
-            //This logic can be improved but it needs to be thoroughly tested. 
+            //println!{"---------------------------"};
+            //println!("buffer: {:?}", &self.buffer);
+            //This logic can be improved but it needs to be thoroughly tested.
             if !self.buffer.is_full() && !self.buffer.is_empty() {
                 // This is executed when there is some frame inside the buffer, and the buffer is not full.
-                println!("---------------------------");
-                println!{"buffer is not full neither empty, prefetching frame"};
+                //println!("---------------------------");
+                //println!{"buffer is not full neither empty, prefetching frame"};
                 self.prefetch_frame(Some(CameraPosition::default()));
             } else if self.buffer.is_empty() && last_req.is_some() {
                 // If the buffer is currently empty, we continue to prefetch the frame, necessary for buffer size = 1
-                println!{"---------------------------"};
-                println!{"buffer is empty and there is last request, prefetching frame"};
+                //println!{"---------------------------"};
+                //println!{"buffer is empty and there is last request, prefetching frame"};
                 self.prefetch_frame_with_request(
                     Some(last_req.unwrap().camera_pos.unwrap()),
                     last_req.unwrap(),
@@ -142,8 +142,8 @@ impl BufferManager {
                 Some(msg) = self.to_buf_rx.recv() => {
                     match msg {
                         BufMsg::FrameRequest(mut renderer_req) => {
-                            println!{"---------------------------"};
-                            println!{"[buffer mgr] renderer sent a frame request {:?}", &renderer_req};
+                            //println!{"---------------------------"};
+                            //println!{"[buffer mgr] renderer sent a frame request {:?}", &renderer_req};
                             if record_camera_trace.is_some() && renderer_req.camera_pos.is_some() {
                                 if let Some(ct) = record_camera_trace.as_mut() { ct.add(renderer_req.camera_pos.unwrap()) }
                             }
@@ -199,7 +199,7 @@ impl BufferManager {
                                                     // we only reinsert it if there are more frames to render
                                                     self.buffer.push_front(front);
                                                 } else if !is_desired_buffer_level_reached {
-                                                    println!("in FrameStatus::Ready::!is_desired_buffer_level_reached");
+                                                    //println!("in FrameStatus::Ready::!is_desired_buffer_level_reached");
                                                     //if the desired buffer level is not reached, should add in a new frame
                                                     self.prefetch_frame(original_camera_pos);
                                                 }
@@ -226,8 +226,8 @@ impl BufferManager {
                         }
                         BufMsg::FetchDone(req) => {
                             // upon receiving fetch result, immediately schedule the next fetch request
-                            println!{"---------------------------"};
-                            println!("the current buffer message is fetch done for {:?}", req);
+                            //println!{"---------------------------"};
+                            //println!("the current buffer message is fetch done for {:?}", req);
                             self.buffer.update_state(req, FrameStatus::Decoding);
 
                             if !self.buffer.is_full() {
@@ -238,8 +238,8 @@ impl BufferManager {
                             }
                         }
                         BufMsg::PointCloud((mut metadata, mut rx)) => {
-                            println!{"---------------------------"};
-                            println!("[buffer mgr] received a point cloud result {:?}", &metadata);
+                            //println!{"---------------------------"};
+                            //println!("[buffer mgr] received a point cloud result {:?}", &metadata);
                             // When using PCMetaData::into(), there is no CameraPosition by default
                             let orig_metadata: FrameRequest = metadata.into();
                             // Only update the frame state in buffer when the frame is still in the buffer
@@ -258,7 +258,7 @@ impl BufferManager {
                             }
                             // Cache the point cloud if there is still point clouds to render
                             self.buffer.update(orig_metadata, metadata.into(), FrameStatus::Ready(remaining, rx));
-                            // Store the metadata and assign default CameraPosition for the next frame. 
+                            // Store the metadata and assign default CameraPosition for the next frame.
                             last_req = Some(orig_metadata);
                             last_req.unwrap().camera_pos = Some(CameraPosition::default());
                         }

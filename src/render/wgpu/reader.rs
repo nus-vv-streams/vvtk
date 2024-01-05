@@ -34,6 +34,7 @@ pub trait RenderReaderCameraPos<T: Renderable> {
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
     fn set_len(&mut self, len: usize);
+    fn set_cache_size(&mut self, size: usize);
     fn set_camera_state(&mut self, camera_state: Option<CameraState>);
 }
 
@@ -127,7 +128,10 @@ impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PointCloudFileReader {
         _camera_pos: Option<CameraPosition>,
     ) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
         let file_path = self.files.get(index).unwrap();
-        (Some(CameraPosition::default()), read_file_to_point_cloud(file_path))
+        (
+            Some(CameraPosition::default()),
+            read_file_to_point_cloud(file_path),
+        )
     }
 
     fn len(&self) -> usize {
@@ -139,6 +143,8 @@ impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PointCloudFileReader {
     }
 
     fn set_len(&mut self, _len: usize) {}
+
+    fn set_cache_size(&mut self, size: usize) {}
 
     fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
 }
@@ -204,7 +210,9 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdMemoryReader {
 pub struct PcdAsyncReader {
     total_frames: u64,
     rx: Receiver<(FrameRequest, PointCloud<PointXyzRgba>)>,
+    //playback cache
     cache: Vec<(u64, PointCloud<PointXyzRgba>)>,
+    cache_size: usize,
     tx: UnboundedSender<BufMsg>,
 }
 
@@ -240,6 +248,7 @@ impl PcdAsyncReader {
             // buffer_size,
             // cache: HashMap::with_capacity(buffer_size as usize),
             cache: vec![],
+            cache_size: 10, //default number of size, Use `set_size` to overwrite this value
             total_frames: 30, // default number of frames. Use `set_len` to overwrite this value
         }
     }
@@ -272,7 +281,7 @@ impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PcdAsyncReader {
             camera_pos,
         }));
         if let Ok((frame_req, pc)) = self.rx.recv() {
-            if self.cache.len() >= 10 {
+            if self.cache.len() >= self.cache_size {
                 self.cache.pop();
             }
             //println!(
@@ -298,6 +307,10 @@ impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         self.total_frames = len as u64;
     }
 
+    fn set_cache_size(&mut self, size: usize) {
+        self.cache_size = size;
+    }
+
     fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
 }
 
@@ -307,8 +320,8 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
     }
 
     fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-        println!("----------------------------------");
-        println!{"get at request index: {}", index};
+        //println!("----------------------------------");
+        //println!{"get at request index: {}", index};
         let index = index as u64;
         // Everytime a request is made, find it from the playback cache first
         if let Some(&ref result) = self.cache.iter().find(|&i| i.0 == index) {
