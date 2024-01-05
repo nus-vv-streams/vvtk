@@ -16,5 +16,7 @@ jobs:
       RUSTFLAGS: --deny warnings
     steps:
     - uses: actions/checkout@v2
+    - name: Setup FFmpeg
+      uses: FedericoCarboni/setup-ffmpeg@v3   
     - name: Build
       run: cargo build --all-targets --all-features
