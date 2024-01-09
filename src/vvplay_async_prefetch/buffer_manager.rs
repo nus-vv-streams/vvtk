@@ -118,8 +118,8 @@ impl BufferManager {
         // last_req is only use for buffer size = 1, and it is update after the last PointCloud is received.
         let mut last_req: Option<FrameRequest> = None;
         loop {
-            //println!{"---------------------------"};
-            //println!("buffer: {:?}", &self.buffer);
+            println!{"---------------------------"};
+            println!("buffer: {:?}", &self.buffer);
             //This logic can be improved but it needs to be thoroughly tested.
             if !self.buffer.is_full() && !self.buffer.is_empty() {
                 // This is executed when there is some frame inside the buffer, and the buffer is not full.
