@@ -517,9 +517,13 @@ Options:
       --vp <VIEWPORT_PREDICTION_TYPE>
           [default: last] [possible values: last]
       --network-trace <NETWORK_TRACE>
-          Path to network trace for repeatable simulation. Network trace is expected to be given in Kbps
+          Path to network trace for repeatable simulation. 
+          Network trace is expected to be given in Kbps
       --camera-trace <CAMERA_TRACE>
-          Path to camera trace for repeatable simulation. Camera trace is expected to be given in (pos_x, pos_y, pos_z, rot_pitch, rot_yaw, rot_roll). Rotation is in degrees
+          Path to camera trace for repeatable simulation.
+          Camera trace is expected to be given in 
+          (pos_x, pos_y, pos_z, rot_pitch, rot_yaw, rot_roll). 
+          Rotation is in degrees
       --record-camera-trace <RECORD_CAMERA_TRACE>
           Path to record camera trace from the player
       --enable-fetcher-optimizations
