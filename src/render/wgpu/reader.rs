@@ -12,7 +12,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use super::camera::{CameraPosition, CameraState};
 use super::renderable::Renderable;
 
-//RenderReader for the original RenderReader
+//RenderReader for the original RenderReader used by vvplay
 pub trait RenderReader<T: Renderable> {
     fn start(&mut self) -> Option<T>;
     fn get_at(&mut self, index: usize) -> Option<T>;
@@ -28,7 +28,7 @@ pub trait RenderReaderCameraPos<T: Renderable> {
     /// Returns the optional new camera position requested by the player backend and the `index`-th frame given the current camera position
     fn get_at(
         &mut self,
-        index: usize,
+    index: usize,
         camera_pos: Option<CameraPosition>,
     ) -> (Option<CameraPosition>, Option<T>);
     fn len(&self) -> usize;
@@ -144,7 +144,7 @@ impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PointCloudFileReader {
 
     fn set_len(&mut self, _len: usize) {}
 
-    fn set_cache_size(&mut self, size: usize) {}
+    fn set_cache_size(&mut self, _size: usize) {}
 
     fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
 }
