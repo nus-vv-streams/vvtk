@@ -109,7 +109,8 @@ fn main() {
     let (total_frames_tx, total_frames_rx) = tokio::sync::oneshot::channel();
 
     // initialize variables based on args
-    let buffer_capacity = args.buffer_capacity.unwrap_or(11);
+    // the real buffer capacity is buffer capacity in seconds * fps
+    let buffer_capacity = args.buffer_capacity.unwrap_or(11) * args.fps as u64;
     let simulated_network_trace = args.network_trace.map(|path| NetworkTrace::new(&path));
     let simulated_camera_trace = args.camera_trace.map(|path| CameraTrace::new(&path, false));
     let record_camera_trace = args

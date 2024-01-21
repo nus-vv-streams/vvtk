@@ -13,7 +13,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use super::camera::{CameraPosition, CameraState};
 use super::renderable::Renderable;
 
-//RenderReader for the original RenderReader used by vvplay
+// RenderReader for the original RenderReader used by vvplay
 pub trait RenderReader<T: Renderable> {
     fn start(&mut self) -> Option<T>;
     fn get_at(&mut self, index: usize) -> Option<T>;
@@ -22,7 +22,7 @@ pub trait RenderReader<T: Renderable> {
     fn set_len(&mut self, len: usize);
     fn set_camera_state(&mut self, camera_state: Option<CameraState>);
 }
-//RenderReaderCameraPos for the one with CameraPosition
+// RenderReaderCameraPos for the one with CameraPosition
 pub trait RenderReaderCameraPos<T: Renderable> {
     /// Initialize the input reader for our renderer. Returns the first frame, if any.
     fn start(&mut self) -> (Option<CameraPosition>, Option<T>);
@@ -313,7 +313,7 @@ impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PcdAsyncReader {
     fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
 }
 
-//This is used by vvplay_async
+// This is used by vvplay_async
 impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
     fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
         RenderReader::get_at(self, 0)
