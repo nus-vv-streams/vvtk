@@ -10,7 +10,8 @@ use std::vec::Vec;
 pub struct ResolutionController {
     anchor_spacing: f32,
     anchor_num_points: usize,
-    centroid: [f32; 3],
+    // centroid: [f32; 3],
+    points: Vec<PointXyzRgba>,
 }
 
 impl ResolutionController {
@@ -21,21 +22,34 @@ impl ResolutionController {
     ) -> Self {
         let points = anti_alias.apply(points);
         let anchor_spacing = Self::calculate_spacing(&points);
-        let centroid = Self::centroid(&points);
+        // let centroid = Self::centroid(&points);
 
         Self {
             anchor_spacing,
             anchor_num_points,
-            centroid,
+            // centroid,
+            points,
         }
     }
 
     pub fn get_desired_num_points(&mut self, camera_state: &CameraState) -> u64 {
         let window_size = camera_state.get_window_size();
-        let z = camera_state.distance(self.centroid);
+
+        // get nearest distance by comparing each point to the camera
+        let mut z = f32::MAX;
+
+        for p in self.points.iter() {
+            let d = camera_state.distance([p.x, p.y, p.z]);
+            if d < z {
+                z = d;
+            }
+        }
+
+        // let z = camera_state.distance(self.centroid);
         let (width, height) = camera_state.get_plane_at_z(z);
 
         println!("z: {}, width: {}, height: {}", z, width, height);
+        println!("window_size: {:?}", window_size);
 
         let x_spacing = width / window_size.width as f32;
         let y_spacing = height / window_size.height as f32;
@@ -43,8 +57,7 @@ impl ResolutionController {
         println!("x_spacing: {}, y_spacing: {}", x_spacing, y_spacing);
 
         let desired_spacing = x_spacing.min(y_spacing);
-        let scaling_factor = (self.anchor_spacing / desired_spacing).powi(2);
-        // let scaling_factor = self.anchor_spacing / desired_spacing;
+        let scaling_factor = (self.anchor_spacing / desired_spacing).powi(3);
 
         println!(
             "desired_spacing: {}, anchor_spacing: {}, scaling_factor: {}",
@@ -85,22 +98,21 @@ impl ResolutionController {
         }
 
         let mut sum = 0.0;
-        let mut count = 0;
+        let k_nearest = 4;
 
         for p in points.iter() {
             let avg_spacing = tree
-                .nearest(&[p.x, p.y, p.z], 4, &squared_euclidean)
+                .nearest(&[p.x, p.y, p.z], k_nearest, &squared_euclidean)
                 .unwrap()
                 .iter()
                 .skip(1) // ignore the first point (same point)
                 .map(|(d, _)| d.sqrt())
                 .sum::<f32>()
-                / 3.0;
+                / (k_nearest - 1) as f32;
 
             sum += avg_spacing;
-            count += 1;
         }
 
-        sum / count as f32
+        sum / points.len() as f32
     }
 }
