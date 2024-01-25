@@ -5,9 +5,11 @@ use crossbeam_channel::{unbounded, Receiver};
 use std::collections::HashSet;
 
 pub struct Executor {
+    //subcommand name
     name: String,
     input_stream_names: Vec<String>,
     output_name: String,
+    //t: what is this input here for?
     inputs: Vec<Receiver<PipelineMessage>>,
     channel: Channel,
     handler: Box<dyn Subcommand>,
@@ -24,11 +26,13 @@ impl ExecutorBuilder {
         }
     }
 
+    //t: this function will identify what to do with the args passed in, and create a Executor that has a channel inside it for the progress
     pub fn create(
         &mut self,
         args: Vec<String>,
         creator: SubcommandCreator,
     ) -> Result<(Executor, Receiver<Progress>), String> {
+        //t: make sure that the command name exists
         let name = match args.first() {
             Some(command_name) => command_name.clone(),
             None => return Err("Should have command name".to_string()),
@@ -44,16 +48,20 @@ impl ExecutorBuilder {
         let mut has_help = false;
         // println!("args: {:?}", args);
         for arg in args {
+            //t: help part
             if arg.eq("--help") || arg.eq("-h") {
                 has_help = true;
             }
 
+            //t: this is for the input
             if arg.starts_with("+input") || arg.starts_with("+in") {
+                //t: take the element after =
                 let input_streams = match arg.split("=").nth(1) {
                     Some(input_streams) => input_streams,
                     None => return Err("Expected name of input stream".to_string()),
                 };
 
+                //t: handle the input stream names that contains ,
                 for input_name in input_streams.split(',') {
                     // check if input stream name is in the set, panic if not
                     if !self.output_stream_names.contains(input_name) {
@@ -75,22 +83,29 @@ impl ExecutorBuilder {
                 }
                 has_input = true;
             } else if arg.starts_with("+output") || arg.starts_with("+out") {
+                //t: handle the output stream here
                 output_name = match arg.split('=').nth(1) {
                     Some(output_name) => output_name.to_string(),
                     None => return Err("Expected name of output stream".to_string()),
                 };
 
                 self.output_stream_names.insert(output_name.clone());
+            } else if arg.starts_with("extern") {
+                //t: handle either cargo or binaries external subcommand
+            
             } else {
+                //t: if it is not input or output, then it will be classified as inner_args
                 inner_args.push(arg);
             }
         }
 
+        //t: these command will need to have an input, if not, throw an error 
         if has_input
             || cmd.as_str() == "read"
             || cmd.as_str() == "convert"
             || cmd.as_str() == "info"
             || cmd.as_str() == "dash"
+            || cmd.as_str() == "extend"
             || has_help
         {
         } else {
@@ -100,10 +115,15 @@ impl ExecutorBuilder {
             ));
         }
 
+        //t: pass in inner arg to subcommand here?
         let handler = creator(inner_args);
 
+        //t: what is the progress here for
+        //t: create a channel here, and passed the channel receiver as a result, Progress can either be Incr or Completed
         let (progress_tx, progress_rx) = unbounded();
+        //t: create a pipeline spefic channel with the sender here to do ???
         let channel = Channel::new(progress_tx);
+        //t: pass the channel to the executor
         let executor = Executor {
             name,
             input_stream_names,
@@ -184,16 +204,19 @@ impl Executor {
     }
 
     fn start(mut self) {
+        //t: why this part use the handler when the input is empty, for some command, the input can be empty tho?
         if self.inputs.is_empty() {
             self.handler.handle(vec![], &self.channel);
             return;
         }
+        //t: this part receives all the message from the input channel, and do something to each message
         while let Ok(messages) = self
             .inputs
             .iter()
             .map(|recv| recv.recv())
             .collect::<Result<Vec<PipelineMessage>, _>>()
         {
+            //t: so if one of the provider sent the end message, this process will end
             let should_break = messages.iter().any(|message| {
                 if let PipelineMessage::End = message {
                     true
