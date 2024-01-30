@@ -65,6 +65,7 @@ kdtree = "0.7.0"
 num-traits = "0.2"
 float-ord = "0.3"
 color_space = "0.5"
+rand = "0.8.5"
 # ffmpeg-next = "6"
 
 [dev-dependencies]
