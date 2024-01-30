@@ -6,6 +6,7 @@ pub mod metrics;
 pub mod normal_estimation;
 pub mod read;
 pub mod render;
+pub mod subsample;
 pub mod upsample;
 pub mod write;
 
@@ -17,6 +18,7 @@ pub use metrics::MetricsCalculator;
 pub use normal_estimation::NormalEstimation;
 pub use read::Read;
 pub use render::Render;
+pub use subsample::Subsampler;
 pub use upsample::Upsampler;
 pub use write::Write;
 

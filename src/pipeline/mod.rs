@@ -14,9 +14,9 @@ use self::{
     executor::Executor,
     executor::ExecutorBuilder,
     subcommands::{
-        convert, dash, downsample, info, metrics, normal_estimation, read, render, upsample, write,
-        Convert, Dash, Downsampler, Info, MetricsCalculator, NormalEstimation, Read, Render,
-        Subcommand, Upsampler, Write,
+        convert, dash, downsample, info, metrics, normal_estimation, read, render, subsample,
+        upsample, write, Convert, Dash, Downsampler, Info, MetricsCalculator, NormalEstimation,
+        Read, Render, Subcommand, Subsampler, Upsampler, Write,
     },
 };
 
@@ -29,6 +29,7 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
         "read" => Some(Box::from(Read::from_args)),
         "metrics" => Some(Box::from(MetricsCalculator::from_args)),
         "downsample" => Some(Box::from(Downsampler::from_args)),
+        "subsample" => Some(Box::from(Subsampler::from_args)),
         "upsample" => Some(Box::from(Upsampler::from_args)),
         "convert" => Some(Box::from(Convert::from_args)),
         "normal" => Some(Box::from(NormalEstimation::from_args)),
@@ -43,6 +44,7 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
 pub enum PipelineMessage {
     IndexedPointCloud(PointCloud<PointXyzRgba>, u32),
     IndexedPointCloudNormal(PointCloud<PointXyzRgbaNormal>, u32),
+    IndexedPointCloudWithResolution(PointCloud<PointXyzRgba>, u32, u32),
     // PointCloud(PointCloud<PointXyzRgba>),
     Metrics(Metrics),
     End,
@@ -199,6 +201,8 @@ enum VVSubCommand {
     Metrics(metrics::Args),
     #[clap(name = "downsample")]
     Downsample(downsample::Args),
+    #[clap(name = "subsample")]
+    Subsample(subsample::Args),
     #[clap(name = "upsample")]
     Upsample(upsample::Args),
     #[clap(name = "normal")]
@@ -224,6 +228,7 @@ mod pipeline_mod_test {
         assert!(Pipeline::if_at_least_one_command("render"));
         assert!(Pipeline::if_at_least_one_command("metrics"));
         assert!(Pipeline::if_at_least_one_command("downsample"));
+        assert!(Pipeline::if_at_least_one_command("subsample"));
         assert!(Pipeline::if_at_least_one_command("upsample"));
         assert!(Pipeline::if_at_least_one_command("convert"));
         assert!(!Pipeline::if_at_least_one_command("not_a_command"));

@@ -147,6 +147,55 @@ impl Subcommand for Write {
                         }
                     }
                 }
+                PipelineMessage::IndexedPointCloudWithResolution(pc, i, resolution) => {
+                    let pcd_data_type = self
+                        .args
+                        .storage_type
+                        .expect("PCD data type should be provided");
+                    let output_format = self.args.output_format.to_string();
+
+                    let padded_count = format!("{:0width$}", i, width = self.args.name_length);
+                    let file_name = format!("{}.{}", padded_count, output_format);
+                    self.count += 1;
+                    if self.count >= max_count {
+                        channel.send(PipelineMessage::End);
+                        panic!("Too many files, please increase the name length by setting --name-length")
+                    }
+
+                    let file_name = Path::new(&file_name);
+
+                    let subfolder = output_path.join(format!("{}", resolution));
+                    let output_file = subfolder.join(file_name);
+                    if !output_path.exists() {
+                        std::fs::create_dir_all(output_path)
+                            .expect("Failed to create output directory");
+                    }
+
+                    if !subfolder.exists() {
+                        std::fs::create_dir_all(&subfolder)
+                            .expect("Failed to create output directory");
+                    }
+
+                    // use pcd format as a trasition format now
+                    let pcd = create_pcd(pc);
+
+                    match output_format.as_str() {
+                        "pcd" => {
+                            if let Err(e) = write_pcd_file(&pcd, pcd_data_type, &output_file) {
+                                println!("Failed to write {:?}\n{e}", output_file);
+                            }
+                        }
+                        "ply" => {
+                            if let Err(e) = pcd_to_ply_from_data(&output_file, pcd_data_type, pcd) {
+                                println!("Failed to write {:?}\n{e}", output_file);
+                            }
+                        }
+                        _ => {
+                            println!("Unsupported output format {}", output_format);
+                            continue;
+                        }
+                    }
+                }
                 PipelineMessage::End | PipelineMessage::DummyForIncrement => {}
             }
             channel.send(message);
