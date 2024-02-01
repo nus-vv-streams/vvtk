@@ -43,7 +43,7 @@ impl Read {
 }
 
 impl Subcommand for Read {
-    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel, external_args: &Option<Vec<String>>) {
         println!("Reading files");
         if messages.is_empty() {
             let mut files = find_all_files(&self.args.files);
@@ -83,6 +83,7 @@ impl Subcommand for Read {
             channel.send(PipelineMessage::End);
         } else {
             for message in messages {
+                println!("{:?}", message.clone());
                 channel.send(message);
             }
         }

@@ -244,7 +244,7 @@ impl Dash {
 }
 
 impl Subcommand for Dash {
-    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel, external_args: &Option<Vec<String>>) {
         if messages.is_empty() {
             let mut in_frame_name_buf = self.main_process();
             if let Some(num) = self.args.num {

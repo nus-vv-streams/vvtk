@@ -30,7 +30,7 @@ impl MetricsCalculator {
 }
 
 impl Subcommand for MetricsCalculator {
-    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel, external_args: &Option<Vec<String>>) {
         let mut messages_iter = messages.into_iter();
         let message_one = messages_iter
             .next()

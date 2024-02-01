@@ -121,7 +121,7 @@ impl<'a> Render<'a> {
 }
 
 impl Subcommand for Render<'_> {
-    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel, external_args: &Option<Vec<String>>) {
         let max_count = pow(10, self.name_length as usize);
 
         for message in messages {

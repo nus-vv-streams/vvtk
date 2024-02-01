@@ -3,7 +3,7 @@ mod executor;
 pub mod subcommands;
 use clap::Parser;
 use crossbeam_channel::Receiver;
-// use std::sync::mpsc::Receiver;
+use std::any::Any;
 
 use crate::{
     formats::{pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal, PointCloud},
@@ -18,6 +18,7 @@ use self::{
         Convert, Dash, Downsampler, Info, MetricsCalculator, NormalEstimation, Read, Render,
         Subcommand, Upsampler, Write, Extension,
     },
+    subcommands::extension::SubcommandObject,
 };
 
 pub type SubcommandCreator = Box<dyn Fn(Vec<String>) -> Box<dyn Subcommand>>;
@@ -46,6 +47,11 @@ pub enum PipelineMessage {
     IndexedPointCloudNormal(PointCloud<PointXyzRgbaNormal>, u32),
     // PointCloud(PointCloud<PointXyzRgba>),
     Metrics(Metrics),
+    // Pipeline for external subcommand, contains the object that subcommand wants to past
+    // and if it is input or output stream
+    //TODO: make it an option? or past in an option into Any, anything that goes inside any need to implement Clone
+    // temporary fix by using string
+    SubcommandMessage(SubcommandObject<String>, bool, bool),
     End,
     DummyForIncrement,
 }
@@ -166,6 +172,7 @@ impl Pipeline {
             //t: try to match each arg with command, might need to change this part to work with external subcommand
             //t: can try to search and setup external subcommand here
             let is_command = subcommand(arg);
+            // If the subcommand is valid
             if is_command.is_some() {
                 if let Some(creator) = command_creator.take()
                 // !! the first take is always None
@@ -173,6 +180,7 @@ impl Pipeline {
                     //t: forwarded_args vec has the first element as command, the other elements as the args of the command
                     // !! enters here when there are at least two subcommands
                     let forwarded_args = accumulated_args;
+                    println!("forwarded args: {:?}", forwarded_args);
                     accumulated_args = vec![];
                     let (executor, progress) = executor_builder.create(forwarded_args, creator)?;
                     executors.push(executor);

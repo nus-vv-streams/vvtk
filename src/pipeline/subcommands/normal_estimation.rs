@@ -63,7 +63,7 @@ struct EigenData {
 }
 
 impl Subcommand for NormalEstimation {
-    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel, external_args: &Option<Vec<String>>) {
         // Perform normal estimation for each point cloud in the messages
         for message in messages {
             match message {
@@ -76,7 +76,8 @@ impl Subcommand for NormalEstimation {
                 }
                 PipelineMessage::Metrics(_)
                 | PipelineMessage::IndexedPointCloudNormal(_, _)
-                | PipelineMessage::DummyForIncrement => {}
+                | PipelineMessage::DummyForIncrement
+                | PipelineMessage::SubcommandMessage(_, _, _) => {}
                 PipelineMessage::End => {
                     channel.send(message);
                 }

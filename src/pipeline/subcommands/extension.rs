@@ -30,12 +30,20 @@ impl Extension {
 }
 
 impl Subcommand for Extension {
-    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel, external_args: &Option<Vec<String>>) {
         //TODO: add more args for function arguments, try with the no command line argument version first
         println!("handle function from extension is executed, and here are the args");
         let testdir = PathBuf::from(&self.args.binary_paths);
-        let mut paths = vec![testdir];
-        execute_subcommand_executable(paths, &self.args.cmd_name, vec!["name_here"]);
+        let mut paths: Vec<PathBuf> = vec![testdir];
+        //TODO: pick String or &str
+        let mut cmd_args:&Vec<String> = &vec!["".to_string()];
+        match external_args {
+            Some(args) => {
+                cmd_args = args;
+            }
+            None => {}
+        }
+        execute_subcommand_executable(paths, &self.args.cmd_name, cmd_args);
         channel.send(PipelineMessage::End);
     }
 }
@@ -48,7 +56,7 @@ fn find_subcommand_executable(paths:Vec<PathBuf>, cmd: &str) -> Option<PathBuf> 
          .find(|file| is_executable(file))
 }
 
-fn execute_subcommand_executable(paths:Vec<PathBuf>, cmd: &str, cmd_args:Vec<&str>) -> Result<(), &'static str> {
+fn execute_subcommand_executable(paths:Vec<PathBuf>, cmd: &str, cmd_args:&Vec<String>) -> Result<(), &'static str> {
     let path = find_subcommand_executable(paths, cmd);
     let command = match path {
         Some(command) => command, 
@@ -63,21 +71,25 @@ fn execute_subcommand_executable(paths:Vec<PathBuf>, cmd: &str, cmd_args:Vec<&st
 }
 
 // This function will execute subcommand that is stored as rust code
-fn execute_rust_subcommand(cmd_path: Option<&PathBuf>, cmd_args:Vec<&str>) -> Result<(), &'static str> {
+fn execute_rust_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>) -> Result<(), &'static str> {
     execute_external_subcommand(None, cmd_args)
 }
 
-// execute either code or binaries 
-fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:Vec<&str>) -> Result<(), &'static str> {
+// execute either external code or binaries 
+fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>) -> Result<(), &'static str> {
     // only implement external subcommand for now
     match cmd_path {
         //this is a test to pass a vector of args to an executable
         Some(cmd_path) => {
             println!("this is a valid external subcommand");
-            Command::new(cmd_path)
+            let output = Command::new(cmd_path)
             .args(cmd_args)
-            .spawn()
+            .output()
             .expect("Failed to run the executable");
+            // TODO: If there is input stream, expect input, do it after the args, refer to metrics
+            // TODO: collect the stdout and pass it through pipeline message
+            println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+            // TODO: create another executable that can print message to test on this
             return Ok(());
         },
         None => {
@@ -100,3 +112,18 @@ fn is_executable<P: AsRef<Path>>(path: P) -> bool {
 }
 
 //TODO: need to design to pass the result to the next pipeline
+
+// get some types for PipelineMessage::SubcommandMessage()
+// how to get the value inside the PipelineMessage and get it compiled?
+#[derive(Debug)]
+pub struct SubcommandObject<T:Clone> {
+    content: Box<T>,
+}
+
+impl<T:Clone> Clone for SubcommandObject<T> {
+    fn clone(&self) -> Self {
+        Self {
+            content: Box::new((*self.content).clone()),
+        }
+    }
+}

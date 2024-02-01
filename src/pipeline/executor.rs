@@ -9,6 +9,7 @@ pub struct Executor {
     name: String,
     input_stream_names: Vec<String>,
     output_name: String,
+    external_args_option: Option<Vec<String>>,
     //t: what is this input here for?
     inputs: Vec<Receiver<PipelineMessage>>,
     channel: Channel,
@@ -27,6 +28,7 @@ impl ExecutorBuilder {
     }
 
     //t: this function will identify what to do with the args passed in, and create a Executor that has a channel inside it for the progress
+    //t: change this part to pass in the argument for external subcommand
     pub fn create(
         &mut self,
         args: Vec<String>,
@@ -39,6 +41,7 @@ impl ExecutorBuilder {
         };
 
         let mut inner_args = Vec::new();
+        let mut external_args = Vec::new();
         let mut input_stream_names = Vec::new();
         let mut output_name = "".to_string();
 
@@ -46,6 +49,7 @@ impl ExecutorBuilder {
 
         let mut has_input = false;
         let mut has_help = false;
+        let mut has_external_arg = false;
         // println!("args: {:?}", args);
         for arg in args {
             //t: help part
@@ -82,6 +86,18 @@ impl ExecutorBuilder {
                     }
                 }
                 has_input = true;
+            } else if arg.starts_with("+xargs") {
+                //TODO: check if it is external subcommand
+                let external_args_str: &str = match arg.split("=").nth(1) {
+                    Some(external_args_str) => external_args_str,
+                    None => return Err("Expected arguments for external subcommand".to_string()),
+                };
+                has_external_arg = true;
+                for arg in external_args_str.split(',') {
+                    println!("the xargs are {:?}", &arg);
+                    external_args.push(arg.to_string());
+                }   
+                
             } else if arg.starts_with("+output") || arg.starts_with("+out") {
                 //t: handle the output stream here
                 output_name = match arg.split('=').nth(1) {
@@ -90,16 +106,14 @@ impl ExecutorBuilder {
                 };
 
                 self.output_stream_names.insert(output_name.clone());
-            } else if arg.starts_with("extern") {
-                //t: handle either cargo or binaries external subcommand
-            
             } else {
                 //t: if it is not input or output, then it will be classified as inner_args
+                // TODO: command line argument of external subcommand will fall under here
                 inner_args.push(arg);
             }
         }
 
-        //t: these command will need to have an input, if not, throw an error 
+        //t: certain command will not need to have an input, if not, throw an error 
         if has_input
             || cmd.as_str() == "read"
             || cmd.as_str() == "convert"
@@ -114,6 +128,13 @@ impl ExecutorBuilder {
                 cmd.as_str()
             ));
         }
+         // Check if there is external args
+         let external_args_option: Option<Vec<String>>;
+         if has_external_arg {
+            external_args_option = Some(external_args);
+         } else {
+            external_args_option = None;
+         }
 
         //t: pass in inner arg to subcommand here?
         let handler = creator(inner_args);
@@ -128,6 +149,7 @@ impl ExecutorBuilder {
             name,
             input_stream_names,
             output_name,
+            external_args_option,
             inputs: vec![],
             channel,
             handler,
@@ -139,6 +161,7 @@ impl ExecutorBuilder {
 unsafe impl Send for Executor {}
 
 impl Executor {
+    //t: what's the point of having two create
     #[allow(dead_code)]
     pub fn create(args: Vec<String>, creator: SubcommandCreator) -> (Self, Receiver<Progress>) {
         let name = args.first().expect("Should have command name").clone();
@@ -168,10 +191,12 @@ impl Executor {
 
         let (progress_tx, progress_rx) = unbounded();
         let channel = Channel::new(progress_tx);
+        //TODO: not sure why this part exists, but just use this first, if it is actually used need to move the code here also
         let executor = Self {
             name,
             input_stream_names,
             output_name,
+            external_args_option: None,
             inputs: vec![],
             channel,
             handler,
@@ -206,7 +231,7 @@ impl Executor {
     fn start(mut self) {
         //t: why this part use the handler when the input is empty, for some command, the input can be empty tho?
         if self.inputs.is_empty() {
-            self.handler.handle(vec![], &self.channel);
+            self.handler.handle(vec![], &self.channel, &self.external_args_option);
             return;
         }
         //t: this part receives all the message from the input channel, and do something to each message
@@ -225,7 +250,8 @@ impl Executor {
                 }
             });
 
-            self.handler.handle(messages, &self.channel);
+            // the handle is called here
+            self.handler.handle(messages, &self.channel, &self.external_args_option);
 
             if should_break {
                 break;

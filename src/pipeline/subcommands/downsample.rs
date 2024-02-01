@@ -28,7 +28,7 @@ impl Downsampler {
 }
 
 impl Subcommand for Downsampler {
-    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel, external_args: &Option<Vec<String>>) {
         for message in messages {
             match message {
                 PipelineMessage::IndexedPointCloud(pc, i) => {
@@ -37,7 +37,8 @@ impl Subcommand for Downsampler {
                 }
                 PipelineMessage::Metrics(_)
                 | PipelineMessage::IndexedPointCloudNormal(_, _)
-                | PipelineMessage::DummyForIncrement => {}
+                | PipelineMessage::DummyForIncrement 
+                | PipelineMessage::SubcommandMessage(_, _, _) => {}
                 PipelineMessage::End => {
                     channel.send(message);
                 }

@@ -205,7 +205,7 @@ impl Info {
 }
 
 impl Subcommand for Info {
-    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel, external_args: &Option<Vec<String>>) {
         if messages.is_empty() {
             // println!("self.args {:?}", self.args);
             let path = Path::new(&self.args.path);

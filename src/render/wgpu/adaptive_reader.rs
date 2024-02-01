@@ -107,6 +107,7 @@ impl AdaptiveReader {
         [sum_x / count, sum_y / count, sum_z / count]
     }
 
+    //t: reader reading different resolution depending on distance
     fn select_reader(&mut self, index: usize) -> &mut PointCloudFileReader {
         // if option is none, then we are in the first frame
         if self.camera_state.is_none() || self.readers.len() == 1 {
@@ -149,6 +150,7 @@ impl RenderReader<PointCloud<PointXyzRgba>> for AdaptiveReader {
         }
     }
 
+    //t: camera state have the informmation of the distance
     fn set_camera_state(&mut self, camera_state: Option<CameraState>) {
         self.camera_state = camera_state;
     }
