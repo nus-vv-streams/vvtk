@@ -37,6 +37,23 @@ where
             points,
         }
     }
+
+    pub fn new_with_segments(segments: Vec<Vec<T>>) -> Self {
+        let points: Vec<T> = segments.iter().flatten().cloned().collect();
+        let number_of_points = points.len();
+        let segments = segments
+            .into_iter()
+            .map(|segment| PointCloudSegment {
+                number_of_points: segment.len(),
+                points: segment,
+            })
+            .collect();
+        Self {
+            number_of_points,
+            segments,
+            points,
+        }
+    }
 }
 
 impl Debug for PointCloud<pointxyzrgba::PointXyzRgba> {
