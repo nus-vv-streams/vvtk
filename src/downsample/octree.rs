@@ -41,10 +41,7 @@ pub fn downsample(
             points_per_voxel,
         );
 
-        PointCloud {
-            number_of_points: points.len(),
-            points,
-        }
+        PointCloud::new(points.len(), points)
     }
 }
 

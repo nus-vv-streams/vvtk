@@ -7,9 +7,36 @@ pub mod pointxyzrgba;
 pub mod pointxyzrgbanormal;
 
 #[derive(Clone)]
-pub struct PointCloud<T> {
+pub struct PointCloud<T>
+where
+    T: Clone,
+{
     pub number_of_points: usize,
+    segments: Vec<PointCloudSegment<T>>,
     pub points: Vec<T>,
+}
+
+#[derive(Clone)]
+struct PointCloudSegment<T> {
+    number_of_points: usize,
+    points: Vec<T>,
+}
+
+impl<T> PointCloud<T>
+where
+    T: Clone,
+{
+    pub fn new(number_of_points: usize, points: Vec<T>) -> Self {
+        let segments = vec![PointCloudSegment {
+            number_of_points,
+            points: points.clone(),
+        }];
+        Self {
+            number_of_points,
+            segments,
+            points,
+        }
+    }
 }
 
 impl Debug for PointCloud<pointxyzrgba::PointXyzRgba> {
@@ -38,7 +65,10 @@ impl Debug for PointCloud<pointxyzrgbanormal::PointXyzRgbaNormal> {
     }
 }
 
-impl<T> From<PointCloudData> for PointCloud<T> {
+impl<T> From<PointCloudData> for PointCloud<T>
+where
+    T: Clone,
+{
     fn from(pcd: PointCloudData) -> Self {
         let number_of_points = pcd.header.points() as usize;
 
@@ -48,10 +78,7 @@ impl<T> From<PointCloudData> for PointCloud<T> {
             let capacity = v_clone.capacity() / factor;
             Vec::from_raw_parts(v_clone.as_mut_ptr() as *mut T, number_of_points, capacity)
         };
-        Self {
-            number_of_points,
-            points,
-        }
+        Self::new(number_of_points, points)
     }
 }
 
@@ -60,10 +87,7 @@ impl From<VelodyneBinData> for PointCloud<pointxyzrgba::PointXyzRgba> {
     fn from(value: VelodyneBinData) -> Self {
         let number_of_points = value.data.len();
         let points = value.data.into_iter().map(|point| point.into()).collect();
-        Self {
-            number_of_points,
-            points,
-        }
+        Self::new(number_of_points, points)
     }
 }
 

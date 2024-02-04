@@ -100,10 +100,9 @@ fn perform_normal_estimation(
     let eigen_results = compute_eigenvalues_eigenvectors(&covariance_matrices);
 
     // Convert PointCloud<PointXyzRgba> to PointCloud<PointXyzRgbaNormal>
-    let mut pc_normal: PointCloud<PointXyzRgbaNormal> = PointCloud {
-        number_of_points: pc.number_of_points,
-        points: pc
-            .points
+    let mut pc_normal: PointCloud<PointXyzRgbaNormal> = PointCloud::new(
+        pc.number_of_points,
+        pc.points
             .iter()
             .map(|p| {
                 PointXyzRgbaNormal {
@@ -120,7 +119,7 @@ fn perform_normal_estimation(
                 }
             })
             .collect(),
-    };
+    );
 
     assign_normal_vectors(&mut pc_normal, &eigen_results);
 

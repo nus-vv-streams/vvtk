@@ -44,10 +44,7 @@ pub fn read_ply<P: AsRef<Path>>(path_buf: P) -> Option<PointCloud<PointXyzRgba>>
         }
     }
 
-    Some(PointCloud {
-        number_of_points: vertex_list.len(),
-        points: vertex_list,
-    })
+    Some(PointCloud::new(vertex_list.len(), vertex_list))
 }
 
 impl ply_rs::ply::PropertyAccess for PointXyzRgba {

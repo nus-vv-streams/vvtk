@@ -80,10 +80,7 @@ pub fn upsample(point_cloud: PointCloud<PointXyzRgba>, factor: usize) -> PointCl
             }
         }
         new_points.extend(points);
-        PointCloud {
-            number_of_points: new_points.len(),
-            points: new_points,
-        }
+        PointCloud::new(new_points.len(), new_points)
     }
 }
 

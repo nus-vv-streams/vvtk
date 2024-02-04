@@ -47,10 +47,7 @@ pub fn subsample(
         let mut point_clouds = vec![];
 
         for points in points {
-            point_clouds.push(PointCloud {
-                number_of_points: points.len(),
-                points,
-            });
+            point_clouds.push(PointCloud::new(points.len(), points));
         }
 
         point_clouds
@@ -216,10 +213,7 @@ mod test {
         let proportions = vec![7, 1, 1, 1];
         let points_per_voxel_threshold = 20;
         let subsamples = subsample(
-            PointCloud {
-                number_of_points: points.len(),
-                points,
-            },
+            PointCloud::new(points.len(), points),
             proportions,
             points_per_voxel_threshold,
         );
