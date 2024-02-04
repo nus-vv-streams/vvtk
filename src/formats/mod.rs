@@ -54,6 +54,10 @@ where
             points,
         }
     }
+
+    pub fn is_partitioned(&self) -> bool {
+        self.segments.len() > 1
+    }
 }
 
 impl Debug for PointCloud<pointxyzrgba::PointXyzRgba> {

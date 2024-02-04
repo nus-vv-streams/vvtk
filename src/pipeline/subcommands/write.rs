@@ -1,7 +1,9 @@
 use cgmath::num_traits::pow;
 use clap::Parser;
 
-use crate::pcd::{create_pcd, create_pcd_from_pc_normal, write_pcd_file, PCDDataType};
+use crate::pcd::{
+    create_pcd, create_pcd_from_pc_normal, create_pcd_from_pc_segment, write_pcd_file, PCDDataType,
+};
 use crate::pipeline::channel::Channel;
 use crate::pipeline::PipelineMessage;
 use crate::utils::{pcd_to_ply_from_data, pcd_to_ply_from_data_normal, ConvertOutputFormat};
@@ -154,45 +156,57 @@ impl Subcommand for Write {
                         .expect("PCD data type should be provided");
                     let output_format = self.args.output_format.to_string();
 
-                    let padded_count = format!("{:0width$}", i, width = self.args.name_length);
-                    let file_name = format!("{}.{}", padded_count, output_format);
                     self.count += 1;
                     if self.count >= max_count {
                         channel.send(PipelineMessage::End);
                         panic!("Too many files, please increase the name length by setting --name-length")
                     }
 
-                    let file_name = Path::new(&file_name);
-
-                    let subfolder = output_path.join(format!("{}", resolution));
-                    let output_file = subfolder.join(file_name);
                     if !output_path.exists() {
                         std::fs::create_dir_all(output_path)
                             .expect("Failed to create output directory");
                     }
 
+                    let subfolder = output_path.join(format!("{}", resolution));
                     if !subfolder.exists() {
                         std::fs::create_dir_all(&subfolder)
                             .expect("Failed to create output directory");
                     }
 
-                    // use pcd format as a trasition format now
-                    let pcd = create_pcd(pc);
-
-                    match output_format.as_str() {
-                        "pcd" => {
-                            if let Err(e) = write_pcd_file(&pcd, pcd_data_type, &output_file) {
-                                println!("Failed to write {:?}\n{e}", output_file);
-                            }
-                        }
-                        "ply" => {
-                            if let Err(e) = pcd_to_ply_from_data(&output_file, pcd_data_type, pcd) {
-                                println!("Failed to write {:?}\n{e}", output_file);
-                            }
-                        }
-                        _ => {
-                            println!("Unsupported output format {}", output_format);
+                    for (s_index, segment) in pc.segments.iter().enumerate() {
+                        if segment.points.is_empty() {
                             continue;
+                        }
+
+                        let pcd = create_pcd_from_pc_segment(segment);
+
+                        let padded_count = if pc.is_partitioned() {
+                            format!("{:0width$}_{}", i, s_index, width = self.args.name_length)
+                        } else {
+                            format!("{:0width$}", i, width = self.args.name_length)
+                        };
+
+                        let file_name = format!("{}.{}", padded_count, output_format);
+                        let file = Path::new(&file_name);
+                        let output_file = subfolder.join(file);
+
+                        match output_format.as_str() {
+                            "pcd" => {
+                                if let Err(e) = write_pcd_file(&pcd, pcd_data_type, &output_file) {
+                                    println!("Failed to write {:?}\n{e}", output_file);
+                                }
+                            }
+                            "ply" => {
+                                if let Err(e) =
+                                    pcd_to_ply_from_data(&output_file, pcd_data_type, pcd)
+                                {
+                                    println!("Failed to write {:?}\n{e}", output_file);
+                                }
+                            }
+                            _ => {
+                                println!("Unsupported output format {}", output_format);
+                                continue;
+                            }
                         }
                     }
                 }

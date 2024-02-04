@@ -14,9 +14,9 @@ use self::{
     executor::Executor,
     executor::ExecutorBuilder,
     subcommands::{
-        convert, dash, downsample, info, metrics, normal_estimation, read, render, subsample,
-        upsample, write, Convert, Dash, Downsampler, Info, MetricsCalculator, NormalEstimation,
-        Read, Render, Subcommand, Subsampler, Upsampler, Write,
+        convert, dash, downsample, info, lodify, metrics, normal_estimation, read, render,
+        subsample, upsample, write, Convert, Dash, Downsampler, Info, Lodifier, MetricsCalculator,
+        NormalEstimation, Read, Render, Subcommand, Subsampler, Upsampler, Write,
     },
 };
 
@@ -36,6 +36,7 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
         // "play" => Some(Box::from(Play::from_args)),
         "dash" => Some(Box::from(Dash::from_args)),
         "info" => Some(Box::from(Info::from_args)),
+        "lodify" => Some(Box::from(Lodifier::from_args)),
         _ => None,
     }
 }
@@ -209,6 +210,8 @@ enum VVSubCommand {
     NormalEstimation(normal_estimation::Args),
     #[clap(name = "info")]
     Info(info::Args),
+    #[clap(name = "lodify")]
+    Lodify(lodify::Args),
     #[clap(name = "dash")]
     Dash(dash::Args),
 }
@@ -226,6 +229,7 @@ mod pipeline_mod_test {
         assert!(Pipeline::if_at_least_one_command("read"));
         assert!(Pipeline::if_at_least_one_command("write"));
         assert!(Pipeline::if_at_least_one_command("render"));
+        assert!(Pipeline::if_at_least_one_command("lodify"));
         assert!(Pipeline::if_at_least_one_command("metrics"));
         assert!(Pipeline::if_at_least_one_command("downsample"));
         assert!(Pipeline::if_at_least_one_command("subsample"));
