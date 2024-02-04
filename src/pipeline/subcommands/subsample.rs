@@ -7,11 +7,14 @@ use crate::{
 
 use super::Subcommand;
 
+/// Subsamples a pointcloud into a list of pointclouds with different number of points.
 #[derive(Parser)]
 pub struct Args {
     #[clap(
         short = 'p',
         long = "proportions",
+        num_args = 1..,
+        value_delimiter = ',',
         help = "Set the proportions as a list of usize values"
     )]
     proportions: Vec<usize>,
