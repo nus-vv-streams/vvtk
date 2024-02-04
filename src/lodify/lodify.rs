@@ -1,6 +1,8 @@
 use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
 use crate::subsample::random_sampler::subsample;
 
+const DELTA: f32 = 1e-4;
+
 pub fn lodify(
     points: PointCloud<PointXyzRgba>,
     partitions: (usize, usize, usize),
@@ -51,9 +53,9 @@ fn partition(
         max_z = max_z.max(point.z);
     }
 
-    let x_step = (max_x - min_x) / partitions.0 as f32;
-    let y_step = (max_y - min_y) / partitions.1 as f32;
-    let z_step = (max_z - min_z) / partitions.2 as f32;
+    let x_step = (max_x - min_x + DELTA) / partitions.0 as f32;
+    let y_step = (max_y - min_y + DELTA) / partitions.1 as f32;
+    let z_step = (max_z - min_z + DELTA) / partitions.2 as f32;
 
     let mut partitioned_points = vec![vec![]; partitions.0 * partitions.1 * partitions.2];
 
@@ -63,9 +65,71 @@ fn partition(
         let z = ((point.z - min_z) / z_step).floor() as usize;
 
         let index = x + y * partitions.0 + z * partitions.0 * partitions.1;
-
         partitioned_points[index].push(*point);
     }
 
     PointCloud::new_with_segments(partitioned_points)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+
+    fn test_partition() {
+        let points = vec![
+            PointXyzRgba {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 0,
+            },
+            PointXyzRgba {
+                x: 1.0,
+                y: 1.0,
+                z: 1.0,
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 0,
+            },
+            PointXyzRgba {
+                x: 2.0,
+                y: 2.0,
+                z: 2.0,
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 0,
+            },
+            PointXyzRgba {
+                x: 3.0,
+                y: 3.0,
+                z: 3.0,
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 0,
+            },
+        ];
+
+        let pc = PointCloud::new(4, points);
+
+        let result = partition(&pc, (2, 2, 2));
+
+        assert_eq!(result.points.len(), 4);
+        assert_eq!(result.segments.len(), 8);
+        assert_eq!(result.segments[0].points.len(), 2);
+        assert_eq!(result.segments[1].points.len(), 0);
+        assert_eq!(result.segments[2].points.len(), 0);
+        assert_eq!(result.segments[3].points.len(), 0);
+        assert_eq!(result.segments[4].points.len(), 0);
+        assert_eq!(result.segments[5].points.len(), 0);
+        assert_eq!(result.segments[6].points.len(), 0);
+        assert_eq!(result.segments[7].points.len(), 2);
+    }
 }

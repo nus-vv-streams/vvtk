@@ -12,14 +12,14 @@ where
     T: Clone,
 {
     pub number_of_points: usize,
-    segments: Vec<PointCloudSegment<T>>,
+    pub segments: Vec<PointCloudSegment<T>>,
     pub points: Vec<T>,
 }
 
 #[derive(Clone)]
-struct PointCloudSegment<T> {
-    number_of_points: usize,
-    points: Vec<T>,
+pub struct PointCloudSegment<T> {
+    pub number_of_points: usize,
+    pub points: Vec<T>,
 }
 
 impl<T> PointCloud<T>
