@@ -34,6 +34,7 @@ pub struct Args {
 pub struct Write {
     args: Args,
     count: u64,
+    manifest: Manifest,
 }
 
 impl Write {
@@ -41,7 +42,11 @@ impl Write {
         let args = Args::parse_from(args);
         std::fs::create_dir_all(Path::new(&args.output_dir))
             .expect("Failed to create output directory");
-        Box::from(Write { args, count: 0 })
+        Box::from(Write {
+            args,
+            count: 0,
+            manifest: Manifest::default(),
+        })
     }
 }
 
@@ -49,7 +54,6 @@ impl Subcommand for Write {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         let output_path = Path::new(&self.args.output_dir);
         let max_count = pow(10, self.args.name_length);
-        let mut manifest = Manifest::default();
 
         for message in messages {
             match &message {
@@ -214,24 +218,25 @@ impl Subcommand for Write {
                     num_of_additional_file,
                     partitions,
                 ) => {
-                    manifest.next(bound.clone(), centroid.clone());
-                    manifest.num_of_additional_file = *num_of_additional_file;
-                    manifest.partitions = *partitions;
+                    self.manifest.next(bound.clone(), centroid.clone());
+                    self.manifest.num_of_additional_file = *num_of_additional_file;
+                    self.manifest.partitions = *partitions;
                 }
-                PipelineMessage::End | PipelineMessage::DummyForIncrement => {}
+                PipelineMessage::DummyForIncrement => {}
+                PipelineMessage::End => {
+                    if self.manifest.num_of_additional_file > 0 {
+                        if !output_path.exists() {
+                            std::fs::create_dir_all(output_path)
+                                .expect("Failed to create output directory");
+                        }
+
+                        let manifest_file = output_path.join("manifest.json");
+                        let json = serde_json::to_string_pretty(&self.manifest).unwrap();
+                        std::fs::write(manifest_file, json).expect("Unable to write file");
+                    }
+                }
             }
             channel.send(message);
-        }
-
-        // if there are manifest information, write it to a file
-        if manifest.num_of_additional_file > 0 {
-            if !output_path.exists() {
-                std::fs::create_dir_all(output_path).expect("Failed to create output directory");
-            }
-
-            let manifest_file = output_path.join("manifest.json");
-            let json = serde_json::to_string(&manifest).unwrap();
-            std::fs::write(manifest_file, json).expect("Unable to write file");
         }
     }
 }
