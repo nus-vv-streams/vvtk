@@ -19,6 +19,9 @@ pub trait RenderReader<T: Renderable> {
     fn set_len(&mut self, len: usize);
     fn set_camera_state(&mut self, camera_state: Option<CameraState>);
     fn get_path_at(&self, _index: usize) -> Option<&PathBuf>;
+    fn get_nested_path_at(&self, _index: usize, _nested_index: usize) -> Option<&PathBuf> {
+        None
+    }
 }
 
 pub struct PcdFileReader {
@@ -52,11 +55,40 @@ impl PcdFileReader {
 }
 
 pub struct PointCloudFileReader {
-    files: Vec<PathBuf>,
+    files: Vec<Vec<PathBuf>>,
+    nested: bool,
 }
 
 impl PointCloudFileReader {
     pub fn from_directory(directory: &Path, file_type: &str) -> Self {
+        let files = vec![Self::scan_dir(directory, file_type)];
+        Self {
+            files,
+            nested: false,
+        }
+    }
+
+    pub fn from_nested_directory(directory: &Path, file_type: &str) -> Self {
+        let mut files = vec![];
+        for file_entry in directory.read_dir().unwrap() {
+            match file_entry {
+                Ok(entry) => {
+                    if entry.path().is_dir() {
+                        files.push(Self::scan_dir(&entry.path(), file_type));
+                    }
+                }
+                Err(e) => {
+                    eprintln!("{e}")
+                }
+            }
+        }
+        Self {
+            files,
+            nested: true,
+        }
+    }
+
+    fn scan_dir(directory: &Path, file_type: &str) -> Vec<PathBuf> {
         let mut files = vec![];
         for file_entry in directory.read_dir().unwrap() {
             match file_entry {
@@ -73,7 +105,7 @@ impl PointCloudFileReader {
             }
         }
         files.sort();
-        Self { files }
+        files
     }
 }
 
@@ -84,7 +116,7 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
 
     fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
         let file_path = self.files.get(index)?;
-        read_file_to_point_cloud(file_path)
+        read_file_to_point_cloud(file_path.first().unwrap())
     }
 
     fn len(&self) -> usize {
@@ -100,7 +132,14 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
     fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
 
     fn get_path_at(&self, index: usize) -> Option<&PathBuf> {
-        self.files.get(index)
+        self.files.get(index)?.first()
+    }
+
+    fn get_nested_path_at(&self, index: usize, nested_index: usize) -> Option<&PathBuf> {
+        if !self.nested {
+            return None;
+        }
+        self.files.get(index)?.get(nested_index)
     }
 }
 
