@@ -123,9 +123,13 @@ impl Bounds {
         let y_step = (self.max_y - self.min_y + DELTA) / partitions.1 as f32;
         let z_step = (self.max_z - self.min_z + DELTA) / partitions.2 as f32;
 
-        let x = ((point.x - self.min_x) / x_step).floor() as usize;
-        let y = ((point.y - self.min_y) / y_step).floor() as usize;
-        let z = ((point.z - self.min_z) / z_step).floor() as usize;
+        let mut x = ((point.x - self.min_x) / x_step).floor() as usize;
+        let mut y = ((point.y - self.min_y) / y_step).floor() as usize;
+        let mut z = ((point.z - self.min_z) / z_step).floor() as usize;
+
+        x = x.min(partitions.0 - 1);
+        y = y.min(partitions.1 - 1);
+        z = z.min(partitions.2 - 1);
 
         x + y * partitions.0 + z * partitions.0 * partitions.1
     }

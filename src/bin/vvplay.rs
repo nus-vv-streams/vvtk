@@ -59,7 +59,7 @@ struct Args {
     decoder_path: Option<OsString>,
     #[clap(long, default_value = "rgb(255,255,255)")]
     bg_color: OsString,
-    #[clap(long)]
+    #[clap(long, default_value = "false")]
     lod: bool,
 }
 

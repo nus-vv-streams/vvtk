@@ -76,7 +76,7 @@ impl AdaptiveReader {
                 let data = std::fs::read_to_string(metadata_path).unwrap();
                 serde_json::from_str(&data).unwrap()
             } else {
-                eprintln!("Must provide at least one file!");
+                eprintln!("Must provide metafile for LOD mode!");
                 exit(1);
             };
 
