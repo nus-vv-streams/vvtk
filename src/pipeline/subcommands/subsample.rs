@@ -48,7 +48,7 @@ impl Subcommand for Subsampler {
             match message {
                 PipelineMessage::IndexedPointCloud(pc, i) => {
                     let point_clouds = subsample(
-                        pc,
+                        &pc,
                         self.proportions.clone(),
                         self.points_per_voxel_threshold,
                     );

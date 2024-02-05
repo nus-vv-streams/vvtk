@@ -1,8 +1,9 @@
-use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
+use crate::{
+    formats::{bounds::Bounds, pointxyzrgba::PointXyzRgba, PointCloud},
+    utils::get_pc_bound,
+};
 
 use rayon::prelude::*;
-
-const DELTA: f32 = 1e-4;
 
 pub fn downsample(
     points: PointCloud<PointXyzRgba>,
@@ -11,122 +12,9 @@ pub fn downsample(
     if points.points.is_empty() {
         points
     } else {
-        let first_point = points.points[0];
-        let mut min_x = first_point.x;
-        let mut max_x = first_point.x;
-        let mut min_y = first_point.y;
-        let mut max_y = first_point.y;
-        let mut min_z = first_point.z;
-        let mut max_z = first_point.z;
-
-        for &point in &points.points {
-            min_x = min_x.min(point.x);
-            max_x = max_x.max(point.x);
-            min_y = min_y.min(point.y);
-            max_y = max_y.max(point.y);
-            min_z = min_z.min(point.z);
-            max_z = max_z.max(point.z);
-        }
-
-        let points = octree_downsample(
-            points.points,
-            Bounds {
-                min_x,
-                max_x,
-                min_y,
-                max_y,
-                min_z,
-                max_z,
-            },
-            points_per_voxel,
-        );
-
+        let bound = get_pc_bound(&points);
+        let points = octree_downsample(points.points, bound, points_per_voxel);
         PointCloud::new(points.len(), points)
-    }
-}
-
-struct Bounds {
-    min_x: f32,
-    max_x: f32,
-    min_y: f32,
-    max_y: f32,
-    min_z: f32,
-    max_z: f32,
-}
-
-impl Bounds {
-    fn new(min_x: f32, max_x: f32, min_y: f32, max_y: f32, min_z: f32, max_z: f32) -> Self {
-        Self {
-            min_x,
-            max_x,
-            min_y,
-            max_y,
-            min_z,
-            max_z,
-        }
-    }
-
-    fn split(&self) -> Vec<Bounds> {
-        let &Bounds {
-            min_x,
-            max_x,
-            min_y,
-            max_y,
-            min_z,
-            max_z,
-        } = self;
-
-        let bisect_x = (max_x + min_x) / 2f32;
-        let bisect_y = (max_y + min_y) / 2f32;
-        let bisect_z = (max_z + min_z) / 2f32;
-
-        vec![
-            Bounds::new(min_x, bisect_x, min_y, bisect_y, min_z, bisect_z),
-            Bounds::new(min_x, bisect_x, min_y, bisect_y, bisect_z + DELTA, max_z),
-            Bounds::new(min_x, bisect_x, bisect_y + DELTA, max_y, min_z, bisect_z),
-            Bounds::new(
-                min_x,
-                bisect_x,
-                bisect_y + DELTA,
-                max_y,
-                bisect_z + DELTA,
-                max_z,
-            ),
-            Bounds::new(bisect_x + DELTA, max_x, min_y, bisect_y, min_z, bisect_z),
-            Bounds::new(
-                bisect_x + DELTA,
-                max_x,
-                min_y,
-                bisect_y,
-                bisect_z + DELTA,
-                max_z,
-            ),
-            Bounds::new(
-                bisect_x + DELTA,
-                max_x,
-                bisect_y + DELTA,
-                max_y,
-                min_z,
-                bisect_z,
-            ),
-            Bounds::new(
-                bisect_x + DELTA,
-                max_x,
-                bisect_y + DELTA,
-                max_y,
-                bisect_z + DELTA,
-                max_z,
-            ),
-        ]
-    }
-
-    fn contains(&self, point: &PointXyzRgba) -> bool {
-        point.x >= self.min_x
-            && point.x <= self.max_x
-            && point.y >= self.min_y
-            && point.y <= self.max_y
-            && point.z >= self.min_z
-            && point.z <= self.max_z
     }
 }
 

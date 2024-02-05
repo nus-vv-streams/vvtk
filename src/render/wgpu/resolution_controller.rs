@@ -67,30 +67,6 @@ impl ResolutionController {
         return (self.anchor_num_points as f32 * scaling_factor as f32) as u64;
     }
 
-    fn centroid(points: &Vec<PointXyzRgba>) -> [f32; 3] {
-        let mut min_x = f32::MAX;
-        let mut min_y = f32::MAX;
-        let mut min_z = f32::MAX;
-        let mut max_x = f32::MIN;
-        let mut max_y = f32::MIN;
-        let mut max_z = f32::MIN;
-
-        for p in points.iter() {
-            min_x = min_x.min(p.x);
-            min_y = min_y.min(p.y);
-            min_z = min_z.min(p.z);
-            max_x = max_x.max(p.x);
-            max_y = max_y.max(p.y);
-            max_z = max_z.max(p.z);
-        }
-
-        [
-            (min_x + max_x) / 2.0,
-            (min_y + max_y) / 2.0,
-            (min_z + max_z) / 2.0,
-        ]
-    }
-
     fn calculate_spacing(points: &Vec<PointXyzRgba>) -> f32 {
         let mut tree = KdTree::new(3);
         for (i, p) in points.iter().enumerate() {

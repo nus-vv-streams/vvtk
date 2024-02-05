@@ -1,141 +1,34 @@
-use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
+use crate::{
+    formats::{bounds::Bounds, pointxyzrgba::PointXyzRgba, PointCloud},
+    utils::get_pc_bound,
+};
 
 use rand::prelude::*;
 use std::iter::zip;
 
-const DELTA: f32 = 1e-4;
-
 pub fn subsample(
-    points: PointCloud<PointXyzRgba>,
+    points: &PointCloud<PointXyzRgba>,
     proportions: Vec<usize>,
     points_per_voxel_threshold: usize,
 ) -> Vec<PointCloud<PointXyzRgba>> {
     if points.points.is_empty() {
-        vec![points]
+        return vec![];
     } else {
-        let first_point = points.points[0];
-        let mut min_x = first_point.x;
-        let mut max_x = first_point.x;
-        let mut min_y = first_point.y;
-        let mut max_y = first_point.y;
-        let mut min_z = first_point.z;
-        let mut max_z = first_point.z;
-
-        for &point in &points.points {
-            min_x = min_x.min(point.x);
-            max_x = max_x.max(point.x);
-            min_y = min_y.min(point.y);
-            max_y = max_y.max(point.y);
-            min_z = min_z.min(point.z);
-            max_z = max_z.max(point.z);
-        }
+        let bound = get_pc_bound(&points);
 
         let points = random_sumsample(
-            points.points,
+            points.points.clone(),
             &proportions,
-            Bounds {
-                min_x,
-                max_x,
-                min_y,
-                max_y,
-                min_z,
-                max_z,
-            },
+            bound,
             points_per_voxel_threshold,
         );
 
         let mut point_clouds = vec![];
-
         for points in points {
             point_clouds.push(PointCloud::new(points.len(), points));
         }
 
         point_clouds
-    }
-}
-
-struct Bounds {
-    min_x: f32,
-    max_x: f32,
-    min_y: f32,
-    max_y: f32,
-    min_z: f32,
-    max_z: f32,
-}
-
-impl Bounds {
-    fn new(min_x: f32, max_x: f32, min_y: f32, max_y: f32, min_z: f32, max_z: f32) -> Self {
-        Self {
-            min_x,
-            max_x,
-            min_y,
-            max_y,
-            min_z,
-            max_z,
-        }
-    }
-
-    fn split(&self) -> Vec<Bounds> {
-        let &Bounds {
-            min_x,
-            max_x,
-            min_y,
-            max_y,
-            min_z,
-            max_z,
-        } = self;
-
-        let bisect_x = (max_x + min_x) / 2f32;
-        let bisect_y = (max_y + min_y) / 2f32;
-        let bisect_z = (max_z + min_z) / 2f32;
-
-        vec![
-            Bounds::new(min_x, bisect_x, min_y, bisect_y, min_z, bisect_z),
-            Bounds::new(min_x, bisect_x, min_y, bisect_y, bisect_z + DELTA, max_z),
-            Bounds::new(min_x, bisect_x, bisect_y + DELTA, max_y, min_z, bisect_z),
-            Bounds::new(
-                min_x,
-                bisect_x,
-                bisect_y + DELTA,
-                max_y,
-                bisect_z + DELTA,
-                max_z,
-            ),
-            Bounds::new(bisect_x + DELTA, max_x, min_y, bisect_y, min_z, bisect_z),
-            Bounds::new(
-                bisect_x + DELTA,
-                max_x,
-                min_y,
-                bisect_y,
-                bisect_z + DELTA,
-                max_z,
-            ),
-            Bounds::new(
-                bisect_x + DELTA,
-                max_x,
-                bisect_y + DELTA,
-                max_y,
-                min_z,
-                bisect_z,
-            ),
-            Bounds::new(
-                bisect_x + DELTA,
-                max_x,
-                bisect_y + DELTA,
-                max_y,
-                bisect_z + DELTA,
-                max_z,
-            ),
-        ]
-    }
-
-    fn contains(&self, point: &PointXyzRgba) -> bool {
-        point.x >= self.min_x
-            && point.x <= self.max_x
-            && point.y >= self.min_y
-            && point.y <= self.max_y
-            && point.z >= self.min_z
-            && point.z <= self.max_z
     }
 }
 
@@ -213,7 +106,7 @@ mod test {
         let proportions = vec![7, 1, 1, 1];
         let points_per_voxel_threshold = 20;
         let subsamples = subsample(
-            PointCloud::new(points.len(), points),
+            &PointCloud::new(points.len(), points),
             proportions,
             points_per_voxel_threshold,
         );
