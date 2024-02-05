@@ -3,14 +3,14 @@ use serde::{Deserialize, Serialize};
 use super::bounds::Bounds;
 
 #[derive(Serialize, Deserialize)]
-pub struct Manifest {
+pub struct MetaData {
     pub bounds: Vec<Vec<Bounds>>,
     pub centroids: Vec<Vec<[f32; 3]>>,
     pub num_of_additional_file: usize,
     pub partitions: (usize, usize, usize),
 }
 
-impl Manifest {
+impl MetaData {
     pub fn new(
         bounds: Vec<Vec<Bounds>>,
         centroids: Vec<Vec<[f32; 3]>>,

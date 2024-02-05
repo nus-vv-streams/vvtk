@@ -4,7 +4,7 @@ use crate::pcd::PointCloudData;
 use crate::velodyne::{VelodynPoint, VelodyneBinData};
 
 pub mod bounds;
-pub mod manifest;
+pub mod metadata;
 pub mod pointxyzrgba;
 pub mod pointxyzrgbanormal;
 

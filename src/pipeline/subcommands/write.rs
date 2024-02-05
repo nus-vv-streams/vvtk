@@ -1,7 +1,7 @@
 use cgmath::num_traits::pow;
 use clap::Parser;
 
-use crate::formats::manifest::Manifest;
+use crate::formats::metadata::MetaData;
 use crate::pcd::{
     create_pcd, create_pcd_from_pc_normal, create_pcd_from_pc_segment, write_pcd_file, PCDDataType,
 };
@@ -34,7 +34,7 @@ pub struct Args {
 pub struct Write {
     args: Args,
     count: u64,
-    manifest: Manifest,
+    metadata: MetaData,
 }
 
 impl Write {
@@ -45,7 +45,7 @@ impl Write {
         Box::from(Write {
             args,
             count: 0,
-            manifest: Manifest::default(),
+            metadata: MetaData::default(),
         })
     }
 }
@@ -169,12 +169,6 @@ impl Subcommand for Write {
                         panic!("Too many files, please increase the name length by setting --name-length")
                     }
 
-                    let subfolder = output_path.join(format!("{}", resolution));
-                    if !subfolder.exists() {
-                        std::fs::create_dir_all(&subfolder)
-                            .expect("Failed to create output directory");
-                    }
-
                     for (s_index, segment) in pc.segments.iter().enumerate() {
                         if segment.points.is_empty() {
                             continue;
@@ -182,14 +176,28 @@ impl Subcommand for Write {
 
                         let pcd = create_pcd_from_pc_segment(segment);
 
-                        let padded_count = if pc.is_partitioned() {
-                            format!("{:0width$}_{}", i, s_index, width = self.args.name_length)
-                        } else {
-                            format!("{:0width$}", i, width = self.args.name_length)
-                        };
+                        let padded_count = format!("{:0width$}", i, width = self.args.name_length);
 
-                        let file_name = format!("{}.{}", padded_count, output_format);
+                        let (subfolder, file_name) = if pc.is_partitioned() {
+                            (
+                                output_path
+                                    .join(format!("{}", resolution))
+                                    .join(format!("{}", padded_count)),
+                                format!("{}.{}", s_index, output_format),
+                            )
+                        } else {
+                            (
+                                output_path.join(format!("{}", resolution)),
+                                format!("{}.{}", padded_count, output_format),
+                            )
+                        };
                         let file = Path::new(&file_name);
+
+                        if !subfolder.exists() {
+                            std::fs::create_dir_all(&subfolder)
+                                .expect("Failed to create output directory");
+                        }
+
                         let output_file = subfolder.join(file);
 
                         match output_format.as_str() {
@@ -218,21 +226,21 @@ impl Subcommand for Write {
                     num_of_additional_file,
                     partitions,
                 ) => {
-                    self.manifest.next(bound.clone(), centroid.clone());
-                    self.manifest.num_of_additional_file = *num_of_additional_file;
-                    self.manifest.partitions = *partitions;
+                    self.metadata.next(bound.clone(), centroid.clone());
+                    self.metadata.num_of_additional_file = *num_of_additional_file;
+                    self.metadata.partitions = *partitions;
                 }
                 PipelineMessage::DummyForIncrement => {}
                 PipelineMessage::End => {
-                    if self.manifest.num_of_additional_file > 0 {
+                    if self.metadata.num_of_additional_file > 0 {
                         if !output_path.exists() {
                             std::fs::create_dir_all(output_path)
                                 .expect("Failed to create output directory");
                         }
 
-                        let manifest_file = output_path.join("manifest.json");
-                        let json = serde_json::to_string_pretty(&self.manifest).unwrap();
-                        std::fs::write(manifest_file, json).expect("Unable to write file");
+                        let metadata_file = output_path.join("metadata.json");
+                        let json = serde_json::to_string_pretty(&self.metadata).unwrap();
+                        std::fs::write(metadata_file, json).expect("Unable to write file");
                     }
                 }
             }
