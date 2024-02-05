@@ -1,10 +1,9 @@
 use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
 use crate::subsample::random_sampler::subsample;
-
-const DELTA: f32 = 1e-4;
+use crate::utils::get_pc_bound;
 
 pub fn lodify(
-    points: PointCloud<PointXyzRgba>,
+    points: &PointCloud<PointXyzRgba>,
     partitions: (usize, usize, usize),
     proportions: Vec<usize>,
     points_per_voxel_threshold: usize,
@@ -22,7 +21,6 @@ pub fn lodify(
         let additional_pcs = points[1..].to_vec();
 
         let mut result = vec![base_pc];
-
         for pc in additional_pcs {
             let partitioned_pc = partition(&pc, partitions);
             result.push(partitioned_pc);
@@ -32,39 +30,15 @@ pub fn lodify(
     }
 }
 
-fn partition(
+pub fn partition(
     pc: &PointCloud<PointXyzRgba>,
     partitions: (usize, usize, usize),
 ) -> PointCloud<PointXyzRgba> {
-    let first_point = pc.points[0];
-    let mut min_x = first_point.x;
-    let mut max_x = first_point.x;
-    let mut min_y = first_point.y;
-    let mut max_y = first_point.y;
-    let mut min_z = first_point.z;
-    let mut max_z = first_point.z;
-
-    for &point in &pc.points {
-        min_x = min_x.min(point.x);
-        max_x = max_x.max(point.x);
-        min_y = min_y.min(point.y);
-        max_y = max_y.max(point.y);
-        min_z = min_z.min(point.z);
-        max_z = max_z.max(point.z);
-    }
-
-    let x_step = (max_x - min_x + DELTA) / partitions.0 as f32;
-    let y_step = (max_y - min_y + DELTA) / partitions.1 as f32;
-    let z_step = (max_z - min_z + DELTA) / partitions.2 as f32;
-
+    let bound = get_pc_bound(&pc);
     let mut partitioned_points = vec![vec![]; partitions.0 * partitions.1 * partitions.2];
 
     for point in &pc.points {
-        let x = ((point.x - min_x) / x_step).floor() as usize;
-        let y = ((point.y - min_y) / y_step).floor() as usize;
-        let z = ((point.z - min_z) / z_step).floor() as usize;
-
-        let index = x + y * partitions.0 + z * partitions.0 * partitions.1;
+        let index = bound.get_bound_index(point, partitions);
         partitioned_points[index].push(*point);
     }
 

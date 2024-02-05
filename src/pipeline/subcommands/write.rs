@@ -1,6 +1,7 @@
 use cgmath::num_traits::pow;
 use clap::Parser;
 
+use crate::formats::manifest::Manifest;
 use crate::pcd::{
     create_pcd, create_pcd_from_pc_normal, create_pcd_from_pc_segment, write_pcd_file, PCDDataType,
 };
@@ -48,6 +49,8 @@ impl Subcommand for Write {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         let output_path = Path::new(&self.args.output_dir);
         let max_count = pow(10, self.args.name_length);
+        let mut manifest = Manifest::default();
+
         for message in messages {
             match &message {
                 PipelineMessage::IndexedPointCloud(pc, i) => {
@@ -162,11 +165,6 @@ impl Subcommand for Write {
                         panic!("Too many files, please increase the name length by setting --name-length")
                     }
 
-                    if !output_path.exists() {
-                        std::fs::create_dir_all(output_path)
-                            .expect("Failed to create output directory");
-                    }
-
                     let subfolder = output_path.join(format!("{}", resolution));
                     if !subfolder.exists() {
                         std::fs::create_dir_all(&subfolder)
@@ -210,9 +208,30 @@ impl Subcommand for Write {
                         }
                     }
                 }
+                PipelineMessage::ManifestInformation(
+                    bound,
+                    centroid,
+                    num_of_additional_file,
+                    partitions,
+                ) => {
+                    manifest.next(bound.clone(), centroid.clone());
+                    manifest.num_of_additional_file = *num_of_additional_file;
+                    manifest.partitions = *partitions;
+                }
                 PipelineMessage::End | PipelineMessage::DummyForIncrement => {}
             }
             channel.send(message);
+        }
+
+        // if there are manifest information, write it to a file
+        if manifest.num_of_additional_file > 0 {
+            if !output_path.exists() {
+                std::fs::create_dir_all(output_path).expect("Failed to create output directory");
+            }
+
+            let manifest_file = output_path.join("manifest.json");
+            let json = serde_json::to_string(&manifest).unwrap();
+            std::fs::write(manifest_file, json).expect("Unable to write file");
         }
     }
 }

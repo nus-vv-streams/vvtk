@@ -1,7 +1,10 @@
+use serde::{Deserialize, Serialize};
+
 use super::pointxyzrgba::PointXyzRgba;
 
 const DELTA: f32 = 1e-4;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Bounds {
     pub min_x: f32,
     pub max_x: f32,
@@ -77,6 +80,31 @@ impl Bounds {
         ]
     }
 
+    pub fn partition(&self, partitions: (usize, usize, usize)) -> Vec<Bounds> {
+        let x_step = (self.max_x - self.min_x + DELTA) / partitions.0 as f32;
+        let y_step = (self.max_y - self.min_y + DELTA) / partitions.1 as f32;
+        let z_step = (self.max_z - self.min_z + DELTA) / partitions.2 as f32;
+
+        let mut bounds = vec![];
+
+        for x in 0..partitions.0 {
+            for y in 0..partitions.1 {
+                for z in 0..partitions.2 {
+                    bounds.push(Bounds::new(
+                        self.min_x + x as f32 * x_step,
+                        self.min_x + (x + 1) as f32 * x_step,
+                        self.min_y + y as f32 * y_step,
+                        self.min_y + (y + 1) as f32 * y_step,
+                        self.min_z + z as f32 * z_step,
+                        self.min_z + (z + 1) as f32 * z_step,
+                    ));
+                }
+            }
+        }
+
+        bounds
+    }
+
     pub fn contains(&self, point: &PointXyzRgba) -> bool {
         point.x >= self.min_x
             && point.x <= self.max_x
@@ -84,5 +112,21 @@ impl Bounds {
             && point.y <= self.max_y
             && point.z >= self.min_z
             && point.z <= self.max_z
+    }
+
+    pub fn get_bound_index(
+        &self,
+        point: &PointXyzRgba,
+        partitions: (usize, usize, usize),
+    ) -> usize {
+        let x_step = (self.max_x - self.min_x + DELTA) / partitions.0 as f32;
+        let y_step = (self.max_y - self.min_y + DELTA) / partitions.1 as f32;
+        let z_step = (self.max_z - self.min_z + DELTA) / partitions.2 as f32;
+
+        let x = ((point.x - self.min_x) / x_step).floor() as usize;
+        let y = ((point.y - self.min_y) / y_step).floor() as usize;
+        let z = ((point.z - self.min_z) / z_step).floor() as usize;
+
+        x + y * partitions.0 + z * partitions.0 * partitions.1
     }
 }

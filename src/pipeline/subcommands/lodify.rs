@@ -1,8 +1,9 @@
 use clap::Parser;
 
 use crate::{
-    lodify::lodify::lodify,
+    lodify::lodify::{lodify, partition},
     pipeline::{channel::Channel, PipelineMessage},
+    utils::{get_pc_bound, weighted_centroid},
 };
 
 use super::Subcommand;
@@ -56,11 +57,14 @@ impl Subcommand for Lodifier {
             match message {
                 PipelineMessage::IndexedPointCloud(pc, i) => {
                     let point_clouds = lodify(
-                        pc,
+                        &pc,
                         self.partitions,
                         self.proportions.clone(),
                         self.points_per_voxel_threshold,
                     );
+
+                    let base_pc = point_clouds.first().unwrap().clone();
+
                     for (resolution, pc) in point_clouds.into_iter().enumerate() {
                         channel.send(PipelineMessage::IndexedPointCloudWithResolution(
                             pc,
@@ -68,10 +72,26 @@ impl Subcommand for Lodifier {
                             resolution as u32,
                         ));
                     }
+
+                    let bounds = get_pc_bound(&pc).partition(self.partitions);
+                    let partitioned_base_pc = partition(&base_pc, self.partitions);
+                    let centroids = partitioned_base_pc
+                        .segments
+                        .iter()
+                        .map(|points| weighted_centroid(&points.points))
+                        .collect();
+
+                    channel.send(PipelineMessage::ManifestInformation(
+                        bounds,
+                        centroids,
+                        self.proportions.len(),
+                        self.partitions,
+                    ));
                 }
                 PipelineMessage::Metrics(_)
                 | PipelineMessage::IndexedPointCloudWithResolution(_, _, _)
                 | PipelineMessage::IndexedPointCloudNormal(_, _)
+                | PipelineMessage::ManifestInformation(_, _, _, _)
                 | PipelineMessage::DummyForIncrement => {}
                 PipelineMessage::End => {
                     channel.send(message);

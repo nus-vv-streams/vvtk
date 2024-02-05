@@ -77,6 +77,7 @@ impl Subcommand for NormalEstimation {
                 PipelineMessage::Metrics(_)
                 | PipelineMessage::IndexedPointCloudWithResolution(_, _, _)
                 | PipelineMessage::IndexedPointCloudNormal(_, _)
+                | PipelineMessage::ManifestInformation(_, _, _, _)
                 | PipelineMessage::DummyForIncrement => {}
                 PipelineMessage::End => {
                     channel.send(message);
