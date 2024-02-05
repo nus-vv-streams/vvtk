@@ -136,11 +136,16 @@ impl AdaptiveReader {
             return Some(base_pc);
         }
 
+        // check time
+        // let now = std::time::Instant::now();
+
         let desired_num_points = self
             .resolution_controller
             .as_mut()
             .unwrap()
             .get_desired_num_points(self.camera_state.as_ref().unwrap());
+
+        // println!("Time to get desired_num_points: {:?}", now.elapsed());
 
         let num_of_points_required = if desired_num_points < base_pc.number_of_points {
             0
@@ -149,13 +154,15 @@ impl AdaptiveReader {
         };
 
         let additional_points_required = self.read_more_points(index, num_of_points_required);
+        // println!("Time to read_more_points: {:?}", now.elapsed());
 
         let new_pc = base_pc.merge_points(additional_points_required);
+        // println!("Time to merge_points: {:?}", now.elapsed());
 
-        println!(
-            "desired_num_points: {}, base_pc: {}, new_pc: {},",
-            desired_num_points, base_pc.number_of_points, new_pc.number_of_points
-        );
+        // println!(
+        //     "desired_num_points: {}, base_pc: {}, new_pc: {},",
+        //     desired_num_points, base_pc.number_of_points, new_pc.number_of_points
+        // );
 
         Some(new_pc)
     }

@@ -4,7 +4,8 @@ use super::bounds::Bounds;
 
 #[derive(Serialize, Deserialize)]
 pub struct MetaData {
-    pub bounds: Vec<Vec<Bounds>>,
+    pub bounds: Vec<Bounds>,
+    pub point_nums: Vec<Vec<usize>>,
     pub centroids: Vec<Option<Vec<[f32; 3]>>>,
     pub num_of_additional_file: usize,
     pub partitions: (usize, usize, usize),
@@ -12,13 +13,15 @@ pub struct MetaData {
 
 impl MetaData {
     pub fn new(
-        bounds: Vec<Vec<Bounds>>,
+        bounds: Vec<Bounds>,
+        point_nums: Vec<Vec<usize>>,
         centroids: Vec<Option<Vec<[f32; 3]>>>,
         num_of_additional_file: usize,
         partitions: (usize, usize, usize),
     ) -> Self {
         Self {
             bounds,
+            point_nums,
             centroids,
             num_of_additional_file,
             partitions,
@@ -28,14 +31,16 @@ impl MetaData {
     pub fn default() -> Self {
         Self {
             bounds: vec![],
+            point_nums: vec![],
             centroids: vec![],
             num_of_additional_file: 0,
             partitions: (0, 0, 0),
         }
     }
 
-    pub fn next(&mut self, bounds: Vec<Bounds>, centroid: Option<Vec<[f32; 3]>>) {
-        self.bounds.push(bounds);
+    pub fn next(&mut self, bound: Bounds, point_num: Vec<usize>, centroid: Option<Vec<[f32; 3]>>) {
+        self.bounds.push(bound);
+        self.point_nums.push(point_num);
         self.centroids.push(centroid);
     }
 }

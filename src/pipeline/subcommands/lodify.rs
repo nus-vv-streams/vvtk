@@ -73,9 +73,8 @@ impl Subcommand for Lodifier {
                         ));
                     }
 
-                    let bounds = get_pc_bound(&pc).partition(self.partitions);
-                    let partitioned_base_pc = partition(&base_pc, self.partitions);
-                    let centroids = partitioned_base_pc
+                    let bound = get_pc_bound(&pc);
+                    let centroids = partition(&pc, self.partitions)
                         .segments
                         .iter()
                         .map(|points| {
@@ -87,8 +86,15 @@ impl Subcommand for Lodifier {
                         })
                         .collect();
 
+                    let point_nums = partition(&base_pc, self.partitions)
+                        .segments
+                        .iter()
+                        .map(|points| points.points.len())
+                        .collect();
+
                     channel.send(PipelineMessage::ManifestInformation(
-                        bounds,
+                        bound,
+                        point_nums,
                         centroids,
                         self.proportions.len() - 1,
                         self.partitions,
@@ -97,7 +103,7 @@ impl Subcommand for Lodifier {
                 PipelineMessage::Metrics(_)
                 | PipelineMessage::IndexedPointCloudWithResolution(_, _, _)
                 | PipelineMessage::IndexedPointCloudNormal(_, _)
-                | PipelineMessage::ManifestInformation(_, _, _, _)
+                | PipelineMessage::ManifestInformation(_, _, _, _, _)
                 | PipelineMessage::DummyForIncrement => {}
                 PipelineMessage::End => {
                     channel.send(message);

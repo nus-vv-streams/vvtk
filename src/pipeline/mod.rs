@@ -51,7 +51,8 @@ pub enum PipelineMessage {
     IndexedPointCloudWithResolution(PointCloud<PointXyzRgba>, u32, u32),
     // PointCloud(PointCloud<PointXyzRgba>),
     ManifestInformation(
-        Vec<Bounds>,
+        Bounds,
+        Vec<usize>,
         Option<Vec<[f32; 3]>>,
         usize,
         (usize, usize, usize),

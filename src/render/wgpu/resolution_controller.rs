@@ -48,21 +48,21 @@ impl ResolutionController {
         // let z = camera_state.distance(self.centroid);
         let (width, height) = camera_state.get_plane_at_z(z);
 
-        println!("z: {}, width: {}, height: {}", z, width, height);
-        println!("window_size: {:?}", window_size);
+        // println!("z: {}, width: {}, height: {}", z, width, height);
+        // println!("window_size: {:?}", window_size);
 
         let x_spacing = width / window_size.width as f32;
         let y_spacing = height / window_size.height as f32;
 
-        println!("x_spacing: {}, y_spacing: {}", x_spacing, y_spacing);
+        // println!("x_spacing: {}, y_spacing: {}", x_spacing, y_spacing);
 
         let desired_spacing = x_spacing.min(y_spacing);
         let scaling_factor = (self.anchor_spacing / desired_spacing).powi(3);
 
-        println!(
-            "desired_spacing: {}, anchor_spacing: {}, scaling_factor: {}",
-            desired_spacing, self.anchor_spacing, scaling_factor
-        );
+        // println!(
+        //     "desired_spacing: {}, anchor_spacing: {}, scaling_factor: {}",
+        //     desired_spacing, self.anchor_spacing, scaling_factor
+        // );
 
         return (self.anchor_num_points as f32 * scaling_factor as f32) as usize;
     }

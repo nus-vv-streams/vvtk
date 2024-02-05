@@ -126,7 +126,6 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
     fn get_nested_at(&self, index: usize, nested_index: usize) -> Option<PointCloud<PointXyzRgba>> {
         if self.nested {
             let file_path = self.files.get(index)?;
-            println!("file_path: {:?}", file_path);
             read_file_to_point_cloud(file_path.get(nested_index)?)
         } else {
             None
