@@ -32,7 +32,7 @@ impl ResolutionController {
         }
     }
 
-    pub fn get_desired_num_points(&mut self, camera_state: &CameraState) -> u64 {
+    pub fn get_desired_num_points(&mut self, camera_state: &CameraState) -> usize {
         let window_size = camera_state.get_window_size();
 
         // get nearest distance by comparing each point to the camera
@@ -64,7 +64,7 @@ impl ResolutionController {
             desired_spacing, self.anchor_spacing, scaling_factor
         );
 
-        return (self.anchor_num_points as f32 * scaling_factor as f32) as u64;
+        return (self.anchor_num_points as f32 * scaling_factor as f32) as usize;
     }
 
     fn calculate_spacing(points: &Vec<PointXyzRgba>) -> f32 {

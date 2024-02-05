@@ -14,14 +14,14 @@ use super::renderable::Renderable;
 pub trait RenderReader<T: Renderable> {
     fn start(&mut self) -> Option<T>;
     fn get_at(&mut self, index: usize) -> Option<T>;
+    fn get_nested_at(&self, _: usize, _: usize) -> Option<T> {
+        None
+    }
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
     fn set_len(&mut self, len: usize);
     fn set_camera_state(&mut self, camera_state: Option<CameraState>);
     fn get_path_at(&self, _index: usize) -> Option<&PathBuf>;
-    fn get_nested_path_at(&self, _index: usize, _nested_index: usize) -> Option<&PathBuf> {
-        None
-    }
 }
 
 pub struct PcdFileReader {
@@ -61,7 +61,10 @@ pub struct PointCloudFileReader {
 
 impl PointCloudFileReader {
     pub fn from_directory(directory: &Path, file_type: &str) -> Self {
-        let files = vec![Self::scan_dir(directory, file_type)];
+        let files = Self::scan_dir(directory, file_type)
+            .into_iter()
+            .map(|f| vec![f])
+            .collect();
         Self {
             files,
             nested: false,
@@ -82,6 +85,7 @@ impl PointCloudFileReader {
                 }
             }
         }
+        files.sort();
         Self {
             files,
             nested: true,
@@ -119,6 +123,16 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
         read_file_to_point_cloud(file_path.first().unwrap())
     }
 
+    fn get_nested_at(&self, index: usize, nested_index: usize) -> Option<PointCloud<PointXyzRgba>> {
+        if self.nested {
+            let file_path = self.files.get(index)?;
+            println!("file_path: {:?}", file_path);
+            read_file_to_point_cloud(file_path.get(nested_index)?)
+        } else {
+            None
+        }
+    }
+
     fn len(&self) -> usize {
         self.files.len()
     }
@@ -133,13 +147,6 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
 
     fn get_path_at(&self, index: usize) -> Option<&PathBuf> {
         self.files.get(index)?.first()
-    }
-
-    fn get_nested_path_at(&self, index: usize, nested_index: usize) -> Option<&PathBuf> {
-        if !self.nested {
-            return None;
-        }
-        self.files.get(index)?.get(nested_index)
     }
 }
 

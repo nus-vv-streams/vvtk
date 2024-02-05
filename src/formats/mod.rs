@@ -60,6 +60,21 @@ where
     pub fn is_partitioned(&self) -> bool {
         self.segments.len() > 1
     }
+
+    pub fn merge_points(&self, points: Vec<T>) -> Self {
+        let number_of_points = self.number_of_points + points.len();
+        let segments = vec![PointCloudSegment {
+            number_of_points,
+            points: points.clone(),
+        }];
+        let mut all_points = self.points.clone();
+        all_points.extend(points);
+        Self {
+            number_of_points,
+            segments,
+            points: all_points,
+        }
+    }
 }
 
 impl Debug for PointCloud<pointxyzrgba::PointXyzRgba> {

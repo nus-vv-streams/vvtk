@@ -78,13 +78,19 @@ impl Subcommand for Lodifier {
                     let centroids = partitioned_base_pc
                         .segments
                         .iter()
-                        .map(|points| weighted_centroid(&points.points))
+                        .map(|points| {
+                            if points.points.is_empty() {
+                                None
+                            } else {
+                                Some(weighted_centroid(&points.points))
+                            }
+                        })
                         .collect();
 
                     channel.send(PipelineMessage::ManifestInformation(
                         bounds,
                         centroids,
-                        self.proportions.len(),
+                        self.proportions.len() - 1,
                         self.partitions,
                     ));
                 }

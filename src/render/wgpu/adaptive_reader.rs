@@ -1,8 +1,8 @@
+use crate::formats::metadata::MetaData;
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
-use crate::utils::read_file_header;
-use core::panic;
 use std::path::Path;
+use std::process::exit;
 
 use super::camera::CameraState;
 use super::reader::{PointCloudFileReader, RenderReader};
@@ -10,9 +10,11 @@ use super::renderable::Renderable;
 use super::resolution_controller::ResolutionController;
 
 pub struct AdaptiveReader {
-    readers: Vec<PointCloudFileReader>,
+    base_reader: PointCloudFileReader,
+    additional_readers: Option<Vec<PointCloudFileReader>>,
     camera_state: Option<CameraState>,
-    resolution_controller: ResolutionController,
+    resolution_controller: Option<ResolutionController>,
+    metadata: Option<MetaData>,
 }
 
 fn infer_format(src: &String) -> String {
@@ -57,129 +59,142 @@ fn infer_format(src: &String) -> String {
 }
 
 impl AdaptiveReader {
-    pub fn new(src: &Vec<String>) -> Self {
-        let play_format = infer_format(&src[0]);
-        let paths = src.iter().map(|s| Path::new(s)).collect::<Vec<_>>();
+    pub fn new(src: &String, lod: bool) -> Self {
+        let base_path = if lod { src.clone() + "/0" } else { src.clone() };
 
-        // println!("Playing files in {:?} with format {}", path, play_format);
-        let mut readers = vec![];
+        let play_format = infer_format(&base_path);
+        let base_path = Path::new(&base_path);
+        let mut base_reader = PointCloudFileReader::from_directory(base_path, &play_format);
 
-        for path in paths.iter() {
-            readers.push(PointCloudFileReader::from_directory(path, &play_format));
+        if base_reader.is_empty() {
+            eprintln!("Must provide at least one file!");
+            exit(1);
         }
 
-        if readers.is_empty() || readers[0].is_empty() {
-            panic!("Must provide at least one file!");
-        }
+        if lod {
+            let metadata_path = Path::new(&src).join("metadata.json");
+            let metadata: MetaData = if metadata_path.exists() {
+                let data = std::fs::read_to_string(metadata_path).unwrap();
+                serde_json::from_str(&data).unwrap()
+            } else {
+                eprintln!("Must provide at least one file!");
+                exit(1);
+            };
 
-        let len = readers[0].len();
-        for reader in readers.iter() {
-            if reader.len() != len {
-                panic!("All readers must have the same length");
+            let additional_readers = (1..metadata.num_of_additional_file + 1)
+                .map(|i| {
+                    let path = Path::new(&src).join(i.to_string());
+                    PointCloudFileReader::from_nested_directory(&path, &play_format)
+                })
+                .collect::<Vec<_>>();
+
+            let len = base_reader.len();
+            for reader in additional_readers.iter() {
+                if reader.len() != len {
+                    eprintln!("All readers must have the same length");
+                    exit(1);
+                }
             }
-        }
 
-        let anchor_point_cloud = readers[0].start().unwrap();
-        let resolution_controller = ResolutionController::new(
-            &anchor_point_cloud.points,
-            anchor_point_cloud.number_of_points,
-            anchor_point_cloud.antialias(),
-        );
+            let anchor_point_cloud = base_reader.start().unwrap();
+            let resolution_controller = ResolutionController::new(
+                &anchor_point_cloud.points,
+                anchor_point_cloud.number_of_points,
+                anchor_point_cloud.antialias(),
+            );
 
-        Self {
-            readers,
-            camera_state: None,
-            resolution_controller,
+            Self {
+                base_reader,
+                additional_readers: Some(additional_readers),
+                camera_state: None,
+                resolution_controller: Some(resolution_controller),
+                metadata: Some(metadata),
+            }
+        } else {
+            Self {
+                base_reader,
+                additional_readers: None,
+                camera_state: None,
+                resolution_controller: None,
+                metadata: None,
+            }
         }
     }
 
     pub fn len(&self) -> usize {
-        self.readers[0].len()
+        self.base_reader.len()
     }
 
-    fn select_reader(&mut self, index: usize) -> &mut PointCloudFileReader {
-        // if option is none, then we are in the first frame
-        if self.camera_state.is_none() || self.readers.len() == 1 {
-            return &mut self.readers[0];
+    fn get_desired_point_cloud(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
+        let base_pc = self.base_reader.get_at(index).unwrap();
+
+        if self.additional_readers.is_none()
+            || self.camera_state.is_none()
+            || self.resolution_controller.is_none()
+            || self.additional_readers.is_none()
+        {
+            return Some(base_pc);
         }
 
         let desired_num_points = self
             .resolution_controller
+            .as_mut()
+            .unwrap()
             .get_desired_num_points(self.camera_state.as_ref().unwrap());
 
-        let num_points_by_reader = self
-            .readers
-            .iter()
-            .map(|reader| {
-                reader
-                    .get_path_at(index)
-                    .and_then(|p| read_file_header(p).ok())
-                    .unwrap()
-                    .num_of_points
-            })
-            .collect::<Vec<_>>();
-        let resolution = self.find_resolution(&num_points_by_reader, desired_num_points);
+        let num_of_points_required = if desired_num_points < base_pc.number_of_points {
+            0
+        } else {
+            desired_num_points - base_pc.number_of_points
+        };
 
-        if resolution.is_none() {
-            return &mut self.readers[0];
-        }
+        let additional_points_required = self.read_more_points(index, num_of_points_required);
+
+        let new_pc = base_pc.merge_points(additional_points_required);
 
         println!(
-            "Resolution: {}, Desired: {}",
-            resolution.unwrap(),
-            desired_num_points
+            "desired_num_points: {}, base_pc: {}, new_pc: {},",
+            desired_num_points, base_pc.number_of_points, new_pc.number_of_points
         );
 
-        &mut self.readers[resolution.unwrap()]
+        Some(new_pc)
     }
 
-    fn find_resolution(
-        &self,
-        num_points: &std::vec::Vec<u64>,
-        desired_num_points: u64,
-    ) -> Option<usize> {
-        let size = num_points.len();
-        if size == 0 {
-            return None;
-        }
+    fn read_more_points(&self, index: usize, num_of_points: usize) -> Vec<PointXyzRgba> {
+        let mut points = vec![];
 
-        let mut left = 0;
-        let mut right = size - 1;
-
-        while left < right {
-            let mid = left + (right - left) / 2;
-            if num_points[mid] < desired_num_points {
-                left = mid + 1;
-            } else {
-                right = mid;
+        for reader in self.additional_readers.as_ref().unwrap() {
+            if points.len() >= num_of_points {
+                break;
             }
+
+            let pc = reader.get_nested_at(index, 0).unwrap();
+            points.extend(pc.points.iter().take(num_of_points));
         }
 
-        Some(left.min(size - 1))
+        points
     }
 }
 
 impl RenderReader<PointCloud<PointXyzRgba>> for AdaptiveReader {
     fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
-        self.select_reader(self.readers.len() - 1).start()
+        self.get_desired_point_cloud(0)
     }
 
     fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-        self.select_reader(index).get_at(index)
+        self.get_desired_point_cloud(index)
     }
 
     fn len(&self) -> usize {
-        self.readers[0].len()
+        self.base_reader.len()
     }
 
     fn is_empty(&self) -> bool {
-        self.readers[0].is_empty()
+        self.base_reader.is_empty()
     }
 
     fn set_len(&mut self, len: usize) {
-        for reader in self.readers.iter_mut() {
-            reader.set_len(len);
-        }
+        self.base_reader.set_len(len);
     }
 
     fn set_camera_state(&mut self, camera_state: Option<CameraState>) {
