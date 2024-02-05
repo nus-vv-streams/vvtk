@@ -170,9 +170,9 @@ impl Subcommand for Write {
                     }
 
                     for (s_index, segment) in pc.segments.iter().enumerate() {
-                        if segment.points.is_empty() {
-                            continue;
-                        }
+                        // if segment.points.is_empty() {
+                        //     continue;
+                        // }
 
                         let pcd = create_pcd_from_pc_segment(segment);
 

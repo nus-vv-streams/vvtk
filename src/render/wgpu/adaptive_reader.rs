@@ -14,7 +14,6 @@ pub struct AdaptiveReader {
     additional_readers: Option<Vec<PointCloudFileReader>>,
     camera_state: Option<CameraState>,
     resolution_controller: Option<ResolutionController>,
-    metadata: Option<MetaData>,
 }
 
 fn infer_format(src: &String) -> String {
@@ -99,7 +98,7 @@ impl AdaptiveReader {
             let anchor_point_cloud = base_reader.start().unwrap();
             let resolution_controller = ResolutionController::new(
                 &anchor_point_cloud.points,
-                anchor_point_cloud.number_of_points,
+                Some(metadata),
                 anchor_point_cloud.antialias(),
             );
 
@@ -108,7 +107,6 @@ impl AdaptiveReader {
                 additional_readers: Some(additional_readers),
                 camera_state: None,
                 resolution_controller: Some(resolution_controller),
-                metadata: Some(metadata),
             }
         } else {
             Self {
@@ -116,7 +114,6 @@ impl AdaptiveReader {
                 additional_readers: None,
                 camera_state: None,
                 resolution_controller: None,
-                metadata: None,
             }
         }
     }
@@ -136,38 +133,44 @@ impl AdaptiveReader {
             return Some(base_pc);
         }
 
-        // check time
         // let now = std::time::Instant::now();
 
-        let desired_num_points = self
+        let additional_num_points_desired = self
             .resolution_controller
             .as_mut()
             .unwrap()
-            .get_desired_num_points(self.camera_state.as_ref().unwrap());
+            .get_desired_num_points(index, self.camera_state.as_ref().unwrap(), true);
+
+        // println!("desired_num_points: {:?}", additional_num_points_desired);
 
         // println!("Time to get desired_num_points: {:?}", now.elapsed());
 
-        let num_of_points_required = if desired_num_points < base_pc.number_of_points {
-            0
-        } else {
-            desired_num_points - base_pc.number_of_points
-        };
-
-        let additional_points_required = self.read_more_points(index, num_of_points_required);
+        // for each num_of_points_required, read more points from additional readers into vector of points
+        let additional_points_required = additional_num_points_desired
+            .iter()
+            .enumerate()
+            .map(|(segment, &num)| self.read_more_points(index, num, segment))
+            .collect::<Vec<_>>()
+            .concat();
         // println!("Time to read_more_points: {:?}", now.elapsed());
 
         let new_pc = base_pc.merge_points(additional_points_required);
         // println!("Time to merge_points: {:?}", now.elapsed());
 
         // println!(
-        //     "desired_num_points: {}, base_pc: {}, new_pc: {},",
-        //     desired_num_points, base_pc.number_of_points, new_pc.number_of_points
+        //     "base_pc: {}, new_pc: {},",
+        //     base_pc.number_of_points, new_pc.number_of_points
         // );
 
         Some(new_pc)
     }
 
-    fn read_more_points(&self, index: usize, num_of_points: usize) -> Vec<PointXyzRgba> {
+    fn read_more_points(
+        &self,
+        index: usize,
+        num_of_points: usize,
+        segment: usize,
+    ) -> Vec<PointXyzRgba> {
         let mut points = vec![];
 
         for reader in self.additional_readers.as_ref().unwrap() {
@@ -175,7 +178,7 @@ impl AdaptiveReader {
                 break;
             }
 
-            let pc = reader.get_nested_at(index, 0).unwrap();
+            let pc = reader.get_nested_at(index, segment).unwrap();
             points.extend(pc.points.iter().take(num_of_points));
         }
 

@@ -109,6 +109,9 @@ where
 {
     fn from(pcd: PointCloudData) -> Self {
         let number_of_points = pcd.header.points() as usize;
+        if number_of_points == 0 {
+            return Self::new(number_of_points, vec![]);
+        }
 
         let mut v_clone = std::mem::ManuallyDrop::new(pcd.data);
         let points = unsafe {

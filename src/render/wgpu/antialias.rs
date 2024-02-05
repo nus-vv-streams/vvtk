@@ -71,4 +71,12 @@ impl AntiAlias {
 
         result
     }
+
+    pub fn apply_single(&self, point: &[f32; 3]) -> [f32; 3] {
+        let x = (point[0] - self.x) / self.scale;
+        let y = (point[1] - self.y) / self.scale;
+        let z = (point[2] - self.z) / self.scale;
+
+        [x, y, z]
+    }
 }

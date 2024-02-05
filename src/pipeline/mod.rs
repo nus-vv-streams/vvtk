@@ -53,7 +53,7 @@ pub enum PipelineMessage {
     ManifestInformation(
         Bounds,
         Vec<usize>,
-        Option<Vec<[f32; 3]>>,
+        Vec<Option<[f32; 3]>>,
         usize,
         (usize, usize, usize),
     ),
