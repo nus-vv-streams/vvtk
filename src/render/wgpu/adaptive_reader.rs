@@ -53,6 +53,7 @@ fn infer_format(src: &String) -> String {
 }
 
 impl AdaptiveReader {
+    //t: create a vector of adaptive reader
     pub fn new(src: &Vec<String>) -> Self {
         // TODO: remove the hard limit on the src len
         if src.len() != 1 && src.len() != 3 {

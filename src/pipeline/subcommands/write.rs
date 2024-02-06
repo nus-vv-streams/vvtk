@@ -44,7 +44,7 @@ impl Write {
 }
 
 impl Subcommand for Write {
-    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel, external_args: &Option<Vec<String>>) {
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         println!("Start writing...");
         let output_path = Path::new(&self.args.output_dir);
         let max_count = pow(10, self.args.name_length);

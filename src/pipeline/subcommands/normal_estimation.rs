@@ -63,7 +63,7 @@ struct EigenData {
 }
 
 impl Subcommand for NormalEstimation {
-    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel, external_args: &Option<Vec<String>>) {
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         // Perform normal estimation for each point cloud in the messages
         for message in messages {
             match message {

@@ -3,7 +3,6 @@ mod executor;
 pub mod subcommands;
 use clap::Parser;
 use crossbeam_channel::Receiver;
-use std::any::Any;
 
 use crate::{
     formats::{pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal, PointCloud},
@@ -51,6 +50,7 @@ pub enum PipelineMessage {
     // and if it is input or output stream
     //TODO: make it an option? or past in an option into Any, anything that goes inside any need to implement Clone
     // temporary fix by using string
+    // TODO: use something under serde instead of string
     SubcommandMessage(SubcommandObject<String>, bool, bool),
     End,
     DummyForIncrement,

@@ -25,6 +25,5 @@ pub use extension::Extension;
 use super::{channel::Channel, PipelineMessage};
 
 pub trait Subcommand {
-    //t: messages is input, out is output?
-    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel, external_args: &Option<Vec<String>>);
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel);
 }

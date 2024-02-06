@@ -44,7 +44,7 @@ impl Convert {
 }
 
 impl Subcommand for Convert {
-    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel, external_args: &Option<Vec<String>>) {
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         if messages.is_empty() {
             // println!("Start converting...");
             let mut files = find_all_files(&self.args.input);

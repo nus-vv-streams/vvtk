@@ -1,4 +1,4 @@
-use std::{ffi::OsString, fs, io, path::{PathBuf, Path}, process::Command};
+use std::{ffi::OsString, fs, io::{self, Write}, path::{Path, PathBuf}, process::Command};
 
 use clap::Parser;
 
@@ -16,6 +16,9 @@ pub struct Args {
     // If it is a binaries, where to find the binary paths, TODO, make it a vector of path later
     // default path for internal subcommand is ~/.cargo/
     binary_paths: String,
+    //TODO: use clap for this to parse a new vec   
+    #[clap(short, long, value_parser, num_args = 1.., value_delimiter = ',')]
+    xargs: Vec<String>,
 }
 pub struct Extension {
     args: Args, 
@@ -30,20 +33,12 @@ impl Extension {
 }
 
 impl Subcommand for Extension {
-    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel, external_args: &Option<Vec<String>>) {
-        //TODO: add more args for function arguments, try with the no command line argument version first
-        println!("handle function from extension is executed, and here are the args");
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         let testdir = PathBuf::from(&self.args.binary_paths);
         let mut paths: Vec<PathBuf> = vec![testdir];
         //TODO: pick String or &str
-        let mut cmd_args:&Vec<String> = &vec!["".to_string()];
-        match external_args {
-            Some(args) => {
-                cmd_args = args;
-            }
-            None => {}
-        }
-        execute_subcommand_executable(paths, &self.args.cmd_name, cmd_args);
+        //let mut cmd_args:&Vec<String> = &vec!["".to_string()];
+        execute_subcommand_executable(paths, &self.args.cmd_name, &self.args.xargs);
         channel.send(PipelineMessage::End);
     }
 }
@@ -62,7 +57,7 @@ fn execute_subcommand_executable(paths:Vec<PathBuf>, cmd: &str, cmd_args:&Vec<St
         Some(command) => command, 
         None => {
             // use println for now, need proper handling
-            println!("The external command not found!");
+            //println!("The external command not found!");
             //TODO: fix this part
             return Err("Invalid comand");
         }
@@ -81,19 +76,21 @@ fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>
     match cmd_path {
         //this is a test to pass a vector of args to an executable
         Some(cmd_path) => {
-            println!("this is a valid external subcommand");
+            //println!("this is a valid external subcommand");
+            // handle the error and communicate back
             let output = Command::new(cmd_path)
             .args(cmd_args)
             .output()
             .expect("Failed to run the executable");
             // TODO: If there is input stream, expect input, do it after the args, refer to metrics
-            // TODO: collect the stdout and pass it through pipeline message
-            println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+            //TODO: exit status
+            io::stderr().write_all(&output.stderr).unwrap();    
+            io::stdout().write_all(&output.stdout).unwrap();
             // TODO: create another executable that can print message to test on this
             return Ok(());
         },
         None => {
-            println!("this is internal subcommand, not implemented yet");
+            //println!("this is internal subcommand, not implemented yet");
             //TODO: implement someting here
             return Err("Internal subcommand not implemented yet");
         }
