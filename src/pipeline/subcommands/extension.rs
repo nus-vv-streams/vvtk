@@ -1,8 +1,9 @@
-use std::{ffi::OsString, fs, io::{self, Write}, path::{Path, PathBuf}, process::Command};
+use std::{fs, io::{self, Write}, path::{Path, PathBuf}, process::{Command, Stdio}};
 
 use clap::Parser;
+use serde::{Deserialize, Serialize};
 
-use crate::pipeline::{channel::Channel, PipelineMessage};
+use crate::{formats::pointxyzrgba::PointXyzRgba, pipeline::{channel::Channel, PipelineMessage}};
 
 use super::Subcommand;
 
@@ -33,7 +34,9 @@ impl Extension {
 }
 
 impl Subcommand for Extension {
+    // This will be called by the executor to execute this particular subcommand
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
+        // TODO: handle the input of the pipeline
         let testdir = PathBuf::from(&self.args.binary_paths);
         let mut paths: Vec<PathBuf> = vec![testdir];
         //TODO: pick String or &str
@@ -45,7 +48,6 @@ impl Subcommand for Extension {
 
 fn find_subcommand_executable(paths:Vec<PathBuf>, cmd: &str) -> Option<PathBuf> {
     let command_name = format!("vv-{}{}", cmd, std::env::consts::EXE_SUFFIX);
-    print!("command name: {}", command_name);
     paths.iter()
          .map(|dir| dir.join(&command_name))
          .find(|file| is_executable(file))
@@ -73,19 +75,50 @@ fn execute_rust_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>) ->
 // execute either external code or binaries 
 fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>) -> Result<(), &'static str> {
     // only implement external subcommand for now
+    /* 
+    /* sucessful test for string, prepare for the subcommand test, add a formal test later */
+    let input: SubcommandObject<String> = SubcommandObject::new(String::from("testing input string"));
+    let serialized = serde_json::to_string(&input).unwrap();
+    println!("serialized data = {}", serialized);
+    let deserialized: SubcommandObject<String> = serde_json::from_str(&serialized).unwrap();
+    println!("deserialized data = {}", deserialized.content);
+    */
+    let input: SubcommandObject<PointXyzRgba> = SubcommandObject::new(PointXyzRgba {
+        x: 1.0,
+        y: 2.0,
+        z: 3.0,
+        r: 4,
+        g: 5,
+        b: 6,
+        a: 7,
+    });
+    let serialized = serde_json::to_string(&input).unwrap();
+    println!("serialized data = {}", serialized);
+    /* 
+    let deserialized: SubcommandObject<PointXyzRgba> = serde_json::from_str(&serialized).unwrap();
+    println!("deserialized data = {:?}", deserialized.content);
+     */
     match cmd_path {
         //this is a test to pass a vector of args to an executable
         Some(cmd_path) => {
-            //println!("this is a valid external subcommand");
-            // handle the error and communicate back
-            let output = Command::new(cmd_path)
+            let mut child = Command::new(cmd_path)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
             .args(cmd_args)
-            .output()
-            .expect("Failed to run the executable");
+            .spawn()
+            .expect("Failed to spawn child process");
             // TODO: If there is input stream, expect input, do it after the args, refer to metrics
             //TODO: exit status
+            // show the output and error message
+            let mut stdin = child.stdin.take().expect("Failed to open stdin");
+            // pass the string as the stdin of the child process
+            std::thread::spawn(move || {
+                stdin.write_all(serialized.as_bytes()).expect("Failed to write to stdin");
+            });
+            let output = child.wait_with_output().expect("Failed to read stdout");
             io::stderr().write_all(&output.stderr).unwrap();    
             io::stdout().write_all(&output.stdout).unwrap();
+            // TODO: transfer the process output to the pipeline
             // TODO: create another executable that can print message to test on this
             return Ok(());
         },
@@ -108,19 +141,72 @@ fn is_executable<P: AsRef<Path>>(path: P) -> bool {
         .unwrap_or(false)
 }
 
-//TODO: need to design to pass the result to the next pipeline
-
-// get some types for PipelineMessage::SubcommandMessage()
-// how to get the value inside the PipelineMessage and get it compiled?
-#[derive(Debug)]
-pub struct SubcommandObject<T:Clone> {
+//TODO: move this somewhere else when tidy up
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SubcommandObject<T:Clone + Serialize> {
     content: Box<T>,
 }
 
-impl<T:Clone> Clone for SubcommandObject<T> {
+impl<T:Clone + Serialize> SubcommandObject<T> {
+    pub fn new(content: T) -> Self {
+        Self {
+            content: Box::new(content),
+        }
+    }
+}
+
+impl<T:Clone + Serialize> Clone for SubcommandObject<T> {
     fn clone(&self) -> Self {
         Self {
-            content: Box::new((*self.content).clone()),
+            content: self.content.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{io::{self, Write as _}, process::{Command, Stdio}};
+
+    use crate::{formats::pointxyzrgba::PointXyzRgba, pipeline::subcommands::extension::SubcommandObject};
+
+    use super::execute_external_subcommand;
+
+    #[test]
+    fn pass_pointcloud_to_executable_child_process() {
+        // This tests contains subset of code in execute_external_subcommand function, need clean up later
+        // This test deserialize point cloud and pass it to executable child process, then child process will deserialize and print it
+        // No cli arg passing for this test
+        // TODO: clean up the binaries and improve this test
+    let input: SubcommandObject<PointXyzRgba> = SubcommandObject::new(PointXyzRgba {
+        x: 1.0,
+        y: 2.0,
+        z: 3.0,
+        r: 4,
+        g: 5,
+        b: 6,
+        a: 7,
+    });
+    let serialized = serde_json::to_string(&input).unwrap();
+    //TODO: make sure this binaries is imported to github before pr
+    // vv-test-pipe-pc-only will take in serialized point cloud, deserialized it, and print the struct
+    let mut child = Command::new("../test_binaries/vv-test-pipe-pc-only")
+    .stdin(Stdio::piped())
+    .stdout(Stdio::piped())
+    .spawn()
+    .expect("Failed to spawn child process");
+
+    let mut stdin = child.stdin.take().expect("Failed to open stdin");
+
+    // Pipe the serialized point cloud to child process
+    std::thread::spawn(move || {
+        stdin.write_all(serialized.as_bytes()).expect("Failed to write to stdin");
+    });
+    let output = child.wait_with_output().expect("Failed to read stdout");
+    // Take out the point cloud from SubcommandObject
+    let subcommand_content = input.content;
+    // add \n to the right because prinln! is used in the child executable
+    println!("the point cloud created by parent process is {subcommand_content:?}");
+    print!("the deserialized point cloud of child process is {}", String::from_utf8_lossy(&output.stdout));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), format!("{subcommand_content:?}\n"));
     }
 }
