@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{formats::{pointxyzrgba::PointXyzRgba, PointCloud}, pipeline::{channel::Channel, PipelineMessage}, utils::read_file_to_point_cloud};
 
 use super::Subcommand;
+use std::time::Instant;
 
 #[derive(Parser)]
 #[clap(
@@ -94,9 +95,10 @@ fn execute_rust_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>) ->
 // execute external code or binaries 
 fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
     // Should receive a pointCloud, and also output a point cloud to the pipeline
-    // This is still in testing
+    // TODO: This is still in testing, need to remove later
     let input_pc = read_file_to_point_cloud(&PathBuf::from("./test_files/ply_ascii/longdress_vox10_1213_short.ply"));
     let input: SubcommandObject<PointCloud<PointXyzRgba>> = SubcommandObject::new(input_pc.unwrap());
+    let now = Instant::now();
     let serialized = serde_json::to_string(&input).unwrap();
     match cmd_path {
         Some(cmd_path) => {
@@ -124,7 +126,8 @@ fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>
             //pass the SubcommandObject<PointCloud> back to the pipeline
             let child_stdout:String = String::from_utf8(output.stdout.clone()).unwrap();
             child_deserialized_output = Some(serde_json::from_str(&child_stdout).unwrap());
-        
+            let elapsed = now.elapsed();
+            println!("Elapsed for vv extend downsample: {:.2?}", elapsed);
             match child_deserialized_output {
                 Some(child_deserialized_output) => return Ok(child_deserialized_output),
                 None => return Err("Failed to get deserialized output of the child process"),

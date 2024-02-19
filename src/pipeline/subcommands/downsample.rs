@@ -1,4 +1,5 @@
 use clap::Parser;
+use std::time::Instant;
 
 use crate::{
     downsample::octree::downsample,
@@ -32,7 +33,10 @@ impl Subcommand for Downsampler {
         for message in messages {
             match message {
                 PipelineMessage::IndexedPointCloud(pc, i) => {
+                    let now = Instant::now();
                     let downsampled_pc = downsample(pc, self.points_per_voxel);
+                    let elapsed = now.elapsed();
+                    println!("Elapsed for vv extend downsample: {:.2?}", elapsed);
                     channel.send(PipelineMessage::IndexedPointCloud(downsampled_pc, i));
                 }
                 PipelineMessage::Metrics(_)
