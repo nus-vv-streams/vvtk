@@ -29,7 +29,7 @@ pub struct Args {
         short = 't',
         long = "threshold",
         help = "points per voxel threshold",
-        default_value = "20"
+        default_value = "10"
     )]
     points_per_voxel_threshold: usize,
 }

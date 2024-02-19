@@ -39,21 +39,35 @@ impl ResolutionController {
     ) -> Vec<usize> {
         let metadata = self.metadata.as_ref().unwrap();
 
-        let centroids = metadata.centroids.get(index).unwrap();
+        // let centroids = metadata.centroids.get(index).unwrap();
+        let bounds = metadata
+            .bounds
+            .get(index)
+            .unwrap()
+            .partition(metadata.partitions);
         let base_point_num = metadata.point_nums.get(index).unwrap();
 
-        zip(centroids.iter(), base_point_num.iter())
-            .map(|(centroid, point_num)| {
-                if let Some(centroid) = centroid {
-                    let desired_num =
-                        self.get_desired_num_points_at(camera_state, centroid, *point_num);
-                    if exclude_base_points {
-                        desired_num - (*point_num).min(desired_num)
-                    } else {
-                        desired_num
-                    }
+        zip(bounds.iter(), base_point_num.iter())
+            .map(|(bound, point_num)| {
+                let margin = (bound.max_x - bound.min_x)
+                    .max(bound.max_y - bound.min_y)
+                    .max(bound.max_z - bound.min_z)
+                    / (self.anti_alias.scale * 2.0);
+
+                let z = (bound
+                    .get_vertexes()
+                    .iter()
+                    .map(|poi| camera_state.distance(self.anti_alias.apply_single(poi)))
+                    .min_by(|a, b| a.partial_cmp(b).unwrap())
+                    .unwrap()
+                    - margin)
+                    .max(0.);
+                println!("z: {}", z);
+                let desired_num = self.get_desired_num_points_at(camera_state, z, *point_num);
+                if exclude_base_points {
+                    desired_num - (*point_num).min(desired_num)
                 } else {
-                    0
+                    desired_num
                 }
             })
             .collect()
@@ -62,12 +76,10 @@ impl ResolutionController {
     fn get_desired_num_points_at(
         &self,
         camera_state: &CameraState,
-        poi: &[f32; 3],
+        z: f32,
         current_point_num: usize,
     ) -> usize {
         let window_size = camera_state.get_window_size();
-        let z = camera_state.distance(self.anti_alias.apply_single(poi));
-
         let (width, height) = camera_state.get_plane_at_z(z);
         // println!("z: {}, width: {}, height: {}", z, width, height);
         // println!("window_size: {:?}", window_size);
@@ -78,6 +90,7 @@ impl ResolutionController {
 
         let desired_spacing = x_spacing.min(y_spacing);
         let scaling_factor = (self.anchor_spacing / desired_spacing).powi(3);
+        // let scaling_factor = self.anchor_spacing / desired_spacing;
         // println!(
         //     "desired_spacing: {}, anchor_spacing: {}, scaling_factor: {}",
         //     desired_spacing, self.anchor_spacing, scaling_factor

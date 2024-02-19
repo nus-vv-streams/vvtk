@@ -87,9 +87,9 @@ impl Bounds {
 
         let mut bounds = vec![];
 
-        for x in 0..partitions.0 {
+        for z in 0..partitions.2 {
             for y in 0..partitions.1 {
-                for z in 0..partitions.2 {
+                for x in 0..partitions.0 {
                     bounds.push(Bounds::new(
                         self.min_x + x as f32 * x_step,
                         self.min_x + (x + 1) as f32 * x_step,
@@ -103,6 +103,19 @@ impl Bounds {
         }
 
         bounds
+    }
+
+    pub fn get_vertexes(&self) -> Vec<[f32; 3]> {
+        vec![
+            [self.min_x, self.min_y, self.min_z],
+            [self.max_x, self.min_y, self.min_z],
+            [self.min_x, self.max_y, self.min_z],
+            [self.max_x, self.max_y, self.min_z],
+            [self.min_x, self.min_y, self.max_z],
+            [self.max_x, self.min_y, self.max_z],
+            [self.min_x, self.max_y, self.max_z],
+            [self.max_x, self.max_y, self.max_z],
+        ]
     }
 
     pub fn contains(&self, point: &PointXyzRgba) -> bool {

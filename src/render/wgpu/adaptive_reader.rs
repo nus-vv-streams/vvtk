@@ -141,7 +141,7 @@ impl AdaptiveReader {
             .unwrap()
             .get_desired_num_points(index, self.camera_state.as_ref().unwrap(), true);
 
-        // println!("desired_num_points: {:?}", additional_num_points_desired);
+        println!("desired_num_points: {:?}", additional_num_points_desired);
 
         // println!("Time to get desired_num_points: {:?}", now.elapsed());
 
@@ -157,10 +157,10 @@ impl AdaptiveReader {
         let new_pc = base_pc.merge_points(additional_points_required);
         // println!("Time to merge_points: {:?}", now.elapsed());
 
-        // println!(
-        //     "base_pc: {}, new_pc: {},",
-        //     base_pc.number_of_points, new_pc.number_of_points
-        // );
+        println!(
+            "base_pc: {}, new_pc: {},",
+            base_pc.number_of_points, new_pc.number_of_points
+        );
 
         Some(new_pc)
     }
