@@ -3,7 +3,7 @@ use clap::Parser;
 use crate::{
     lodify::lodify::{lodify, partition},
     pipeline::{channel::Channel, PipelineMessage},
-    utils::{get_pc_bound, weighted_centroid},
+    utils::get_pc_bound,
 };
 
 use super::Subcommand;
@@ -74,17 +74,6 @@ impl Subcommand for Lodifier {
                     }
 
                     let bound = get_pc_bound(&pc);
-                    let centroids = partition(&pc, self.partitions)
-                        .segments
-                        .iter()
-                        .map(|points| {
-                            if points.points.is_empty() {
-                                None
-                            } else {
-                                Some(weighted_centroid(&points.points))
-                            }
-                        })
-                        .collect();
 
                     let point_nums = partition(&base_pc, self.partitions)
                         .segments
@@ -95,7 +84,6 @@ impl Subcommand for Lodifier {
                     channel.send(PipelineMessage::ManifestInformation(
                         bound,
                         point_nums,
-                        centroids,
                         self.proportions.len() - 1,
                         self.partitions,
                     ));
@@ -103,7 +91,7 @@ impl Subcommand for Lodifier {
                 PipelineMessage::Metrics(_)
                 | PipelineMessage::IndexedPointCloudWithResolution(_, _, _)
                 | PipelineMessage::IndexedPointCloudNormal(_, _)
-                | PipelineMessage::ManifestInformation(_, _, _, _, _)
+                | PipelineMessage::ManifestInformation(_, _, _, _)
                 | PipelineMessage::DummyForIncrement => {}
                 PipelineMessage::End => {
                     channel.send(message);
