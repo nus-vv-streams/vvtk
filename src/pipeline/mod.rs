@@ -49,9 +49,9 @@ pub enum PipelineMessage {
     // Pipeline for external subcommand, contains the object that subcommand wants to past
     // and if it is input or output stream
     //TODO: make it an option? or past in an option into Any, anything that goes inside any need to implement Clone
-    // temporary fix by using string
-    // TODO: use something under serde instead of string
-    SubcommandMessage(SubcommandObject<String>, bool, bool),
+    // Set it as string and deserialized it if needed 
+    // Can add a type to SubcommandObject is
+    SubcommandMessage(SubcommandObject<PointXyzRgba>, bool, bool),
     End,
     DummyForIncrement,
 }
