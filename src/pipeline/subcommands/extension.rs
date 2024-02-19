@@ -3,7 +3,7 @@ use std::{fs, io::{self, Write}, path::{Path, PathBuf}, process::{Command, Stdio
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 
-use crate::{formats::pointxyzrgba::PointXyzRgba, pipeline::{channel::Channel, PipelineMessage}};
+use crate::{formats::{pointxyzrgba::PointXyzRgba, PointCloud}, pipeline::{channel::Channel, PipelineMessage}, utils::read_file_to_point_cloud};
 
 use super::Subcommand;
 
@@ -72,7 +72,7 @@ fn find_subcommand_executable(paths:Vec<PathBuf>, cmd: &str) -> Option<PathBuf> 
          .find(|file| is_executable(file))
 }
 
-fn execute_subcommand_executable(paths:Vec<PathBuf>, cmd: &str, cmd_args:&Vec<String>) -> Result<SubcommandObject<PointXyzRgba>, &'static str> {
+fn execute_subcommand_executable(paths:Vec<PathBuf>, cmd: &str, cmd_args:&Vec<String>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
     let path = find_subcommand_executable(paths, cmd);
     let command = match path {
         Some(command) => command, 
@@ -87,26 +87,20 @@ fn execute_subcommand_executable(paths:Vec<PathBuf>, cmd: &str, cmd_args:&Vec<St
 }
 
 // This function will execute subcommand that is stored as rust code
-fn execute_rust_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>) -> Result<SubcommandObject<PointXyzRgba>, &'static str> {
+fn execute_rust_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
     execute_external_subcommand(None, cmd_args)
 }
 
 // execute external code or binaries 
-fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>) -> Result<SubcommandObject<PointXyzRgba>, &'static str> {
+fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
     // Should receive a pointCloud, and also output a point cloud to the pipeline
-    let input: SubcommandObject<PointXyzRgba> = SubcommandObject::new(PointXyzRgba {
-        x: 1.0,
-        y: 2.0,
-        z: 3.0,
-        r: 4,
-        g: 5,
-        b: 6,
-        a: 7,
-    });
+    // This is still in testing
+    let input_pc = read_file_to_point_cloud(&PathBuf::from("./test_files/ply_ascii/longdress_vox10_1213_short.ply"));
+    let input: SubcommandObject<PointCloud<PointXyzRgba>> = SubcommandObject::new(input_pc.unwrap());
     let serialized = serde_json::to_string(&input).unwrap();
     match cmd_path {
         Some(cmd_path) => {
-            let mut child_deserialized_output:Option<SubcommandObject<PointXyzRgba>> = None;
+            let mut child_deserialized_output:Option<SubcommandObject<PointCloud<PointXyzRgba>>> = None;
             let mut child = Command::new(cmd_path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -120,7 +114,7 @@ fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>
             });
             let output = child.wait_with_output().expect("Failed to read stdout");
             //print exit code of the child process
-            match(&output.status.code()) {
+            match &output.status.code() {
                 Some(code) => println!("Subprocess exited with status code: {}", code),
                 None => println!("Process terminated by signal"),
             }

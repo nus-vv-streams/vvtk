@@ -51,7 +51,7 @@ pub enum PipelineMessage {
     //TODO: make it an option? or past in an option into Any, anything that goes inside any need to implement Clone
     // Set it as string and deserialized it if needed 
     // Can add a type to SubcommandObject is
-    SubcommandMessage(SubcommandObject<PointXyzRgba>, bool, bool),
+    SubcommandMessage(SubcommandObject<PointCloud<PointXyzRgba>>, bool, bool),
     End,
     DummyForIncrement,
 }

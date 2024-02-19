@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 use crate::pcd::PointCloudData;
@@ -9,7 +9,7 @@ use self::pointxyzrgba::PointXyzRgba;
 pub mod pointxyzrgba;
 pub mod pointxyzrgbanormal;
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct PointCloud<T> {
     pub number_of_points: usize,
     pub points: Vec<T>,
