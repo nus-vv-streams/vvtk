@@ -180,7 +180,6 @@ impl Pipeline {
                     //t: forwarded_args vec has the first element as command, the other elements as the args of the command
                     // !! enters here when there are at least two subcommands
                     let forwarded_args = accumulated_args;
-                    println!("forwarded args: {:?}", forwarded_args);
                     accumulated_args = vec![];
                     let (executor, progress) = executor_builder.create(forwarded_args, creator)?;
                     executors.push(executor);
