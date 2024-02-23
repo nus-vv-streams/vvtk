@@ -39,20 +39,32 @@ impl Subcommand for Extension {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         let testdir = PathBuf::from(&self.args.binary_paths);
         let paths: Vec<PathBuf> = vec![testdir];
+        // this is just for testing purpose
+        let mut test_exec = true;
+        // just for testing purpose, need to remove later
         for message in messages {
-            println!("message for extension = {:?}", &message);
             // TODO: Only implement for SubcommandMessage for now, need to handle other kind of input later
+            // Testing: the second vv extend should receive pc from here
             match &message {
                 // For testing purpose, test for the second extend process (TODO: delete later)
-                PipelineMessage::SubcommandMessage(subcommand_message, _, _) => {
-                _= execute_subcommand_executable(paths.clone(), &self.args.cmd_name, &self.args.xargs);
-                println!("the received subcommand message for the second extend is {:?}", &subcommand_message);
+                PipelineMessage::SubcommandMessage(subcommand_object, _, _) => {
+                println!("message received");
+                if let Ok(second_child_deserialized_output) 
+                = execute_subcommand_executable(paths.clone(), &self.args.cmd_name, &self.args.xargs, Some(*subcommand_object.content.clone())) {
+                test_exec = false;
+                println!("the content of second child_deserialized output = {:?}", &second_child_deserialized_output);
+                }
+            }
+            PipelineMessage::End => {
+                channel.send(PipelineMessage::End);
             }
             _ => {}
             }
         }
+        if (test_exec) {
         if let Ok(child_deserialized_output) = 
-            execute_subcommand_executable(paths, &self.args.cmd_name, &self.args.xargs) {
+        // None because right not extend is executed as the first command, will change later
+            execute_subcommand_executable(paths, &self.args.cmd_name, &self.args.xargs, None) {
             // This is only for testing
             println!("the content of child_deserialized output = {:?}", &child_deserialized_output);
             // send the message to the channel
@@ -60,6 +72,7 @@ impl Subcommand for Extension {
             channel.send(PipelineMessage::SubcommandMessage(child_deserialized_output, true, false));
             // //TODO: implement a function to convert from string to PointXyzRgba for SubcommandObject
         }
+    }
         else {
             channel.send(PipelineMessage::End);
         }
@@ -73,7 +86,7 @@ fn find_subcommand_executable(paths:Vec<PathBuf>, cmd: &str) -> Option<PathBuf> 
          .find(|file| is_executable(file))
 }
 
-fn execute_subcommand_executable(paths:Vec<PathBuf>, cmd: &str, cmd_args:&Vec<String>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
+fn execute_subcommand_executable(paths:Vec<PathBuf>, cmd: &str, cmd_args:&Vec<String>, input_pc: Option<PointCloud<PointXyzRgba>>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
     let path = find_subcommand_executable(paths, cmd);
     let command = match path {
         Some(command) => command, 
@@ -84,20 +97,30 @@ fn execute_subcommand_executable(paths:Vec<PathBuf>, cmd: &str, cmd_args:&Vec<St
             return Err("Invalid comand");
         }
     };
-    execute_external_subcommand(Some(&command), cmd_args)
+    execute_external_subcommand(Some(&command), cmd_args, input_pc)
 }
 
 // This function will execute subcommand that is stored as rust code
-fn execute_rust_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
-    execute_external_subcommand(None, cmd_args)
+fn execute_rust_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>, input_pc: Option<PointCloud<PointXyzRgba>>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
+    execute_external_subcommand(None, cmd_args, input_pc)
 }
 
 // execute external code or binaries 
-fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
+fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>, input_pc: Option<PointCloud<PointXyzRgba>>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
+    println!("input pc is {:?}", input_pc);
     // Should receive a pointCloud, and also output a point cloud to the pipeline
-    // TODO: This is still in testing, need to remove later
+    /*  TODO: This is still used for testing, need to remove later
     let input_pc = read_file_to_point_cloud(&PathBuf::from("./test_files/ply_ascii/longdress_vox10_1213_short.ply"));
     let input: SubcommandObject<PointCloud<PointXyzRgba>> = SubcommandObject::new(input_pc.unwrap());
+    */
+    let input;
+    if let Some(input_pc) = input_pc {
+        input = SubcommandObject::new(input_pc);
+    }
+    else {
+    let input_pc = read_file_to_point_cloud(&PathBuf::from("./test_files/ply_ascii/longdress_vox10_1213_short.ply"));
+    input = SubcommandObject::new(input_pc.unwrap());
+    }
     let now = Instant::now();
     let serialized = serde_json::to_string(&input).unwrap();
     match cmd_path {
@@ -120,7 +143,7 @@ fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>
                 Some(code) => println!("Subprocess exited with status code: {}", code),
                 None => println!("Process terminated by signal"),
             }
-            //print error and stdout
+            //print error and stdout from child process
             io::stderr().write_all(&output.stderr).unwrap();    
             io::stdout().write_all(&output.stdout).unwrap();
             //pass the SubcommandObject<PointCloud> back to the pipeline
