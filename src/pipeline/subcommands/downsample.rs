@@ -36,8 +36,9 @@ impl Subcommand for Downsampler {
                     let now = Instant::now();
                     let downsampled_pc = downsample(pc, self.points_per_voxel);
                     let elapsed = now.elapsed();
-                    println!("Elapsed for vv native downsample: {:.2?}", elapsed);
-                    println!("result pc is {:?}", downsampled_pc);
+                    //println!("Elapsed for vv native downsample: {:.2?}", elapsed);
+                    //println!("result pc is {:?}", downsampled_pc);
+                    println!("{:2?}", elapsed);
                     channel.send(PipelineMessage::IndexedPointCloud(downsampled_pc, i));
                 }
                 PipelineMessage::Metrics(_)

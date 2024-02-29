@@ -46,7 +46,7 @@ impl Subcommand for Read {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         if messages.is_empty() {
             let mut files = find_all_files(&self.args.files);
-            println!("the current file is {:?}", &files);
+            //println!("the current file is {:?}", &files);
             files.sort();
             // if self.num is not None, then take the first self.num files
             if let Some(num) = self.args.num {
