@@ -3,7 +3,7 @@ use crate::render::wgpu::builder::{
 };
 use crate::render::wgpu::camera::{Camera, CameraState, CameraUniform};
 use crate::render::wgpu::gpu::WindowGpu;
-use crate::render::wgpu::reader::RenderReader;
+use crate::render::wgpu::render_manager::RenderManager;
 use log::debug;
 use std::iter;
 use std::marker::PhantomData;
@@ -60,7 +60,7 @@ pub enum PlaybackState {
 
 pub struct Renderer<T, U>
 where
-    T: RenderReader<U>,
+    T: RenderManager<U>,
     U: Renderable,
 {
     fps: f32,
@@ -74,7 +74,7 @@ where
 
 impl<T, U> Renderer<T, U>
 where
-    T: RenderReader<U>,
+    T: RenderManager<U>,
     U: Renderable,
 {
     pub fn new(
@@ -99,7 +99,7 @@ where
 
 impl<T, U> Attachable for Renderer<T, U>
 where
-    T: RenderReader<U>,
+    T: RenderManager<U>,
     U: Renderable,
 {
     type Output = State<T, U>;
@@ -132,7 +132,7 @@ where
 /// Renderer's state
 pub struct State<T, U>
 where
-    T: RenderReader<U>,
+    T: RenderManager<U>,
     U: Renderable,
 {
     // Windowing
@@ -162,7 +162,7 @@ where
 
 impl<T, U> Windowed for State<T, U>
 where
-    T: RenderReader<U>,
+    T: RenderManager<U>,
     U: Renderable,
 {
     fn add_output(&mut self, window_id: WindowId) {
@@ -221,7 +221,7 @@ where
 
 impl<T, U> State<T, U>
 where
-    T: RenderReader<U>,
+    T: RenderManager<U>,
     U: Renderable,
 {
     fn new(

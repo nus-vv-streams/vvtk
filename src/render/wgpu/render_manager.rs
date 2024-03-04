@@ -2,6 +2,7 @@ use crate::formats::metadata::MetaData;
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
 use crate::pcd::{read_pcd_header, PCDHeader};
+use std::marker::PhantomData;
 use std::path::Path;
 use std::process::exit;
 
@@ -10,7 +11,16 @@ use super::reader::{PointCloudFileReader, RenderReader};
 use super::renderable::Renderable;
 use super::resolution_controller::ResolutionController;
 
-pub struct AdaptiveReader {
+pub trait RenderManager<T: Renderable> {
+    fn start(&mut self) -> Option<T>;
+    fn get_at(&mut self, index: usize) -> Option<T>;
+    fn len(&self) -> usize;
+    fn is_empty(&self) -> bool;
+    fn set_len(&mut self, len: usize);
+    fn set_camera_state(&mut self, camera_state: Option<CameraState>);
+}
+
+pub struct AdaptiveManager {
     base_reader: PointCloudFileReader,
     // each additional reader handles a different segment
     additional_readers: Option<Vec<PointCloudFileReader>>,
@@ -59,7 +69,7 @@ fn infer_format(src: &String) -> String {
     choices[max_index.unwrap()].to_string()
 }
 
-impl AdaptiveReader {
+impl AdaptiveManager {
     pub fn new(src: &String, lod: bool) -> Self {
         let base_path = if lod {
             src.clone() + "/base"
@@ -125,11 +135,7 @@ impl AdaptiveReader {
         }
     }
 
-    pub fn len(&self) -> usize {
-        self.base_reader.len()
-    }
-
-    fn get_desired_point_cloud(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
+    pub fn get_desired_point_cloud(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
         let base_pc = self.base_reader.get_at(index).unwrap();
 
         if self.additional_readers.is_none()
@@ -159,7 +165,7 @@ impl AdaptiveReader {
         Some(new_pc)
     }
 
-    fn read_more_points(
+    pub fn read_more_points(
         &self,
         index: usize,
         header: &mut PCDHeader,
@@ -183,9 +189,13 @@ impl AdaptiveReader {
             pc.points
         }
     }
+
+    pub fn len(&self) -> usize {
+        self.base_reader.len()
+    }
 }
 
-impl RenderReader<PointCloud<PointXyzRgba>> for AdaptiveReader {
+impl RenderManager<PointCloud<PointXyzRgba>> for AdaptiveManager {
     fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
         self.get_desired_point_cloud(0)
     }
@@ -208,4 +218,55 @@ impl RenderReader<PointCloud<PointXyzRgba>> for AdaptiveReader {
     fn set_camera_state(&mut self, camera_state: Option<CameraState>) {
         self.camera_state = camera_state;
     }
+}
+
+/// Dummy wrapper for RenderReader
+pub struct RenderReaderWrapper<T, U>
+where
+    T: RenderReader<U>,
+    U: Renderable,
+{
+    reader: T,
+    _data: PhantomData<U>,
+}
+
+impl<T, U> RenderReaderWrapper<T, U>
+where
+    T: RenderReader<U>,
+    U: Renderable,
+{
+    pub fn new(reader: T) -> Self {
+        Self {
+            reader,
+            _data: PhantomData,
+        }
+    }
+}
+
+impl<T, U> RenderManager<U> for RenderReaderWrapper<T, U>
+where
+    T: RenderReader<U>,
+    U: Renderable,
+{
+    fn start(&mut self) -> Option<U> {
+        self.reader.start()
+    }
+
+    fn get_at(&mut self, index: usize) -> Option<U> {
+        self.reader.get_at(index)
+    }
+
+    fn len(&self) -> usize {
+        self.reader.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.reader.is_empty()
+    }
+
+    fn set_len(&mut self, len: usize) {
+        self.reader.set_len(len);
+    }
+
+    fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
 }
