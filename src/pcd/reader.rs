@@ -19,6 +19,16 @@ pub fn read_pcd_file<P: AsRef<Path>>(p: P) -> Result<PointCloudData> {
     Parser::new(reader).parse()
 }
 
+/// Reads [PointCloudData] directly from a file given the path with a header
+pub fn read_pcd_file_with_header<P: AsRef<Path>>(
+    p: P,
+    header: PCDHeader,
+) -> Result<PointCloudData> {
+    let file = File::open(p).map_err(PCDReadError::IOError)?;
+    let reader = BufReader::new(file);
+    Parser::new(reader).parse_data(header)
+}
+
 /// Reads [PCDHeader] directly from a file given the path
 pub fn read_pcd_header<P: AsRef<Path>>(p: P) -> Result<PCDHeader> {
     let file = File::open(p).map_err(PCDReadError::IOError)?;
@@ -196,11 +206,8 @@ impl<R: BufRead> Parser<R> {
             .map_err(|e| self.header_err("POINTS", e.to_string()))
     }
 
-    fn parse_data(mut self, header: PCDHeader) -> Result<PointCloudData> {
-        // self.next_line()?;
-        let data_type_str = self.strip_line_prefix("DATA")?;
-        let data_type =
-            PCDDataType::from_str(data_type_str).map_err(|s| self.header_err("DATA", s))?;
+    fn parse_data(self, header: PCDHeader) -> Result<PointCloudData> {
+        let data_type = header.data_type();
 
         match data_type {
             PCDDataType::Ascii => self.parse_ascii_data(header),
@@ -220,6 +227,10 @@ impl<R: BufRead> Parser<R> {
         let data_per_line = header.data_per_line();
 
         for line in self.reader.lines() {
+            // Should only read the number of points specified in the header
+            if buffer.len() >= buffer.capacity() {
+                break;
+            }
             let line = line.map_err(PCDReadError::IOError)?;
             let data = line.split_whitespace().collect::<Vec<&str>>();
             if data.len() as u64 != data_per_line {
@@ -288,9 +299,9 @@ impl<R: BufRead> Parser<R> {
     }
 
     fn parse_binary_data(mut self, header: PCDHeader) -> Result<PointCloudData> {
-        let mut buffer = vec![];
+        let mut buffer = vec![0; header.buffer_size() as usize];
         self.reader
-            .read_to_end(&mut buffer)
+            .read_exact(&mut buffer)
             .map_err(PCDReadError::IOError)?;
         PointCloudData::new(header, buffer).map_err(PCDReadError::InvalidData)
     }

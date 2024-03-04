@@ -1,9 +1,9 @@
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
-use crate::pcd::read_pcd_file;
+use crate::pcd::{read_pcd_file, PCDHeader};
+use crate::utils::{read_file_to_point_cloud, read_pcd_to_point_cloud_with_header};
 use crate::BufMsg;
 
-use crate::utils::read_file_to_point_cloud;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
@@ -17,10 +17,16 @@ use super::renderable::Renderable;
 pub trait RenderReader<T: Renderable> {
     fn start(&mut self) -> Option<T>;
     fn get_at(&mut self, index: usize) -> Option<T>;
+    fn get_with_header_at(&self, _: usize, _: PCDHeader) -> Option<T> {
+        None
+    }
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
     fn set_len(&mut self, len: usize);
     fn set_camera_state(&mut self, camera_state: Option<CameraState>);
+    fn get_path_at(&self, _index: usize) -> Option<&PathBuf> {
+        None
+    }
 }
 //RenderReaderCameraPos for the one with CameraPosition
 pub trait RenderReaderCameraPos<T: Renderable> {
@@ -104,6 +110,15 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
         read_file_to_point_cloud(file_path)
     }
 
+    fn get_with_header_at(
+        &self,
+        index: usize,
+        header: PCDHeader,
+    ) -> Option<PointCloud<PointXyzRgba>> {
+        let file_path = self.files.get(index)?;
+        read_pcd_to_point_cloud_with_header(file_path, header)
+    }
+
     fn len(&self) -> usize {
         self.files.len()
     }
@@ -115,6 +130,10 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
     fn set_len(&mut self, _len: usize) {}
 
     fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
+
+    fn get_path_at(&self, index: usize) -> Option<&PathBuf> {
+        self.files.get(index)
+    }
 }
 
 impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PointCloudFileReader {
@@ -167,6 +186,10 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
     fn set_len(&mut self, _len: usize) {}
 
     fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
+
+    fn get_path_at(&self, index: usize) -> Option<&PathBuf> {
+        self.files.get(index)
+    }
 }
 
 pub struct PcdMemoryReader {

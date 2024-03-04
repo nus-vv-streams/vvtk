@@ -13,7 +13,7 @@ struct Args {
     /// src can be:
     /// 1. Directory with all the pcd files in lexicographical order
     /// 2. location of the mpd file
-    src: Vec<String>,
+    src: String,
     #[clap(short = 'q', long, default_value_t = 0)]
     quality: u8,
     #[clap(short, long, default_value_t = 30.0)]
@@ -59,6 +59,8 @@ struct Args {
     decoder_path: Option<OsString>,
     #[clap(long, default_value = "rgb(255,255,255)")]
     bg_color: OsString,
+    #[clap(long, default_value = "false")]
+    lod: bool,
 }
 
 #[derive(clap::ValueEnum, Clone, Copy)]
@@ -69,7 +71,7 @@ enum DecoderType {
 
 fn main() {
     let args: Args = Args::parse();
-    let adaptive_reader = AdaptiveReader::new(&args.src);
+    let adaptive_reader = AdaptiveReader::new(&args.src, args.lod);
 
     let camera = Camera::new(
         (args.camera_x, args.camera_y, args.camera_z),

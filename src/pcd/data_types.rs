@@ -158,6 +158,11 @@ impl PCDHeader {
         size_per_point * self.points
     }
 
+    /// Update the point number of the header
+    pub fn set_points(&mut self, point_num: u64) {
+        self.points = point_num;
+    }
+
     /// Calculates the number of data points that should be present per line
     /// in "ascii" format.
     ///

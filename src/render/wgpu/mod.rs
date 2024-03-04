@@ -9,3 +9,4 @@ pub mod png;
 pub mod reader;
 pub mod renderable;
 pub mod renderer;
+pub mod resolution_controller;

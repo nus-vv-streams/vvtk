@@ -19,6 +19,7 @@ pub struct CameraState {
     pub(super) camera_uniform: CameraUniform,
     projection: Projection,
     mouse_pressed: bool,
+    window_size: winit::dpi::PhysicalSize<u32>,
 }
 
 impl CameraState {
@@ -41,6 +42,7 @@ impl CameraState {
             camera_uniform,
             projection,
             mouse_pressed: false,
+            window_size: winit::dpi::PhysicalSize::new(width, height),
         }
     }
 
@@ -90,6 +92,7 @@ impl CameraState {
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
             self.projection.resize(new_size.width, new_size.height);
+            self.window_size = new_size;
         }
     }
 
@@ -126,12 +129,21 @@ impl CameraState {
     }
 
     pub fn distance(&self, point: [f32; 3]) -> f32 {
-        let point_h = Point3::from(point);
+        let point = Point3::from(point);
+        (point - self.camera.position).magnitude()
+    }
 
-        let view_matrix = Matrix4::from(self.camera_uniform.view_proj);
-        let transformed_point_h = view_matrix.transform_point(point_h);
+    pub fn get_plane_at_z(&self, z: f32) -> (f32, f32) {
+        let fovy = self.projection.fovy;
+        let aspect = self.projection.aspect;
+        let height = 2.0 * z * (fovy / 2.0).tan();
+        let width = height * aspect;
 
-        (self.camera.position - transformed_point_h).magnitude()
+        (width, height)
+    }
+
+    pub fn get_window_size(&self) -> winit::dpi::PhysicalSize<u32> {
+        self.window_size
     }
 }
 
@@ -164,8 +176,8 @@ impl CameraUniform {
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     1.0, 0.0, 0.0, 0.0,
     0.0, 1.0, 0.0, 0.0,
-    0.0, 0.0, 0.5, 0.0,
-    0.0, 0.0, 0.5, 1.0,
+    0.0, 0.0, 0.5, 0.5,
+    0.0, 0.0, 0.0, 1.0,
 );
 
 #[allow(dead_code)]
