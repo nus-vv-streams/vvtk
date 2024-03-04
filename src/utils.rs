@@ -1,5 +1,8 @@
 use crate::{
-    formats::{pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal, PointCloud},
+    formats::{
+        bounds::Bounds, pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal,
+        PointCloud,
+    },
     pcd::{create_pcd, read_pcd_file, write_pcd_file, PCDDataType, PointCloudData},
     ply::read_ply,
     velodyne::read_velodyn_bin_file,
@@ -681,6 +684,33 @@ pub fn velodyne_bin_to_pcd(output_path: &Path, storage_type: PCDDataType, file_p
     let pointxyzrgba: PointCloud<PointXyzRgba> = vbd.into();
     let pcd: PointCloudData = create_pcd(&pointxyzrgba);
     create_file_write_pcd_helper(&pcd, output_path, storage_type, file_path);
+}
+
+pub fn get_pc_bound(pc: &PointCloud<PointXyzRgba>) -> Bounds {
+    let first_point = pc.points[0];
+    let mut min_x = first_point.x;
+    let mut max_x = first_point.x;
+    let mut min_y = first_point.y;
+    let mut max_y = first_point.y;
+    let mut min_z = first_point.z;
+    let mut max_z = first_point.z;
+
+    for &point in &pc.points {
+        min_x = min_x.min(point.x);
+        max_x = max_x.max(point.x);
+        min_y = min_y.min(point.y);
+        max_y = max_y.max(point.y);
+        min_z = min_z.min(point.z);
+        max_z = max_z.max(point.z);
+    }
+    Bounds {
+        min_x,
+        max_x,
+        min_y,
+        max_y,
+        min_z,
+        max_z,
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

@@ -6,11 +6,20 @@ use crate::velodyne::{VelodynPoint, VelodyneBinData};
 
 use self::pointxyzrgba::PointXyzRgba;
 
+pub mod bounds;
+pub mod metadata;
 pub mod pointxyzrgba;
 pub mod pointxyzrgbanormal;
 
 #[derive(Clone)]
 pub struct PointCloud<T> {
+    pub number_of_points: usize,
+    pub segments: Vec<PointCloudSegment<T>>,
+    pub points: Vec<T>,
+}
+
+#[derive(Clone)]
+pub struct PointCloudSegment<T> {
     pub number_of_points: usize,
     pub points: Vec<T>,
 }
@@ -22,6 +31,54 @@ where
     pub(crate) fn combine(&mut self, other: &Self) {
         self.points.extend_from_slice(&other.points);
         self.number_of_points += other.number_of_points;
+    }
+
+    pub fn new(number_of_points: usize, points: Vec<T>) -> Self {
+        let segments = vec![PointCloudSegment {
+            number_of_points,
+            points: points.clone(),
+        }];
+        Self {
+            number_of_points,
+            segments,
+            points,
+        }
+    }
+
+    pub fn new_with_segments(segments: Vec<Vec<T>>) -> Self {
+        let points: Vec<T> = segments.iter().flatten().cloned().collect();
+        let number_of_points = points.len();
+        let segments = segments
+            .into_iter()
+            .map(|segment| PointCloudSegment {
+                number_of_points: segment.len(),
+                points: segment,
+            })
+            .collect();
+        Self {
+            number_of_points,
+            segments,
+            points,
+        }
+    }
+
+    pub fn is_partitioned(&self) -> bool {
+        self.segments.len() > 1
+    }
+
+    pub fn merge_points(&self, points: Vec<T>) -> Self {
+        let number_of_points = self.number_of_points + points.len();
+        let segments = vec![PointCloudSegment {
+            number_of_points,
+            points: points.clone(),
+        }];
+        let mut all_points = self.points.clone();
+        all_points.extend(points);
+        Self {
+            number_of_points,
+            segments,
+            points: all_points,
+        }
     }
 }
 
@@ -64,6 +121,7 @@ impl<T> From<PointCloudData> for PointCloud<T> {
         Self {
             number_of_points,
             points,
+            segments: vec![],
         }
     }
 }
@@ -89,6 +147,7 @@ impl From<tmc2rs::codec::PointSet3> for PointCloud<PointXyzRgba> {
         Self {
             number_of_points,
             points,
+            segments: vec![],
         }
     }
 }
@@ -101,6 +160,7 @@ impl From<VelodyneBinData> for PointCloud<pointxyzrgba::PointXyzRgba> {
         Self {
             number_of_points,
             points,
+            segments: vec![],
         }
     }
 }

@@ -76,6 +76,8 @@ impl Subcommand for NormalEstimation {
                 }
                 PipelineMessage::Metrics(_)
                 | PipelineMessage::IndexedPointCloudNormal(_, _)
+                | PipelineMessage::IndexedPointCloudWithName(_, _, _, _)
+                | PipelineMessage::MetaData(_, _, _, _)
                 | PipelineMessage::DummyForIncrement => {}
                 PipelineMessage::End => {
                     channel.send(message);
@@ -119,6 +121,7 @@ fn perform_normal_estimation(
                 }
             })
             .collect(),
+        segments: vec![],
     };
 
     assign_normal_vectors(&mut pc_normal, &eigen_results);
