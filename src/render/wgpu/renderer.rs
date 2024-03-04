@@ -293,6 +293,10 @@ where
         self.state = PlaybackState::Paused;
     }
 
+    fn redisplay(&mut self) {
+        self.move_to(self.current_position)
+    }
+
     fn move_to(&mut self, position: usize) {
         if position >= self.reader.len() {
             return;
@@ -367,7 +371,9 @@ where
                 self.advance();
                 self.time_since_last_update -= self.time_to_advance;
             }
-        };
+        } else if self.reader.should_redraw(&self.camera_state) {
+            self.redisplay();
+        }
 
         let info = RenderInformation {
             camera: self.camera_state.camera,

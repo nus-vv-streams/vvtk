@@ -18,6 +18,7 @@ pub trait RenderManager<T: Renderable> {
     fn is_empty(&self) -> bool;
     fn set_len(&mut self, len: usize);
     fn set_camera_state(&mut self, camera_state: Option<CameraState>);
+    fn should_redraw(&mut self, camera_state: &CameraState) -> bool;
 }
 
 pub struct AdaptiveManager {
@@ -26,6 +27,8 @@ pub struct AdaptiveManager {
     additional_readers: Option<Vec<PointCloudFileReader>>,
     camera_state: Option<CameraState>,
     resolution_controller: Option<ResolutionController>,
+    current_index: usize,
+    additional_points_loaded: Vec<usize>,
 }
 
 fn infer_format(src: &String) -> String {
@@ -119,11 +122,16 @@ impl AdaptiveManager {
                 anchor_point_cloud.antialias(),
             );
 
+            // no additional points loaded yet
+            let additional_points_loaded = vec![0; additional_readers.len()];
+
             Self {
                 base_reader,
                 additional_readers: Some(additional_readers),
                 camera_state: None,
                 resolution_controller: Some(resolution_controller),
+                current_index: 0,
+                additional_points_loaded,
             }
         } else {
             Self {
@@ -131,6 +139,8 @@ impl AdaptiveManager {
                 additional_readers: None,
                 camera_state: None,
                 resolution_controller: None,
+                current_index: 0,
+                additional_points_loaded: vec![],
             }
         }
     }
@@ -151,6 +161,8 @@ impl AdaptiveManager {
             .as_mut()
             .unwrap()
             .get_desired_num_points(index, self.camera_state.as_ref().unwrap(), true);
+
+        self.additional_points_loaded = additional_num_points_desired.clone();
 
         let mut header = read_pcd_header(self.base_reader.get_path_at(index).unwrap()).unwrap();
         let additional_points_required = additional_num_points_desired
@@ -190,6 +202,28 @@ impl AdaptiveManager {
         }
     }
 
+    fn should_load_more_points(&mut self, camera_state: &CameraState) -> bool {
+        if self.additional_readers.is_none()
+            || self.camera_state.is_none()
+            || self.resolution_controller.is_none()
+            || self.additional_readers.is_none()
+        {
+            return false;
+        }
+
+        let additional_num_points_desired = self
+            .resolution_controller
+            .as_mut()
+            .unwrap()
+            .get_desired_num_points(self.current_index, camera_state, true);
+
+        // should load more if any of the segments need more points
+        additional_num_points_desired
+            .iter()
+            .enumerate()
+            .any(|(segment, &num)| num > self.additional_points_loaded[segment])
+    }
+
     pub fn len(&self) -> usize {
         self.base_reader.len()
     }
@@ -201,8 +235,10 @@ impl RenderManager<PointCloud<PointXyzRgba>> for AdaptiveManager {
     }
 
     fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
+        self.current_index = index;
         self.get_desired_point_cloud(index)
     }
+
     fn len(&self) -> usize {
         self.base_reader.len()
     }
@@ -217,6 +253,10 @@ impl RenderManager<PointCloud<PointXyzRgba>> for AdaptiveManager {
 
     fn set_camera_state(&mut self, camera_state: Option<CameraState>) {
         self.camera_state = camera_state;
+    }
+
+    fn should_redraw(&mut self, camera_state: &CameraState) -> bool {
+        self.should_load_more_points(camera_state)
     }
 }
 
@@ -269,4 +309,8 @@ where
     }
 
     fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
+
+    fn should_redraw(&mut self, _camera_state: &CameraState) -> bool {
+        false
+    }
 }
