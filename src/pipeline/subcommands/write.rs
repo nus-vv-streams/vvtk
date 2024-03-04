@@ -53,11 +53,11 @@ impl Write {
 
 impl Subcommand for Write {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
-        println!("Start writing...");
+        // println!("Start writing...");
         let output_path = Path::new(&self.args.output_dir);
         let max_count = pow(10, self.args.name_length);
         for message in messages {
-            println!("message: {:?}", message);
+            // println!("message: {:?}", message);
             match &message {
                 PipelineMessage::IndexedPointCloud(pc, i) => {
                     // println!("Writing point cloud with point num {}", pc.points.len());
@@ -136,7 +136,6 @@ impl Subcommand for Write {
                             .expect("Failed to create output directory");
                     }
 
-                    // use pcd format as a trasition format now
                     let pcd = create_pcd_from_pc_normal(pc);
 
                     match output_format.as_str() {
@@ -175,13 +174,13 @@ impl Subcommand for Write {
                     }
 
                     let file_name = Path::new(&file_name);
-                    let output_file = output_path.join(name).join(file_name);
-                    if !output_path.exists() {
-                        std::fs::create_dir_all(output_path)
+                    let subfolder = output_path.join(name);
+                    let output_file = subfolder.join(file_name);
+                    if !subfolder.exists() {
+                        std::fs::create_dir_all(&subfolder)
                             .expect("Failed to create output directory");
                     }
 
-                    // use pcd format as a trasition format now
                     let pcd = create_pcd(pc);
 
                     match output_format.as_str() {
