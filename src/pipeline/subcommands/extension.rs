@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use crate::{formats::{pointxyzrgba::PointXyzRgba, PointCloud}, pipeline::{channel::Channel, PipelineMessage}, utils::read_file_to_point_cloud};
 
 use super::Subcommand;
-use std::time::Instant;
 
 #[derive(Parser)]
 #[clap(
@@ -39,21 +38,20 @@ impl Subcommand for Extension {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         let testdir = PathBuf::from(&self.args.binary_paths);
         let paths: Vec<PathBuf> = vec![testdir];
-        // this is just for testing purpose
-        let mut test_exec = true;
-        // just for testing purpose, need to remove later
+        let mut input_pc: Option<PointCloud<PointXyzRgba>> = None;
         for message in messages {
             // TODO: Only implement for SubcommandMessage for now, need to handle other kind of input later
             // Testing: the second vv extend should receive pc from here
+            // Current assumption of vv extend is it only takes in PointCloud and output a point cloud
+            // Didn't handle PointCloud<PointXyzRgbaNormal>  for now
             match &message {
                 // For testing purpose, test for the second extend process (TODO: delete later)
                 PipelineMessage::SubcommandMessage(subcommand_object, _, _) => {
-                println!("message received");
-                if let Ok(second_child_deserialized_output) 
-                = execute_subcommand_executable(paths.clone(), &self.args.cmd_name, &self.args.xargs, Some(*subcommand_object.content.clone())) {
-                test_exec = false;
-                println!("the content of second child_deserialized output = {:?}", &second_child_deserialized_output);
-                }
+                    input_pc = Some(*(subcommand_object.content).clone());
+            }
+            //TODO: figure out what to do with the extra message at the side
+            PipelineMessage::IndexedPointCloud(pc, _) => {
+                input_pc = Some(pc.clone());
             }
             PipelineMessage::End => {
                 channel.send(PipelineMessage::End);
@@ -61,10 +59,9 @@ impl Subcommand for Extension {
             _ => {}
             }
         }
-        if (test_exec) {
         if let Ok(child_deserialized_output) = 
         // None because right not extend is executed as the first command, will change later
-            execute_subcommand_executable(paths, &self.args.cmd_name, &self.args.xargs, None) {
+            execute_subcommand_executable(paths, &self.args.cmd_name, &self.args.xargs, input_pc) {
             // This is only for testing
             println!("the content of child_deserialized output = {:?}", &child_deserialized_output);
             // send the message to the channel
@@ -72,7 +69,6 @@ impl Subcommand for Extension {
             channel.send(PipelineMessage::SubcommandMessage(child_deserialized_output, true, false));
             // //TODO: implement a function to convert from string to PointXyzRgba for SubcommandObject
         }
-    }
         else {
             channel.send(PipelineMessage::End);
         }
@@ -109,17 +105,14 @@ fn execute_rust_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>, in
 fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>, input_pc: Option<PointCloud<PointXyzRgba>>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
     println!("input pc is {:?}", input_pc);
     // Should receive a pointCloud, and also output a point cloud to the pipeline
-    /*  TODO: This is still used for testing, need to remove later
-    let input_pc = read_file_to_point_cloud(&PathBuf::from("./test_files/ply_ascii/longdress_vox10_1213_short.ply"));
-    let input: SubcommandObject<PointCloud<PointXyzRgba>> = SubcommandObject::new(input_pc.unwrap());
-    */
     let input;
-    if let Some(input_pc) = input_pc {
-        input = SubcommandObject::new(input_pc);
-    }
-    else {
-    let input_pc = read_file_to_point_cloud(&PathBuf::from("./test_files/ply_ascii/longdress_vox10_1213_short.ply"));
-    input = SubcommandObject::new(input_pc.unwrap());
+    match input_pc {
+        Some(input_pc) => {
+            input = SubcommandObject::new(input_pc);
+        }
+        None => {
+            return Err("No input point cloud for vv extend");
+        }
     }
     let serialized = serde_json::to_string(&input).unwrap();
     match cmd_path {
