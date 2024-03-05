@@ -150,7 +150,7 @@ impl AdaptiveManager {
                 camera_state: None,
                 resolution_controller: None,
                 metadata: None,
-                current_index: 0,
+                current_index: usize::MAX,
                 current_point_cloud: None,
                 additional_points_loaded: vec![],
             }
