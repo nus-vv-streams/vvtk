@@ -46,24 +46,25 @@ where
         self.segments.is_some()
     }
 
-    pub fn prepare_for_addition(&mut self, capacity: usize) {
+    pub fn prepare_for_addition(&mut self, to_load: &Vec<usize>) {
+        let capacity = to_load.iter().sum();
         self.points.reserve_exact(capacity);
+
+        if let Some(segments) = &mut self.segments {
+            for segment in segments {
+                segment.point_indices.reserve_exact(capacity);
+            }
+        }
     }
 
     /// Add points to the segment with the given index
     pub fn add_points(&mut self, points: Vec<T>, segment_index: usize) {
         if let Some(segments) = &mut self.segments {
-            let now = std::time::Instant::now();
             let prev_len = self.points.len();
             self.number_of_points += points.len();
-            println!("add_points: {:?}", now.elapsed());
-            let now = std::time::Instant::now();
             self.points.extend_from_slice(&points);
-            println!("extend_from_slice: {:?}", now.elapsed());
-            let now = std::time::Instant::now();
             let point_indices = prev_len..self.points.len();
             segments[segment_index].add_points(point_indices.collect());
-            println!("add_points: {:?}", now.elapsed());
         }
     }
 

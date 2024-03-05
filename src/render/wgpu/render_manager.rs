@@ -35,7 +35,6 @@ pub struct AdaptiveManager {
 
     // As the temporary cache
     current_index: usize,
-    current_point_cloud: Option<PointCloud<PointXyzRgba>>,
     additional_points_loaded: Vec<usize>,
 }
 
@@ -140,7 +139,6 @@ impl AdaptiveManager {
                 resolution_controller: Some(resolution_controller),
                 metadata: Some(metadata),
                 current_index: usize::MAX, // no point cloud loaded yet
-                current_point_cloud: None,
                 additional_points_loaded,
             }
         } else {
@@ -151,7 +149,6 @@ impl AdaptiveManager {
                 resolution_controller: None,
                 metadata: None,
                 current_index: usize::MAX,
-                current_point_cloud: None,
                 additional_points_loaded: vec![],
             }
         }
@@ -159,28 +156,21 @@ impl AdaptiveManager {
 
     pub fn get_desired_point_cloud(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
         let now = std::time::Instant::now();
-        let mut base_pc = if index == self.current_index {
-            self.current_point_cloud.clone().unwrap()
-        } else {
-            let mut pc = self.base_reader.get_at(index).unwrap();
+        let mut base_pc = self.base_reader.get_at(index).unwrap();
 
-            if self.metadata.is_none() {
-                println!("get base pc: {:?}", now.elapsed());
-                return Some(pc);
-            }
+        if self.metadata.is_none() {
+            // println!("get base pc: {:?}", now.elapsed());
+            return Some(base_pc);
+        }
 
-            let metadata = self.metadata.as_ref().unwrap();
-            let base_point_num = metadata.base_point_num.get(index).unwrap();
-            let bound = metadata.bounds.get(index).unwrap().clone();
+        let metadata = self.metadata.as_ref().unwrap();
+        let base_point_num = metadata.base_point_num.get(index).unwrap();
+        let bound = metadata.bounds.get(index).unwrap().clone();
 
-            pc.self_segment(base_point_num, &bound.partition(metadata.partitions));
-            pc
-        };
-
-        println!("get base pc: {:?}", now.elapsed());
+        base_pc.self_segment(base_point_num, &bound.partition(metadata.partitions));
+        // println!("get base pc: {:?}", now.elapsed());
 
         self.current_index = index;
-        self.current_point_cloud = Some(base_pc.clone());
 
         if self.additional_readers.is_none()
             || self.camera_state.is_none()
@@ -210,12 +200,13 @@ impl AdaptiveManager {
             .map(|(segment, &num)| (num - base_point_num[segment]).min(extra_point_num[segment]))
             .collect::<Vec<_>>();
 
+        // println!("to load now: {:?}", now.elapsed());
         // total to be added
-        let total_to_add: usize = to_load.iter().sum();
-        base_pc.prepare_for_addition(base_pc.number_of_points + total_to_add);
+        base_pc.prepare_for_addition(&to_load);
 
         let mut header = read_pcd_header(self.base_reader.get_path_at(index).unwrap()).unwrap();
         // println!("original base points: {}", base_pc.number_of_points);
+        // println!("read header: {:?}", now.elapsed());
 
         to_load
             .iter()
@@ -223,15 +214,14 @@ impl AdaptiveManager {
             .enumerate()
             .for_each(|(segment, (&to_read, reader))| {
                 if to_read > 0 {
-                    let now = std::time::Instant::now();
                     header.set_points(to_read as u64);
                     let pc = reader.get_with_header_at(index, header.clone()).unwrap();
-                    println!(
-                        "Read {} points for segment {} in {:?}",
-                        to_read,
-                        segment,
-                        now.elapsed()
-                    );
+                    // println!(
+                    //     "Read {} points for segment {} in {:?}",
+                    //     to_read,
+                    //     segment,
+                    //     now.elapsed()
+                    // );
 
                     // let now = std::time::Instant::now();
 
@@ -241,7 +231,7 @@ impl AdaptiveManager {
             });
 
         // println!("total points: {}", base_pc.number_of_points);
-        println!("get desired pc: {:?}", now.elapsed());
+        // println!("get desired pc: {:?}", now.elapsed());
 
         Some(base_pc)
     }
