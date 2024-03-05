@@ -155,7 +155,7 @@ impl AdaptiveManager {
     }
 
     pub fn get_desired_point_cloud(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-        let now = std::time::Instant::now();
+        // let now = std::time::Instant::now();
         let mut base_pc = self.base_reader.get_at(index).unwrap();
 
         if self.metadata.is_none() {
