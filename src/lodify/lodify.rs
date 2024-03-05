@@ -2,7 +2,6 @@ use std::collections::VecDeque;
 use std::iter::zip;
 
 use crate::formats::bounds::Bounds;
-use crate::formats::PointCloudSegment;
 use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
 use crate::utils::get_pc_bound;
 
@@ -28,12 +27,12 @@ pub fn lodify(
         let partitioned_base_pc = partition(&base_pc, partitions);
         let partitioned_add_pc = partition(&additional_pc, partitions);
 
-        let pc_by_segment = partitioned_add_pc
-            .segments
-            .as_ref()
-            .unwrap()
-            .iter()
-            .map(|segment| PointCloud::new(segment.points.len(), segment.points.clone()))
+        let add_segments = partitioned_add_pc.segments.as_ref().unwrap();
+        let pc_by_segment = (0..add_segments.len())
+            .map(|segment_id| {
+                let points = partitioned_add_pc.get_points_in_segment(segment_id);
+                PointCloud::new(add_segments[segment_id].point_indices.len(), points)
+            })
             .collect();
 
         let base_point_nums = partitioned_base_pc
@@ -41,7 +40,7 @@ pub fn lodify(
             .as_ref()
             .unwrap()
             .iter()
-            .map(|segment| segment.points.len())
+            .map(|segment| segment.point_indices.len())
             .collect();
 
         let additional_point_nums = partitioned_add_pc
@@ -49,7 +48,7 @@ pub fn lodify(
             .as_ref()
             .unwrap()
             .iter()
-            .map(|segment| segment.points.len())
+            .map(|segment| segment.point_indices.len())
             .collect();
 
         (
@@ -152,16 +151,17 @@ fn partition(
         }
     }
 
-    let segments = child_bounds
+    let base_point_nums = partitioned_points
         .iter()
-        .zip(partitioned_points)
-        .map(|(bound, points)| PointCloudSegment {
-            bounds: bound.clone(),
-            points,
-        })
+        .map(|points| points.len())
         .collect();
 
-    PointCloud::new_with_segments(segments)
+    // flatten the points
+    let points = partitioned_points.into_iter().flatten().collect();
+    let mut new_pc = PointCloud::new(pc.number_of_points, points);
+
+    new_pc.self_segment(&base_point_nums, &child_bounds);
+    new_pc
 }
 
 #[cfg(test)]
@@ -217,13 +217,13 @@ mod test {
 
         assert_eq!(result.points.len(), 4);
         assert_eq!(segments.len(), 8);
-        assert_eq!(segments[0].points.len(), 2);
-        assert_eq!(segments[1].points.len(), 0);
-        assert_eq!(segments[2].points.len(), 0);
-        assert_eq!(segments[3].points.len(), 0);
-        assert_eq!(segments[4].points.len(), 0);
-        assert_eq!(segments[5].points.len(), 0);
-        assert_eq!(segments[6].points.len(), 0);
-        assert_eq!(segments[7].points.len(), 2);
+        assert_eq!(segments[0].point_indices.len(), 2);
+        assert_eq!(segments[1].point_indices.len(), 0);
+        assert_eq!(segments[2].point_indices.len(), 0);
+        assert_eq!(segments[3].point_indices.len(), 0);
+        assert_eq!(segments[4].point_indices.len(), 0);
+        assert_eq!(segments[5].point_indices.len(), 0);
+        assert_eq!(segments[6].point_indices.len(), 0);
+        assert_eq!(segments[7].point_indices.len(), 2);
     }
 }

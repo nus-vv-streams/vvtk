@@ -158,12 +158,14 @@ impl AdaptiveManager {
     }
 
     pub fn get_desired_point_cloud(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
+        let now = std::time::Instant::now();
         let mut base_pc = if index == self.current_index {
             self.current_point_cloud.clone().unwrap()
         } else {
             let mut pc = self.base_reader.get_at(index).unwrap();
 
             if self.metadata.is_none() {
+                println!("get base pc: {:?}", now.elapsed());
                 return Some(pc);
             }
 
@@ -174,6 +176,8 @@ impl AdaptiveManager {
             pc.self_segment(base_point_num, &bound.partition(metadata.partitions));
             pc
         };
+
+        println!("get base pc: {:?}", now.elapsed());
 
         self.current_index = index;
         self.current_point_cloud = Some(base_pc.clone());
@@ -186,6 +190,11 @@ impl AdaptiveManager {
             return Some(base_pc);
         }
 
+        let metadata = self.metadata.as_ref().unwrap();
+
+        let base_point_num = metadata.base_point_num.get(index).unwrap();
+        let extra_point_num = metadata.additional_point_num.get(index).unwrap();
+
         let additional_num_points_desired = self
             .resolution_controller
             .as_mut()
@@ -194,43 +203,45 @@ impl AdaptiveManager {
 
         self.additional_points_loaded = additional_num_points_desired;
 
-        let mut header = read_pcd_header(self.base_reader.get_path_at(index).unwrap()).unwrap();
+        let to_load = self
+            .additional_points_loaded
+            .iter()
+            .enumerate()
+            .map(|(segment, &num)| (num - base_point_num[segment]).min(extra_point_num[segment]))
+            .collect::<Vec<_>>();
 
+        // total to be added
+        let total_to_add: usize = to_load.iter().sum();
+        base_pc.prepare_for_addition(base_pc.number_of_points + total_to_add);
+
+        let mut header = read_pcd_header(self.base_reader.get_path_at(index).unwrap()).unwrap();
         // println!("original base points: {}", base_pc.number_of_points);
 
-        let base_point_num = self
-            .metadata
-            .as_ref()
-            .unwrap()
-            .base_point_num
-            .get(index)
-            .unwrap();
-        let extra_point_num = self
-            .metadata
-            .as_ref()
-            .unwrap()
-            .additional_point_num
-            .get(index)
-            .unwrap();
-
-        self.additional_points_loaded
+        to_load
             .iter()
             .zip(self.additional_readers.as_ref().unwrap())
             .enumerate()
-            .for_each(|(segment, (&num, reader))| {
-                let to_read = (num - base_point_num[segment]).min(extra_point_num[segment]);
-
+            .for_each(|(segment, (&to_read, reader))| {
                 if to_read > 0 {
-                    // println!("Loading {} points for segment {}", to_read, segment);
-
+                    let now = std::time::Instant::now();
                     header.set_points(to_read as u64);
                     let pc = reader.get_with_header_at(index, header.clone()).unwrap();
+                    println!(
+                        "Read {} points for segment {} in {:?}",
+                        to_read,
+                        segment,
+                        now.elapsed()
+                    );
+
+                    // let now = std::time::Instant::now();
 
                     base_pc.add_points(pc.points, segment);
+                    // println!("add points for segment {} in {:?}", segment, now.elapsed());
                 }
             });
 
         // println!("total points: {}", base_pc.number_of_points);
+        println!("get desired pc: {:?}", now.elapsed());
 
         Some(base_pc)
     }

@@ -15,13 +15,13 @@ pub mod pointxyzrgbanormal;
 #[derive(Clone)]
 pub struct PointCloud<T> {
     pub number_of_points: usize,
-    pub segments: Option<Vec<PointCloudSegment<T>>>,
+    pub segments: Option<Vec<PointCloudSegment>>,
     pub points: Vec<T>,
 }
 
 #[derive(Clone)]
-pub struct PointCloudSegment<T> {
-    pub points: Vec<T>,
+pub struct PointCloudSegment {
+    pub point_indices: Vec<usize>,
     pub bounds: Bounds,
 }
 
@@ -42,57 +42,67 @@ where
         }
     }
 
-    pub fn new_with_segments(segments: Vec<PointCloudSegment<T>>) -> Self {
-        let points = segments.iter().fold(vec![], |mut acc, segment| {
-            acc.extend_from_slice(&segment.points);
-            acc
-        });
-        Self {
-            number_of_points: points.len(),
-            points,
-            segments: Some(segments),
-        }
-    }
-
     pub fn is_partitioned(&self) -> bool {
         self.segments.is_some()
+    }
+
+    pub fn prepare_for_addition(&mut self, capacity: usize) {
+        self.points.reserve_exact(capacity);
     }
 
     /// Add points to the segment with the given index
     pub fn add_points(&mut self, points: Vec<T>, segment_index: usize) {
         if let Some(segments) = &mut self.segments {
+            let now = std::time::Instant::now();
+            let prev_len = self.points.len();
             self.number_of_points += points.len();
+            println!("add_points: {:?}", now.elapsed());
+            let now = std::time::Instant::now();
             self.points.extend_from_slice(&points);
-            segments[segment_index].add_points(points);
+            println!("extend_from_slice: {:?}", now.elapsed());
+            let now = std::time::Instant::now();
+            let point_indices = prev_len..self.points.len();
+            segments[segment_index].add_points(point_indices.collect());
+            println!("add_points: {:?}", now.elapsed());
         }
     }
 
     /// Segments the point cloud based on the given offsets and bounds
     pub fn self_segment(&mut self, offsets: &Vec<usize>, bounds: &Vec<Bounds>) {
-        let mut segments = vec![];
-        let mut offset_iter = offsets.iter();
-        let mut bound_iter = bounds.iter();
+        let mut segments = Vec::with_capacity(offsets.len());
+        let mut point_indices = Vec::new();
+        let mut start = 0;
 
-        for _ in 0..offsets.len() {
-            let offset = *offset_iter.next().unwrap();
-            let bound = bound_iter.next().unwrap();
-            let points = self.points[offset..offset].to_vec();
+        for i in 0..offsets.len() {
+            let end = offsets[i];
+            point_indices.extend(start..end);
             segments.push(PointCloudSegment {
-                points,
-                bounds: bound.clone(),
+                point_indices: point_indices.clone(),
+                bounds: bounds[i].clone(),
             });
+            start = end;
         }
 
         self.segments = Some(segments);
     }
+
+    pub fn get_points_in_segment(&self, segment_index: usize) -> Vec<T> {
+        if let Some(segments) = &self.segments {
+            let segment = &segments[segment_index];
+            segment
+                .point_indices
+                .iter()
+                .map(|i| self.points[*i].clone())
+                .collect()
+        } else {
+            self.points.clone()
+        }
+    }
 }
 
-impl<T> PointCloudSegment<T>
-where
-    T: Clone + Serialize,
-{
-    fn add_points(&mut self, points: Vec<T>) {
-        self.points.extend_from_slice(&points);
+impl PointCloudSegment {
+    fn add_points(&mut self, point_indices: Vec<usize>) {
+        self.point_indices.extend(point_indices);
     }
 }
 
