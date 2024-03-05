@@ -1,7 +1,7 @@
 use crate::formats::metadata::MetaData;
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
-use crate::pcd::{read_pcd_header, PCDHeader};
+use crate::pcd::read_pcd_header;
 use std::marker::PhantomData;
 use std::path::Path;
 use std::process::exit;
@@ -27,7 +27,10 @@ pub struct AdaptiveManager {
     additional_readers: Option<Vec<PointCloudFileReader>>,
     camera_state: Option<CameraState>,
     resolution_controller: Option<ResolutionController>,
+
+    // As the temporary cache
     current_index: usize,
+    current_point_cloud: Option<PointCloud<PointXyzRgba>>,
     additional_points_loaded: Vec<usize>,
 }
 
@@ -130,7 +133,8 @@ impl AdaptiveManager {
                 additional_readers: Some(additional_readers),
                 camera_state: None,
                 resolution_controller: Some(resolution_controller),
-                current_index: 0,
+                current_index: usize::MAX, // no point cloud loaded yet
+                current_point_cloud: None,
                 additional_points_loaded,
             }
         } else {
@@ -140,13 +144,22 @@ impl AdaptiveManager {
                 camera_state: None,
                 resolution_controller: None,
                 current_index: 0,
+                current_point_cloud: None,
                 additional_points_loaded: vec![],
             }
         }
     }
 
     pub fn get_desired_point_cloud(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-        let base_pc = self.base_reader.get_at(index).unwrap();
+        let mut base_pc = if index == self.current_index {
+            self.current_point_cloud.clone()
+        } else {
+            self.base_reader.get_at(index)
+        }
+        .unwrap();
+
+        self.current_index = index;
+        self.current_point_cloud = Some(base_pc.clone());
 
         if self.additional_readers.is_none()
             || self.camera_state.is_none()
@@ -162,44 +175,30 @@ impl AdaptiveManager {
             .unwrap()
             .get_desired_num_points(index, self.camera_state.as_ref().unwrap(), true);
 
-        self.additional_points_loaded = additional_num_points_desired.clone();
+        self.additional_points_loaded = additional_num_points_desired;
 
         let mut header = read_pcd_header(self.base_reader.get_path_at(index).unwrap()).unwrap();
-        let additional_points_required = additional_num_points_desired
+
+        println!("original base points: {}", base_pc.number_of_points);
+
+        self.additional_points_loaded
             .iter()
+            .zip(self.additional_readers.as_ref().unwrap())
             .enumerate()
-            .map(|(segment, &num)| self.read_more_points(index, &mut header, num, segment))
-            .collect::<Vec<_>>()
-            .concat();
+            .for_each(|(segment, (&num, reader))| {
+                if num > 0 {
+                    println!("Loading {} points for segment {}", num, segment);
 
-        let new_pc = base_pc.merge_points(additional_points_required);
+                    header.set_points(num as u64);
+                    let pc = reader.get_with_header_at(index, header.clone()).unwrap();
 
-        Some(new_pc)
-    }
+                    base_pc.add_points(pc.points, segment);
+                }
+            });
 
-    pub fn read_more_points(
-        &self,
-        index: usize,
-        header: &mut PCDHeader,
-        num_of_points: usize,
-        segment: usize,
-    ) -> Vec<PointXyzRgba> {
-        if num_of_points <= 0 {
-            vec![]
-        } else {
-            header.set_points(num_of_points as u64);
+        println!("total points: {}", base_pc.number_of_points);
 
-            let pc = self
-                .additional_readers
-                .as_ref()
-                .unwrap()
-                .get(segment)
-                .unwrap()
-                .get_with_header_at(index, header.clone())
-                .unwrap();
-
-            pc.points
-        }
+        Some(base_pc)
     }
 
     fn should_load_more_points(&mut self, camera_state: &CameraState) -> bool {
@@ -235,7 +234,6 @@ impl RenderManager<PointCloud<PointXyzRgba>> for AdaptiveManager {
     }
 
     fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-        self.current_index = index;
         self.get_desired_point_cloud(index)
     }
 

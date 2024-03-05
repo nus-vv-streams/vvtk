@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::iter::zip;
 
 use crate::formats::bounds::Bounds;
+use crate::formats::PointCloudSegment;
 use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
 use crate::utils::get_pc_bound;
 
@@ -23,28 +24,36 @@ pub fn lodify(
         let base_point_num = (points.points.len() as f32 * factor).ceil() as usize;
 
         let (base_pc, additional_pc) = sample(points, base_point_num, points_per_voxel_threshold);
+
+        let partitioned_base_pc = partition(&base_pc, partitions);
         let partitioned_add_pc = partition(&additional_pc, partitions);
 
         let pc_by_segment = partitioned_add_pc
             .segments
+            .as_ref()
+            .unwrap()
             .iter()
             .map(|segment| PointCloud::new(segment.points.len(), segment.points.clone()))
             .collect();
 
-        let base_point_nums = partition(&base_pc, partitions)
+        let base_point_nums = partitioned_base_pc
             .segments
+            .as_ref()
+            .unwrap()
             .iter()
-            .map(|points| points.points.len())
+            .map(|segment| segment.points.len())
             .collect();
 
         let additional_point_nums = partitioned_add_pc
             .segments
+            .as_ref()
+            .unwrap()
             .iter()
-            .map(|points| points.points.len())
+            .map(|segment| segment.points.len())
             .collect();
 
         (
-            base_pc,
+            partitioned_base_pc,
             pc_by_segment,
             base_point_nums,
             additional_point_nums,
@@ -128,15 +137,31 @@ fn partition(
     pc: &PointCloud<PointXyzRgba>,
     partitions: (usize, usize, usize),
 ) -> PointCloud<PointXyzRgba> {
-    let bound = get_pc_bound(&pc);
-    let mut partitioned_points = vec![vec![]; partitions.0 * partitions.1 * partitions.2];
+    let pc_bound = get_pc_bound(&pc);
+    let child_bounds = pc_bound.partition(partitions);
+
+    let num_segments = child_bounds.len();
+    let mut partitioned_points = vec![vec![]; num_segments];
 
     for point in &pc.points {
-        let index = bound.get_bound_index(point, partitions);
-        partitioned_points[index].push(*point);
+        for (index, bound) in child_bounds.iter().enumerate() {
+            if bound.contains(&point) {
+                partitioned_points[index].push(point.clone());
+                break;
+            }
+        }
     }
 
-    PointCloud::new_with_segments(partitioned_points)
+    let segments = child_bounds
+        .iter()
+        .zip(partitioned_points)
+        .map(|(bound, points)| PointCloudSegment {
+            bounds: bound.clone(),
+            points,
+        })
+        .collect();
+
+    PointCloud::new_with_segments(segments)
 }
 
 #[cfg(test)]
@@ -188,16 +213,17 @@ mod test {
         let pc = PointCloud::new(4, points);
 
         let result = partition(&pc, (2, 2, 2));
+        let segments = result.segments.unwrap();
 
         assert_eq!(result.points.len(), 4);
-        assert_eq!(result.segments.len(), 8);
-        assert_eq!(result.segments[0].points.len(), 2);
-        assert_eq!(result.segments[1].points.len(), 0);
-        assert_eq!(result.segments[2].points.len(), 0);
-        assert_eq!(result.segments[3].points.len(), 0);
-        assert_eq!(result.segments[4].points.len(), 0);
-        assert_eq!(result.segments[5].points.len(), 0);
-        assert_eq!(result.segments[6].points.len(), 0);
-        assert_eq!(result.segments[7].points.len(), 2);
+        assert_eq!(segments.len(), 8);
+        assert_eq!(segments[0].points.len(), 2);
+        assert_eq!(segments[1].points.len(), 0);
+        assert_eq!(segments[2].points.len(), 0);
+        assert_eq!(segments[3].points.len(), 0);
+        assert_eq!(segments[4].points.len(), 0);
+        assert_eq!(segments[5].points.len(), 0);
+        assert_eq!(segments[6].points.len(), 0);
+        assert_eq!(segments[7].points.len(), 2);
     }
 }

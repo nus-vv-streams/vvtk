@@ -4,6 +4,7 @@ use std::fmt::Debug;
 use crate::pcd::PointCloudData;
 use crate::velodyne::{VelodynPoint, VelodyneBinData};
 
+use self::bounds::Bounds;
 use self::pointxyzrgba::PointXyzRgba;
 
 pub mod bounds;
@@ -14,14 +15,14 @@ pub mod pointxyzrgbanormal;
 #[derive(Clone)]
 pub struct PointCloud<T> {
     pub number_of_points: usize,
-    pub segments: Vec<PointCloudSegment<T>>,
+    pub segments: Option<Vec<PointCloudSegment<T>>>,
     pub points: Vec<T>,
 }
 
 #[derive(Clone)]
 pub struct PointCloudSegment<T> {
-    pub number_of_points: usize,
     pub points: Vec<T>,
+    pub bounds: Bounds,
 }
 
 impl<T> PointCloud<T>
@@ -34,51 +35,45 @@ where
     }
 
     pub fn new(number_of_points: usize, points: Vec<T>) -> Self {
-        let segments = vec![PointCloudSegment {
-            number_of_points,
-            points: points.clone(),
-        }];
         Self {
             number_of_points,
-            segments,
             points,
+            segments: None,
         }
     }
 
-    pub fn new_with_segments(segments: Vec<Vec<T>>) -> Self {
-        let points: Vec<T> = segments.iter().flatten().cloned().collect();
-        let number_of_points = points.len();
-        let segments = segments
-            .into_iter()
-            .map(|segment| PointCloudSegment {
-                number_of_points: segment.len(),
-                points: segment,
-            })
-            .collect();
+    pub fn new_with_segments(segments: Vec<PointCloudSegment<T>>) -> Self {
+        let points = segments.iter().fold(vec![], |mut acc, segment| {
+            acc.extend_from_slice(&segment.points);
+            acc
+        });
         Self {
-            number_of_points,
-            segments,
+            number_of_points: points.len(),
             points,
+            segments: Some(segments),
         }
     }
 
     pub fn is_partitioned(&self) -> bool {
-        self.segments.len() > 1
+        self.segments.is_some()
     }
 
-    pub fn merge_points(&self, points: Vec<T>) -> Self {
-        let number_of_points = self.number_of_points + points.len();
-        let segments = vec![PointCloudSegment {
-            number_of_points,
-            points: points.clone(),
-        }];
-        let mut all_points = self.points.clone();
-        all_points.extend(points);
-        Self {
-            number_of_points,
-            segments,
-            points: all_points,
+    /// Add points to the segment with the given index
+    pub fn add_points(&mut self, points: Vec<T>, segment_index: usize) {
+        if let Some(segments) = &mut self.segments {
+            self.number_of_points += points.len();
+            self.points.extend_from_slice(&points);
+            segments[segment_index].add_points(points);
         }
+    }
+}
+
+impl<T> PointCloudSegment<T>
+where
+    T: Clone + Serialize,
+{
+    fn add_points(&mut self, points: Vec<T>) {
+        self.points.extend_from_slice(&points);
     }
 }
 
@@ -121,7 +116,7 @@ impl<T> From<PointCloudData> for PointCloud<T> {
         Self {
             number_of_points,
             points,
-            segments: vec![],
+            segments: None,
         }
     }
 }
@@ -147,7 +142,7 @@ impl From<tmc2rs::codec::PointSet3> for PointCloud<PointXyzRgba> {
         Self {
             number_of_points,
             points,
-            segments: vec![],
+            segments: None,
         }
     }
 }
@@ -160,7 +155,7 @@ impl From<VelodyneBinData> for PointCloud<pointxyzrgba::PointXyzRgba> {
         Self {
             number_of_points,
             points,
-            segments: vec![],
+            segments: None,
         }
     }
 }

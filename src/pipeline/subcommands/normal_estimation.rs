@@ -121,7 +121,7 @@ fn perform_normal_estimation(
                 }
             })
             .collect(),
-        segments: vec![],
+        segments: None,
     };
 
     assign_normal_vectors(&mut pc_normal, &eigen_results);
