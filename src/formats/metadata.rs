@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::bounds::Bounds;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct MetaData {
     pub bounds: Vec<Bounds>,
     pub base_point_num: Vec<Vec<usize>>,

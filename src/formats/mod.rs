@@ -66,6 +66,25 @@ where
             segments[segment_index].add_points(points);
         }
     }
+
+    /// Segments the point cloud based on the given offsets and bounds
+    pub fn self_segment(&mut self, offsets: &Vec<usize>, bounds: &Vec<Bounds>) {
+        let mut segments = vec![];
+        let mut offset_iter = offsets.iter();
+        let mut bound_iter = bounds.iter();
+
+        for _ in 0..offsets.len() {
+            let offset = *offset_iter.next().unwrap();
+            let bound = bound_iter.next().unwrap();
+            let points = self.points[offset..offset].to_vec();
+            segments.push(PointCloudSegment {
+                points,
+                bounds: bound.clone(),
+            });
+        }
+
+        self.segments = Some(segments);
+    }
 }
 
 impl<T> PointCloudSegment<T>

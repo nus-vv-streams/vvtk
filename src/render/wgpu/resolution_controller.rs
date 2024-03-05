@@ -30,12 +30,7 @@ impl ResolutionController {
         }
     }
 
-    pub fn get_desired_num_points(
-        &self,
-        index: usize,
-        camera_state: &CameraState,
-        exclude_base_points: bool,
-    ) -> Vec<usize> {
+    pub fn get_desired_num_points(&self, index: usize, camera_state: &CameraState) -> Vec<usize> {
         let metadata = self.metadata.as_ref().unwrap();
 
         // let centroids = metadata.centroids.get(index).unwrap();
@@ -45,14 +40,12 @@ impl ResolutionController {
             .unwrap()
             .partition(metadata.partitions);
         let base_point_num = metadata.base_point_num.get(index).unwrap();
-        let additional_point_num = metadata.additional_point_num.get(index).unwrap();
 
         let mut desired_num_points = vec![0; bounds.len()];
 
         for i in 0..bounds.len() {
             let bound = bounds.get(i).unwrap();
             let point_num = base_point_num.get(i).unwrap();
-            let add_point_num = additional_point_num.get(i).unwrap();
 
             // let margin = (bound.max_x - bound.min_x)
             //     .max(bound.max_y - bound.min_y)
@@ -69,13 +62,8 @@ impl ResolutionController {
             // .max(0.);
 
             let desired_num = self.get_desired_num_points_at(camera_state, z, *point_num);
-            let deficit = (desired_num - (*point_num).min(desired_num)).min(*add_point_num);
-
-            desired_num_points[i] = if exclude_base_points {
-                deficit
-            } else {
-                *point_num + deficit
-            };
+            let deficit = desired_num - (*point_num).min(desired_num);
+            desired_num_points[i] = *point_num + deficit;
         }
 
         return desired_num_points;

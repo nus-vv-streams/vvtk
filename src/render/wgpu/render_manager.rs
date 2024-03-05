@@ -25,8 +25,13 @@ pub struct AdaptiveManager {
     base_reader: PointCloudFileReader,
     // each additional reader handles a different segment
     additional_readers: Option<Vec<PointCloudFileReader>>,
+
+    // For adaptive loading
     camera_state: Option<CameraState>,
     resolution_controller: Option<ResolutionController>,
+
+    // For segmentation
+    metadata: Option<MetaData>,
 
     // As the temporary cache
     current_index: usize,
@@ -121,7 +126,7 @@ impl AdaptiveManager {
             let anchor_point_cloud = base_reader.start().unwrap();
             let resolution_controller = ResolutionController::new(
                 &anchor_point_cloud.points,
-                Some(metadata),
+                Some(metadata.clone()),
                 anchor_point_cloud.antialias(),
             );
 
@@ -133,6 +138,7 @@ impl AdaptiveManager {
                 additional_readers: Some(additional_readers),
                 camera_state: None,
                 resolution_controller: Some(resolution_controller),
+                metadata: Some(metadata),
                 current_index: usize::MAX, // no point cloud loaded yet
                 current_point_cloud: None,
                 additional_points_loaded,
@@ -143,6 +149,7 @@ impl AdaptiveManager {
                 additional_readers: None,
                 camera_state: None,
                 resolution_controller: None,
+                metadata: None,
                 current_index: 0,
                 current_point_cloud: None,
                 additional_points_loaded: vec![],
@@ -152,11 +159,21 @@ impl AdaptiveManager {
 
     pub fn get_desired_point_cloud(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
         let mut base_pc = if index == self.current_index {
-            self.current_point_cloud.clone()
+            self.current_point_cloud.clone().unwrap()
         } else {
-            self.base_reader.get_at(index)
-        }
-        .unwrap();
+            let mut pc = self.base_reader.get_at(index).unwrap();
+
+            if self.metadata.is_none() {
+                return Some(pc);
+            }
+
+            let metadata = self.metadata.as_ref().unwrap();
+            let base_point_num = metadata.base_point_num.get(index).unwrap();
+            let bound = metadata.bounds.get(index).unwrap().clone();
+
+            pc.self_segment(base_point_num, &bound.partition(metadata.partitions));
+            pc
+        };
 
         self.current_index = index;
         self.current_point_cloud = Some(base_pc.clone());
@@ -173,30 +190,47 @@ impl AdaptiveManager {
             .resolution_controller
             .as_mut()
             .unwrap()
-            .get_desired_num_points(index, self.camera_state.as_ref().unwrap(), true);
+            .get_desired_num_points(index, self.camera_state.as_ref().unwrap());
 
         self.additional_points_loaded = additional_num_points_desired;
 
         let mut header = read_pcd_header(self.base_reader.get_path_at(index).unwrap()).unwrap();
 
-        println!("original base points: {}", base_pc.number_of_points);
+        // println!("original base points: {}", base_pc.number_of_points);
+
+        let base_point_num = self
+            .metadata
+            .as_ref()
+            .unwrap()
+            .base_point_num
+            .get(index)
+            .unwrap();
+        let extra_point_num = self
+            .metadata
+            .as_ref()
+            .unwrap()
+            .additional_point_num
+            .get(index)
+            .unwrap();
 
         self.additional_points_loaded
             .iter()
             .zip(self.additional_readers.as_ref().unwrap())
             .enumerate()
             .for_each(|(segment, (&num, reader))| {
-                if num > 0 {
-                    println!("Loading {} points for segment {}", num, segment);
+                let to_read = (num - base_point_num[segment]).min(extra_point_num[segment]);
 
-                    header.set_points(num as u64);
+                if to_read > 0 {
+                    // println!("Loading {} points for segment {}", to_read, segment);
+
+                    header.set_points(to_read as u64);
                     let pc = reader.get_with_header_at(index, header.clone()).unwrap();
 
                     base_pc.add_points(pc.points, segment);
                 }
             });
 
-        println!("total points: {}", base_pc.number_of_points);
+        // println!("total points: {}", base_pc.number_of_points);
 
         Some(base_pc)
     }
@@ -214,7 +248,7 @@ impl AdaptiveManager {
             .resolution_controller
             .as_mut()
             .unwrap()
-            .get_desired_num_points(self.current_index, camera_state, true);
+            .get_desired_num_points(self.current_index, camera_state);
 
         // should load more if any of the segments need more points
         additional_num_points_desired
