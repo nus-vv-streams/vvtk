@@ -41,6 +41,7 @@ Commands:
   info        Get the info of a pointcloud file or directory.
                   Supported formats are .pcd and .ply.
                   If no option is specified, all info will be printed.
+  lodify       Preprocesses point cloud data for adaptive playback in vvplay
   dash        Dash will simulate a varying network conditions. 
                   Dash reads in one of our supported file formats. 
                   Files can be of the type .pcd .ply. 
@@ -308,6 +309,44 @@ vv convert --input ./pcd_b --output ./ply_a --storage-type ascii --output-format
 vv convert --input ./pcd_b --output ./pcd_a --storage-type ascii --output-format pcd
 ```
 
+#### `lodify`
+
+A preprocessing step to optimize point cloud data for adaptive playback in `vvplay`
+
+Hyperparameters:
+* Threshold: Manages the structural property (e.g. distribution of the points)
+* Partitions: Manages how the point cloud is segmented for detail distribution.
+
+
+```shell
+Usage: lodify [OPTIONS] <PATH>
+
+Arguments:
+  <PATH>  
+
+Options:
+  -x, --x-partition <X_PARTITION>                [default: 2]
+  -y, --y-partition <Y_PARTITION>                [default: 2]
+  -z, --z-partition <Z_PARTITION>                [default: 2]
+  -b, --base-proportion <BASE_PROPORTION>        [default: 30]
+  -t, --threshold <POINTS_PER_VOXEL_THRESHOLD>   [default: 10]
+  -h, --help           Print help
+```
+
+***Lodifying Point Clouds***
+
+This command constructs a base layer using about 30% of the original points to capture the core structure, while the remaining 70% are reserved to incrementally add detail as needed.
+
+
+```shell
+vv read ./Pcd_b  +output=pcdb \
+    lodify +input=pcdb +output=pcdb_lod \
+    write ./Pcd_lod \
+             +input=pcdb_lod \
+             --storage-type binary \
+             --output-format pcd
+```
+
 #### `info`
 
 Get the info of a pointcloud file or directory. Supported formats are .pcd and .ply. If no option is specified, all info will be printed.
@@ -465,6 +504,7 @@ Options:
       --decoder <DECODER_TYPE>       [default: noop] [possible values: noop, draco]
       --decoder-path <DECODER_PATH>  
       --bg-color <BG_COLOR>          [default: rgb(255,255,255)]
+  --lodify                           [default: False]
   -h, --help                         Print help
 ```
 
