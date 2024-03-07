@@ -1,13 +1,19 @@
 use crate::{
-    formats::{pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal, PointCloud},
-    pcd::{create_pcd, read_pcd_file, write_pcd_file, PCDDataType, PointCloudData},
+    formats::{
+        bounds::Bounds, pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal,
+        PointCloud,
+    },
+    pcd::{
+        create_pcd, read_pcd_file, read_pcd_with_additional, write_pcd_file, PCDDataType,
+        PCDHeader, PointCloudData,
+    },
     ply::read_ply,
     velodyne::read_velodyn_bin_file,
 };
 use ply_rs::{
     parser, ply,
     ply::DefaultElement,
-    ply::{Encoding, Payload},
+    ply::{Encoding, Header as PLYHeader, Payload},
     writer,
 };
 use std::fs::File;
@@ -24,12 +30,50 @@ use crate::render::wgpu::camera::CameraPosition;
 
 use cgmath::{InnerSpace, Point3, Vector3};
 
+#[derive(Clone)]
+pub struct PointCloudInfo {
+    pub num_of_points: u64,
+}
+
+impl From<PCDHeader> for PointCloudInfo {
+    fn from(value: PCDHeader) -> Self {
+        PointCloudInfo {
+            num_of_points: value.points(),
+        }
+    }
+}
+
+impl From<PLYHeader> for PointCloudInfo {
+    fn from(value: PLYHeader) -> Self {
+        PointCloudInfo {
+            num_of_points: value.elements.get("vertex").unwrap().count as u64,
+        }
+    }
+}
+
 pub fn read_file_to_point_cloud(file: &PathBuf) -> Option<PointCloud<PointXyzRgba>> {
     if let Some(ext) = file.extension().and_then(|ext| ext.to_str()) {
         let point_cloud = match ext {
             "ply" => read_ply(file),
             "pcd" => read_pcd_file(file).map(PointCloud::from).ok(),
             "bin" => read_velodyn_bin_file(file).map(PointCloud::from).ok(),
+            _ => None,
+        };
+        return point_cloud;
+    }
+    None
+}
+
+pub fn read_files_to_point_cloud(
+    base_file: &PathBuf,
+    add_files: &Vec<&PathBuf>,
+    add_points: &Vec<usize>,
+) -> Option<PointCloud<PointXyzRgba>> {
+    if let Some(ext) = base_file.extension().and_then(|ext| ext.to_str()) {
+        let point_cloud = match ext {
+            "pcd" => read_pcd_with_additional(base_file, add_files, add_points)
+                .map(PointCloud::from)
+                .ok(),
             _ => None,
         };
         return point_cloud;
@@ -681,6 +725,33 @@ pub fn velodyne_bin_to_pcd(output_path: &Path, storage_type: PCDDataType, file_p
     let pointxyzrgba: PointCloud<PointXyzRgba> = vbd.into();
     let pcd: PointCloudData = create_pcd(&pointxyzrgba);
     create_file_write_pcd_helper(&pcd, output_path, storage_type, file_path);
+}
+
+pub fn get_pc_bound(pc: &PointCloud<PointXyzRgba>) -> Bounds {
+    let first_point = pc.points[0];
+    let mut min_x = first_point.x;
+    let mut max_x = first_point.x;
+    let mut min_y = first_point.y;
+    let mut max_y = first_point.y;
+    let mut min_z = first_point.z;
+    let mut max_z = first_point.z;
+
+    for &point in &pc.points {
+        min_x = min_x.min(point.x);
+        max_x = max_x.max(point.x);
+        min_y = min_y.min(point.y);
+        max_y = max_y.max(point.y);
+        min_z = min_z.min(point.z);
+        max_z = max_z.max(point.z);
+    }
+    Bounds {
+        min_x,
+        max_x,
+        min_y,
+        max_y,
+        min_z,
+        max_z,
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

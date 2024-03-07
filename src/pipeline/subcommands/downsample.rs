@@ -37,6 +37,8 @@ impl Subcommand for Downsampler {
                 }
                 PipelineMessage::Metrics(_)
                 | PipelineMessage::IndexedPointCloudNormal(_, _)
+                | PipelineMessage::IndexedPointCloudWithName(_, _, _, _)
+                | PipelineMessage::MetaData(_, _, _, _)
                 | PipelineMessage::DummyForIncrement => {}
                 PipelineMessage::End => {
                     channel.send(message);

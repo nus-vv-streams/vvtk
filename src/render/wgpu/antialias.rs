@@ -1,3 +1,5 @@
+use crate::formats::pointxyzrgba::PointXyzRgba;
+
 use wgpu::util::DeviceExt;
 
 #[repr(C)]
@@ -20,6 +22,7 @@ impl Default for AntiAlias {
     }
 }
 
+/// Note: this is actually not anti-aliasing
 impl AntiAlias {
     pub fn create_buffer(&self, device: &wgpu::Device) -> (wgpu::BindGroupLayout, wgpu::BindGroup) {
         let antialias_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -53,5 +56,27 @@ impl AntiAlias {
         });
 
         (antialias_bind_group_layout, antialias_bind_group)
+    }
+
+    pub fn apply(&self, points: &Vec<PointXyzRgba>) -> Vec<PointXyzRgba> {
+        let mut result = Vec::with_capacity(points.len());
+
+        for p in points.iter() {
+            let x = (p.x - self.x) / self.scale;
+            let y = (p.y - self.y) / self.scale;
+            let z = (p.z - self.z) / self.scale;
+
+            result.push(PointXyzRgba { x, y, z, ..*p });
+        }
+
+        result
+    }
+
+    pub fn apply_single(&self, point: &[f32; 3]) -> [f32; 3] {
+        let x = (point[0] - self.x) / self.scale;
+        let y = (point[1] - self.y) / self.scale;
+        let z = (point[2] - self.z) / self.scale;
+
+        [x, y, z]
     }
 }

@@ -34,6 +34,18 @@ pub fn write_pcd<W: Write>(
     Ok(())
 }
 
+/// Writes only the point cloud data into the file
+pub fn write_pcd_data<P: AsRef<Path>>(
+    pcd: &PointCloudData,
+    data_type: PCDDataType,
+    p: P,
+) -> IOResult {
+    let file = File::create(p)?;
+    let writer = BufWriter::new(file);
+    Writer::new(pcd, data_type, writer).write_data()?;
+    Ok(())
+}
+
 struct Writer<'a, W: Write> {
     writer: W,
     pcd: &'a PointCloudData,

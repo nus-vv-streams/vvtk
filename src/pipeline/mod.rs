@@ -6,7 +6,10 @@ use crossbeam_channel::Receiver;
 // use std::sync::mpsc::Receiver;
 
 use crate::{
-    formats::{pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal, PointCloud},
+    formats::{
+        bounds::Bounds, pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal,
+        PointCloud,
+    },
     metrics::Metrics,
 };
 
@@ -14,9 +17,9 @@ use self::{
     executor::Executor,
     executor::ExecutorBuilder,
     subcommands::{
-        convert, dash, downsample, info, metrics, normal_estimation, read, render, upsample, write,
-        Convert, Dash, Downsampler, Info, MetricsCalculator, NormalEstimation, Read, Render,
-        Subcommand, Upsampler, Write,
+        convert, dash, downsample, info, lodify, metrics, normal_estimation, read, render,
+        upsample, write, Convert, Dash, Downsampler, Info, Lodifier, MetricsCalculator,
+        NormalEstimation, Read, Render, Subcommand, Upsampler, Write,
     },
 };
 
@@ -35,6 +38,7 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
         // "play" => Some(Box::from(Play::from_args)),
         "dash" => Some(Box::from(Dash::from_args)),
         "info" => Some(Box::from(Info::from_args)),
+        "lodify" => Some(Box::from(Lodifier::from_args)),
         _ => None,
     }
 }
@@ -43,7 +47,9 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
 pub enum PipelineMessage {
     IndexedPointCloud(PointCloud<PointXyzRgba>, u32),
     IndexedPointCloudNormal(PointCloud<PointXyzRgbaNormal>, u32),
+    IndexedPointCloudWithName(PointCloud<PointXyzRgba>, u32, String, bool),
     // PointCloud(PointCloud<PointXyzRgba>),
+    MetaData(Bounds, Vec<usize>, Vec<usize>, (usize, usize, usize)),
     Metrics(Metrics),
     End,
     DummyForIncrement,
@@ -205,6 +211,8 @@ enum VVSubCommand {
     NormalEstimation(normal_estimation::Args),
     #[clap(name = "info")]
     Info(info::Args),
+    #[clap(name = "lodify")]
+    Lodify(lodify::Args),
     #[clap(name = "dash")]
     Dash(dash::Args),
 }
@@ -225,6 +233,7 @@ mod pipeline_mod_test {
         assert!(Pipeline::if_at_least_one_command("metrics"));
         assert!(Pipeline::if_at_least_one_command("downsample"));
         assert!(Pipeline::if_at_least_one_command("upsample"));
+        assert!(Pipeline::if_at_least_one_command("lodify"));
         assert!(Pipeline::if_at_least_one_command("convert"));
         assert!(!Pipeline::if_at_least_one_command("not_a_command"));
     }
