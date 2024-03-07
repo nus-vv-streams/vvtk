@@ -6,6 +6,7 @@ use crate::BufMsg;
 
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
+use std::process::exit;
 use std::sync::mpsc::Receiver;
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -127,10 +128,6 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
     }
 
     fn set_len(&mut self, _len: usize) {}
-
-    fn get_path_at(&self, index: usize) -> Option<&PathBuf> {
-        self.files.get(index)
-    }
 }
 
 impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PointCloudFileReader {
@@ -181,10 +178,6 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
     }
 
     fn set_len(&mut self, _len: usize) {}
-
-    fn get_path_at(&self, index: usize) -> Option<&PathBuf> {
-        self.files.get(index)
-    }
 }
 
 pub struct PcdMemoryReader {
@@ -212,6 +205,103 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdMemoryReader {
 
     fn is_empty(&self) -> bool {
         self.points.is_empty()
+    }
+
+    fn set_len(&mut self, _len: usize) {}
+}
+
+pub struct LODFileReader {
+    base_files: Vec<PathBuf>,
+    additional_files: Option<Vec<Vec<PathBuf>>>,
+}
+
+impl LODFileReader {
+    pub fn new(base_dir: &Path, additional_dirs: Option<Vec<&Path>>, file_type: &str) -> Self {
+        let base_files = Self::from_directory(base_dir, file_type);
+
+        if additional_dirs.is_none() {
+            return Self {
+                base_files,
+                additional_files: None,
+            };
+        }
+
+        let additional_files = additional_dirs
+            .unwrap()
+            .iter()
+            .map(|dir| Self::from_directory(dir, file_type))
+            .collect::<Vec<_>>();
+
+        let len = base_files.len();
+        for reader in additional_files.iter() {
+            if reader.len() != len {
+                eprintln!("All readers must have the same length");
+                exit(1);
+            }
+        }
+
+        Self {
+            base_files,
+            additional_files: Some(additional_files),
+        }
+    }
+
+    fn from_directory(directory: &Path, file_type: &str) -> Vec<PathBuf> {
+        let mut files = vec![];
+        for file_entry in directory.read_dir().unwrap() {
+            match file_entry {
+                Ok(entry) => {
+                    if let Some(ext) = entry.path().extension() {
+                        if ext.eq(file_type) {
+                            files.push(entry.path());
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("{e}")
+                }
+            }
+        }
+        files.sort();
+        files
+    }
+
+    // pub fn get_with_additional_at(
+    //     &self,
+    //     index: usize,
+    //     additional_points: Vec<usize>,
+    // ) -> Option<PointCloud<PointXyzRgba>> {
+    //     let base_file = self.base_files.get(index)?;
+    //     let mut points = read_file_to_point_cloud(base_file)?;
+
+    //     if let Some(ref additional_files) = self.additional_files {
+    //         for (i, additional_file) in additional_points.iter().enumerate() {
+    //             let additional_file = additional_files.get(i)?.get(*additional_file)?;
+    //             let additional_points = read_file_to_point_cloud(additional_file)?;
+    //             points.append(&mut additional_points);
+    //         }
+    //     }
+
+    //     Some(points)
+    // }
+}
+
+impl RenderReader<PointCloud<PointXyzRgba>> for LODFileReader {
+    fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
+        self.get_at(0)
+    }
+
+    fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
+        let file_path = self.base_files.get(index)?;
+        read_file_to_point_cloud(file_path)
+    }
+
+    fn len(&self) -> usize {
+        self.base_files.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.base_files.is_empty()
     }
 
     fn set_len(&mut self, _len: usize) {}

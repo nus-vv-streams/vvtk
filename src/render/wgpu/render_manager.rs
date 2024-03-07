@@ -1,13 +1,12 @@
 use crate::formats::metadata::MetaData;
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
-use crate::pcd::read_pcd_header;
 use std::marker::PhantomData;
 use std::path::Path;
 use std::process::exit;
 
 use super::camera::CameraState;
-use super::reader::{PointCloudFileReader, RenderReader};
+use super::reader::{LODFileReader, RenderReader};
 use super::renderable::Renderable;
 use super::resolution_controller::ResolutionController;
 
@@ -22,9 +21,7 @@ pub trait RenderManager<T: Renderable> {
 }
 
 pub struct AdaptiveManager {
-    base_reader: PointCloudFileReader,
-    // each additional reader handles a different segment
-    additional_readers: Option<Vec<PointCloudFileReader>>,
+    reader: LODFileReader,
 
     // For adaptive loading
     camera_state: Option<CameraState>,
@@ -89,12 +86,6 @@ impl AdaptiveManager {
 
         let play_format = infer_format(&base_path);
         let base_path = Path::new(&base_path);
-        let mut base_reader = PointCloudFileReader::from_directory(base_path, &play_format);
-
-        if base_reader.is_empty() {
-            eprintln!("Must provide at least one file!");
-            exit(1);
-        }
 
         if lod {
             let metadata_path = Path::new(&src).join("metadata.json");
@@ -106,23 +97,21 @@ impl AdaptiveManager {
                 exit(1);
             };
 
-            let additional_readers =
+            let add_paths =
                 (0..metadata.partitions.0 * metadata.partitions.1 * metadata.partitions.2)
-                    .map(|i| {
-                        let path = Path::new(&src).join(i.to_string());
-                        PointCloudFileReader::from_directory(&path, &play_format)
-                    })
+                    .map(|i| format!("{}/{}", src, i))
                     .collect::<Vec<_>>();
 
-            let len = base_reader.len();
-            for reader in additional_readers.iter() {
-                if reader.len() != len {
-                    eprintln!("All readers must have the same length");
-                    exit(1);
-                }
+            let add_dirs = add_paths.iter().map(|s| Path::new(s)).collect::<Vec<_>>();
+
+            let mut reader = LODFileReader::new(base_path, Some(add_dirs), &play_format);
+
+            if reader.is_empty() {
+                eprintln!("Must provide at least one file!");
+                exit(1);
             }
 
-            let anchor_point_cloud = base_reader.start().unwrap();
+            let anchor_point_cloud = reader.start().unwrap();
             let resolution_controller = ResolutionController::new(
                 &anchor_point_cloud.points,
                 Some(metadata.clone()),
@@ -130,11 +119,10 @@ impl AdaptiveManager {
             );
 
             // no additional points loaded yet
-            let additional_points_loaded = vec![0; additional_readers.len()];
+            let additional_points_loaded = vec![0; reader.len()];
 
             Self {
-                base_reader,
-                additional_readers: Some(additional_readers),
+                reader,
                 camera_state: None,
                 resolution_controller: Some(resolution_controller),
                 metadata: Some(metadata),
@@ -142,9 +130,15 @@ impl AdaptiveManager {
                 additional_points_loaded,
             }
         } else {
+            let reader = LODFileReader::new(base_path, None, &play_format);
+
+            if reader.is_empty() {
+                eprintln!("Must provide at least one file!");
+                exit(1);
+            }
+
             Self {
-                base_reader,
-                additional_readers: None,
+                reader,
                 camera_state: None,
                 resolution_controller: None,
                 metadata: None,
@@ -156,7 +150,7 @@ impl AdaptiveManager {
 
     pub fn get_desired_point_cloud(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
         // let now = std::time::Instant::now();
-        let mut base_pc = self.base_reader.get_at(index).unwrap();
+        let mut base_pc = self.reader.get_at(index).unwrap();
 
         if self.metadata.is_none() {
             // println!("get base pc: {:?}", now.elapsed());
@@ -172,11 +166,7 @@ impl AdaptiveManager {
 
         self.current_index = index;
 
-        if self.additional_readers.is_none()
-            || self.camera_state.is_none()
-            || self.resolution_controller.is_none()
-            || self.additional_readers.is_none()
-        {
+        if self.camera_state.is_none() || self.resolution_controller.is_none() {
             return Some(base_pc);
         }
 
@@ -204,31 +194,31 @@ impl AdaptiveManager {
         // total to be added
         base_pc.prepare_for_addition(&to_load);
 
-        let mut header = read_pcd_header(self.base_reader.get_path_at(index).unwrap()).unwrap();
-        // println!("original base points: {}", base_pc.number_of_points);
-        // println!("read header: {:?}", now.elapsed());
+        // let mut header = read_pcd_header(self.base_reader.get_path_at(index).unwrap()).unwrap();
+        // // println!("original base points: {}", base_pc.number_of_points);
+        // // println!("read header: {:?}", now.elapsed());
 
-        to_load
-            .iter()
-            .zip(self.additional_readers.as_ref().unwrap())
-            .enumerate()
-            .for_each(|(segment, (&to_read, reader))| {
-                if to_read > 0 {
-                    header.set_points(to_read as u64);
-                    let pc = reader.get_with_header_at(index, header.clone()).unwrap();
-                    // println!(
-                    //     "Read {} points for segment {} in {:?}",
-                    //     to_read,
-                    //     segment,
-                    //     now.elapsed()
-                    // );
+        // to_load
+        //     .iter()
+        //     .zip(self.additional_readers.as_ref().unwrap())
+        //     .enumerate()
+        //     .for_each(|(segment, (&to_read, reader))| {
+        //         if to_read > 0 {
+        //             header.set_points(to_read as u64);
+        //             let pc = reader.get_with_header_at(index, header.clone()).unwrap();
+        //             // println!(
+        //             //     "Read {} points for segment {} in {:?}",
+        //             //     to_read,
+        //             //     segment,
+        //             //     now.elapsed()
+        //             // );
 
-                    // let now = std::time::Instant::now();
+        //             // let now = std::time::Instant::now();
 
-                    base_pc.add_points(pc.points, segment);
-                    // println!("add points for segment {} in {:?}", segment, now.elapsed());
-                }
-            });
+        //             base_pc.add_points(pc.points, segment);
+        //             // println!("add points for segment {} in {:?}", segment, now.elapsed());
+        //         }
+        //     });
 
         // println!("total points: {}", base_pc.number_of_points);
         // println!("get desired pc: {:?}", now.elapsed());
@@ -237,10 +227,9 @@ impl AdaptiveManager {
     }
 
     fn should_load_more_points(&mut self, camera_state: &CameraState) -> bool {
-        if self.additional_readers.is_none()
+        if self.metadata.is_none()
             || self.camera_state.is_none()
             || self.resolution_controller.is_none()
-            || self.additional_readers.is_none()
         {
             return false;
         }
@@ -259,7 +248,7 @@ impl AdaptiveManager {
     }
 
     pub fn len(&self) -> usize {
-        self.base_reader.len()
+        self.reader.len()
     }
 }
 
@@ -273,15 +262,15 @@ impl RenderManager<PointCloud<PointXyzRgba>> for AdaptiveManager {
     }
 
     fn len(&self) -> usize {
-        self.base_reader.len()
+        self.reader.len()
     }
 
     fn is_empty(&self) -> bool {
-        self.base_reader.is_empty()
+        self.reader.is_empty()
     }
 
     fn set_len(&mut self, len: usize) {
-        self.base_reader.set_len(len);
+        self.reader.set_len(len);
     }
 
     fn set_camera_state(&mut self, camera_state: Option<CameraState>) {
