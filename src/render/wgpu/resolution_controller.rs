@@ -85,7 +85,7 @@ impl ResolutionController {
         // println!("x_spacing: {}, y_spacing: {}", x_spacing, y_spacing);
 
         let desired_spacing = x_spacing.min(y_spacing);
-        let scaling_factor = self.anchor_spacing / desired_spacing;
+        let scaling_factor = (self.anchor_spacing / desired_spacing).powi(2);
         // let scaling_factor = self.anchor_spacing / desired_spacing;
         // println!(
         //     "desired_spacing: {}, anchor_spacing: {}, scaling_factor: {}",

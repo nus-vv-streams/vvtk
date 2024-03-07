@@ -46,17 +46,6 @@ where
         self.segments.is_some()
     }
 
-    pub fn prepare_for_addition(&mut self, to_load: &Vec<usize>) {
-        let capacity = to_load.iter().sum();
-        self.points.reserve_exact(capacity);
-
-        if let Some(segments) = &mut self.segments {
-            for segment in segments {
-                segment.point_indices.reserve_exact(capacity);
-            }
-        }
-    }
-
     /// Add points to the segment with the given index
     pub fn add_points(&mut self, points: Vec<T>, segment_index: usize) {
         if let Some(segments) = &mut self.segments {
@@ -71,16 +60,43 @@ where
     /// Segments the point cloud based on the given offsets and bounds
     pub fn self_segment(&mut self, offsets: &Vec<usize>, bounds: &Vec<Bounds>) {
         let mut segments = Vec::with_capacity(offsets.len());
-        let mut point_indices = Vec::new();
         let mut start = 0;
 
         for i in 0..offsets.len() {
-            let end = offsets[i];
-            point_indices.extend(start..end);
+            let end = start + offsets[i];
+            let point_indices = (start..end).collect::<Vec<usize>>();
+
             segments.push(PointCloudSegment {
                 point_indices: point_indices.clone(),
                 bounds: bounds[i].clone(),
             });
+            start = end;
+        }
+
+        self.segments = Some(segments);
+    }
+
+    pub fn self_segment_with_bound_indices(
+        &mut self,
+        offsets: &Vec<usize>,
+        bound_indices: &Vec<usize>,
+        bounds: &Vec<Bounds>,
+    ) {
+        // create segments first
+        let mut segments = Vec::with_capacity(offsets.len());
+        for _ in 0..bounds.len() {
+            segments.push(PointCloudSegment {
+                point_indices: Vec::new(),
+                bounds: bounds[0].clone(),
+            });
+        }
+
+        let mut start = 0;
+
+        for i in 0..offsets.len() {
+            let end = start + offsets[i];
+            let point_indices = (start..end).collect::<Vec<usize>>();
+            segments[bound_indices[i]].add_points(point_indices);
             start = end;
         }
 

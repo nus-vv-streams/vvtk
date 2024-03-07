@@ -150,30 +150,22 @@ impl AdaptiveManager {
 
     pub fn get_desired_point_cloud(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
         // let now = std::time::Instant::now();
-        let mut base_pc = self.reader.get_at(index).unwrap();
 
         if self.metadata.is_none() {
             // println!("get base pc: {:?}", now.elapsed());
-            return Some(base_pc);
+            let pc = self.reader.get_at(index).unwrap();
+            return Some(pc);
         }
 
         let metadata = self.metadata.as_ref().unwrap();
         let base_point_num = metadata.base_point_num.get(index).unwrap();
         let bound = metadata.bounds.get(index).unwrap().clone();
 
-        base_pc.self_segment(base_point_num, &bound.partition(metadata.partitions));
-        // println!("get base pc: {:?}", now.elapsed());
-
-        self.current_index = index;
-
         if self.camera_state.is_none() || self.resolution_controller.is_none() {
-            return Some(base_pc);
+            let mut pc = self.reader.get_at(index).unwrap();
+            pc.self_segment(base_point_num, &bound.partition(metadata.partitions));
+            return Some(pc);
         }
-
-        let metadata = self.metadata.as_ref().unwrap();
-
-        let base_point_num = metadata.base_point_num.get(index).unwrap();
-        let extra_point_num = metadata.additional_point_num.get(index).unwrap();
 
         let additional_num_points_desired = self
             .resolution_controller
@@ -181,8 +173,10 @@ impl AdaptiveManager {
             .unwrap()
             .get_desired_num_points(index, self.camera_state.as_ref().unwrap());
 
+        self.current_index = index;
         self.additional_points_loaded = additional_num_points_desired;
 
+        let extra_point_num = metadata.additional_point_num.get(index).unwrap();
         let to_load = self
             .additional_points_loaded
             .iter()
@@ -190,40 +184,21 @@ impl AdaptiveManager {
             .map(|(segment, &num)| (num - base_point_num[segment]).min(extra_point_num[segment]))
             .collect::<Vec<_>>();
 
-        // println!("to load now: {:?}", now.elapsed());
-        // total to be added
-        base_pc.prepare_for_addition(&to_load);
+        let mut pc = self.reader.get_with_additional_at(index, &to_load).unwrap();
 
-        // let mut header = read_pcd_header(self.base_reader.get_path_at(index).unwrap()).unwrap();
-        // // println!("original base points: {}", base_pc.number_of_points);
-        // // println!("read header: {:?}", now.elapsed());
+        let mut offsets = base_point_num.clone();
+        offsets.extend(&to_load);
 
-        // to_load
-        //     .iter()
-        //     .zip(self.additional_readers.as_ref().unwrap())
-        //     .enumerate()
-        //     .for_each(|(segment, (&to_read, reader))| {
-        //         if to_read > 0 {
-        //             header.set_points(to_read as u64);
-        //             let pc = reader.get_with_header_at(index, header.clone()).unwrap();
-        //             // println!(
-        //             //     "Read {} points for segment {} in {:?}",
-        //             //     to_read,
-        //             //     segment,
-        //             //     now.elapsed()
-        //             // );
+        let mut bound_indices = (0..base_point_num.len()).collect::<Vec<_>>();
+        bound_indices.extend((0..to_load.len()).collect::<Vec<_>>());
 
-        //             // let now = std::time::Instant::now();
+        pc.self_segment_with_bound_indices(
+            &offsets,
+            &bound_indices,
+            &bound.partition(metadata.partitions),
+        );
 
-        //             base_pc.add_points(pc.points, segment);
-        //             // println!("add points for segment {} in {:?}", segment, now.elapsed());
-        //         }
-        //     });
-
-        // println!("total points: {}", base_pc.number_of_points);
-        // println!("get desired pc: {:?}", now.elapsed());
-
-        Some(base_pc)
+        Some(pc)
     }
 
     fn should_load_more_points(&mut self, camera_state: &CameraState) -> bool {
@@ -232,6 +207,10 @@ impl AdaptiveManager {
             || self.resolution_controller.is_none()
         {
             return false;
+        }
+
+        if self.current_index > self.reader.len() {
+            return true;
         }
 
         let additional_num_points_desired = self

@@ -4,10 +4,10 @@ use crate::{
         PointCloud,
     },
     pcd::{
-        create_pcd, read_pcd_file, read_pcd_file_with_header, read_pcd_header, write_pcd_file,
-        PCDDataType, PCDHeader, PointCloudData,
+        create_pcd, read_pcd_file, read_pcd_with_additional, write_pcd_file, PCDDataType,
+        PCDHeader, PointCloudData,
     },
-    ply::{read_ply, read_ply_header},
+    ply::read_ply,
     velodyne::read_velodyn_bin_file,
 };
 use ply_rs::{
@@ -64,13 +64,14 @@ pub fn read_file_to_point_cloud(file: &PathBuf) -> Option<PointCloud<PointXyzRgb
     None
 }
 
-pub fn read_pcd_to_point_cloud_with_header(
-    file: &PathBuf,
-    header: PCDHeader,
+pub fn read_files_to_point_cloud(
+    base_file: &PathBuf,
+    add_files: &Vec<&PathBuf>,
+    add_points: &Vec<usize>,
 ) -> Option<PointCloud<PointXyzRgba>> {
-    if let Some(ext) = file.extension().and_then(|ext| ext.to_str()) {
+    if let Some(ext) = base_file.extension().and_then(|ext| ext.to_str()) {
         let point_cloud = match ext {
-            "pcd" => read_pcd_file_with_header(file, header)
+            "pcd" => read_pcd_with_additional(base_file, add_files, add_points)
                 .map(PointCloud::from)
                 .ok(),
             _ => None,
@@ -78,18 +79,6 @@ pub fn read_pcd_to_point_cloud_with_header(
         return point_cloud;
     }
     None
-}
-
-pub fn read_file_header(file: &PathBuf) -> Result<PointCloudInfo, String> {
-    if let Some(ext) = file.extension().and_then(|ext| ext.to_str()) {
-        let pc_info = match ext {
-            "ply" => Some(read_ply_header(file).unwrap().into()),
-            "pcd" => Some(read_pcd_header(file).unwrap().into()),
-            _ => None,
-        };
-        return pc_info.ok_or(format!("Unsupported file format: {}", ext));
-    }
-    Err("Unsupported file format.".to_string())
 }
 
 fn check_files_existence(files: &Vec<OsString>) -> bool {

@@ -1,7 +1,7 @@
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
-use crate::pcd::{read_pcd_file, PCDHeader};
-use crate::utils::{read_file_to_point_cloud, read_pcd_to_point_cloud_with_header};
+use crate::pcd::read_pcd_file;
+use crate::utils::{read_file_to_point_cloud, read_files_to_point_cloud};
 use crate::BufMsg;
 
 use std::fmt::Debug;
@@ -18,15 +18,9 @@ use super::renderable::Renderable;
 pub trait RenderReader<T: Renderable> {
     fn start(&mut self) -> Option<T>;
     fn get_at(&mut self, index: usize) -> Option<T>;
-    fn get_with_header_at(&self, _: usize, _: PCDHeader) -> Option<T> {
-        None
-    }
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
     fn set_len(&mut self, len: usize);
-    fn get_path_at(&self, _index: usize) -> Option<&PathBuf> {
-        None
-    }
 }
 //RenderReaderCameraPos for the one with CameraPosition
 pub trait RenderReaderCameraPos<T: Renderable> {
@@ -108,15 +102,6 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
     fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
         let file_path = self.files.get(index)?;
         read_file_to_point_cloud(file_path)
-    }
-
-    fn get_with_header_at(
-        &self,
-        index: usize,
-        header: PCDHeader,
-    ) -> Option<PointCloud<PointXyzRgba>> {
-        let file_path = self.files.get(index)?;
-        read_pcd_to_point_cloud_with_header(file_path, header)
     }
 
     fn len(&self) -> usize {
@@ -266,24 +251,21 @@ impl LODFileReader {
         files
     }
 
-    // pub fn get_with_additional_at(
-    //     &self,
-    //     index: usize,
-    //     additional_points: Vec<usize>,
-    // ) -> Option<PointCloud<PointXyzRgba>> {
-    //     let base_file = self.base_files.get(index)?;
-    //     let mut points = read_file_to_point_cloud(base_file)?;
-
-    //     if let Some(ref additional_files) = self.additional_files {
-    //         for (i, additional_file) in additional_points.iter().enumerate() {
-    //             let additional_file = additional_files.get(i)?.get(*additional_file)?;
-    //             let additional_points = read_file_to_point_cloud(additional_file)?;
-    //             points.append(&mut additional_points);
-    //         }
-    //     }
-
-    //     Some(points)
-    // }
+    /// Get the point point cloud at the given index with additional points at the given indices.
+    pub fn get_with_additional_at(
+        &self,
+        index: usize,
+        additional_points: &Vec<usize>,
+    ) -> Option<PointCloud<PointXyzRgba>> {
+        let base_file = self.base_files.get(index)?;
+        let additional_files = self
+            .additional_files
+            .as_ref()?
+            .iter()
+            .map(|reader| reader.get(index).unwrap())
+            .collect::<Vec<_>>();
+        read_files_to_point_cloud(base_file, &additional_files, additional_points)
+    }
 }
 
 impl RenderReader<PointCloud<PointXyzRgba>> for LODFileReader {
