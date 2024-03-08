@@ -36,6 +36,7 @@ impl Extension {
 impl Subcommand for Extension {
     // This will be called by the executor to execute this particular subcommand
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
+        println!("this handle is invoked");
         let testdir = PathBuf::from(&self.args.binary_paths);
         let paths: Vec<PathBuf> = vec![testdir];
         let mut input_pc: Option<PointCloud<PointXyzRgba>> = None;
@@ -49,7 +50,6 @@ impl Subcommand for Extension {
                 PipelineMessage::SubcommandMessage(subcommand_object, _, _) => {
                     input_pc = Some(*(subcommand_object.content).clone());
             }
-            //TODO: figure out what to do with the extra message at the side
             PipelineMessage::IndexedPointCloud(pc, _) => {
                 input_pc = Some(pc.clone());
             }
@@ -59,22 +59,23 @@ impl Subcommand for Extension {
             _ => {}
             }
         }
+        println!("the point cloud received by vv extend is {:?}", input_pc);
         if let Ok(child_deserialized_output) = 
         // None because right not extend is executed as the first command, will change later
             execute_subcommand_executable(paths, &self.args.cmd_name, &self.args.xargs, input_pc) {
-            // This is only for testing
-            println!("the content of child_deserialized output = {:?}", &child_deserialized_output);
             // send the message to the channel
-            // TODO: remove the bool here
+            // TODO: remove the bool here completely
             channel.send(PipelineMessage::SubcommandMessage(child_deserialized_output, true, false));
+            println!("The command is sent!");
             // //TODO: implement a function to convert from string to PointXyzRgba for SubcommandObject
         }
         else {
             channel.send(PipelineMessage::End);
         }
+        println!("handle ends here");
     }
 }
-
+// Find the executable which has the name "vv-(cmd)" in all the paths listed in paths
 fn find_subcommand_executable(paths:Vec<PathBuf>, cmd: &str) -> Option<PathBuf> {
     let command_name = format!("vv-{}{}", cmd, std::env::consts::EXE_SUFFIX);
     paths.iter()
@@ -82,15 +83,13 @@ fn find_subcommand_executable(paths:Vec<PathBuf>, cmd: &str) -> Option<PathBuf> 
          .find(|file| is_executable(file))
 }
 
+// Execute the subcommand that is in executable form
 fn execute_subcommand_executable(paths:Vec<PathBuf>, cmd: &str, cmd_args:&Vec<String>, input_pc: Option<PointCloud<PointXyzRgba>>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
     let path = find_subcommand_executable(paths, cmd);
     let command = match path {
         Some(command) => command, 
         None => {
-            // use println for now, need proper handling
-            //println!("The external command not found!");
-            //TODO: fix this part
-            return Err("Invalid comand");
+            return Err("The executable is not found");
         }
     };
     execute_external_subcommand(Some(&command), cmd_args, input_pc)
@@ -99,6 +98,10 @@ fn execute_subcommand_executable(paths:Vec<PathBuf>, cmd: &str, cmd_args:&Vec<St
 // This function will execute subcommand that is stored as rust code
 fn execute_rust_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>, input_pc: Option<PointCloud<PointXyzRgba>>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
     execute_external_subcommand(None, cmd_args, input_pc)
+    // Input and execute customised library code here
+    // Assume that there is a crate call subcommands, 
+    // then by calling subcommands.
+    // then the user should give me the crate name
 }
 
 // execute external code or binaries 
@@ -142,14 +145,14 @@ fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>
             let child_stdout:String = String::from_utf8(output.stdout.clone()).unwrap();
             child_deserialized_output = Some(serde_json::from_str(&child_stdout).unwrap());
             match child_deserialized_output {
-                Some(child_deserialized_output) => return Ok(child_deserialized_output),
-                None => return Err("Failed to get deserialized output of the child process"),
+                Some(child_deserialized_output) => Ok(child_deserialized_output),
+                None => Err("Failed to get deserialized output of the child process"),
             }
         },
         None => {
             //println!("this is internal subcommand, not implemented yet");
             //TODO: implement someting here
-            return Err("Internal subcommand not implemented yet");
+            Err("Internal subcommand not implemented yet")
         }
     }
 }
