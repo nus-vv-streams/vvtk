@@ -1,12 +1,11 @@
 use clap::Parser;
-use std::time::Instant;
 
 use crate::{
     downsample::octree::downsample,
     pipeline::{channel::Channel, PipelineMessage},
 };
 
-use super::Subcommand;
+use super::{extension::SubcommandObject, Subcommand};
 
 /// Downsample a pointcloud from the stream.
 #[derive(Parser)]
@@ -36,10 +35,13 @@ impl Subcommand for Downsampler {
                     let downsampled_pc = downsample(pc, self.points_per_voxel);
                     channel.send(PipelineMessage::IndexedPointCloud(downsampled_pc, i));
                 }
+                PipelineMessage::SubcommandMessage(subcommand_object) => {
+                    let downsampled_pc = downsample(subcommand_object.get_content().clone(), self.points_per_voxel);
+                    channel.send(PipelineMessage::SubcommandMessage(SubcommandObject::new(downsampled_pc)));
+                }
                 PipelineMessage::Metrics(_)
                 | PipelineMessage::IndexedPointCloudNormal(_, _)
-                | PipelineMessage::DummyForIncrement 
-                | PipelineMessage::SubcommandMessage(_, _, _) => {}
+                | PipelineMessage::DummyForIncrement  => {}
                 PipelineMessage::End => {
                     channel.send(message);
                 }

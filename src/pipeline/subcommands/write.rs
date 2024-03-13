@@ -152,7 +152,7 @@ impl Subcommand for Write {
                 }
                 PipelineMessage::End 
                 | PipelineMessage::DummyForIncrement
-                | PipelineMessage::SubcommandMessage(_, _, _) => {}
+                | PipelineMessage::SubcommandMessage(_) => {}
             }
             channel.send(message);
         }

@@ -38,7 +38,7 @@ impl Subcommand for Upsampler {
                 PipelineMessage::Metrics(_)
                 | PipelineMessage::IndexedPointCloudNormal(_, _)
                 | PipelineMessage::DummyForIncrement
-                | PipelineMessage::SubcommandMessage(_, _, _) => {}
+                | PipelineMessage::SubcommandMessage(_) => {}
                 PipelineMessage::End => {
                     channel.send(message);
                 }

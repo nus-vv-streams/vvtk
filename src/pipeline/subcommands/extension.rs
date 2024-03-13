@@ -3,7 +3,7 @@ use std::{fs, io::{self, Write}, path::{Path, PathBuf}, process::{Command, Stdio
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 
-use crate::{formats::{pointxyzrgba::PointXyzRgba, PointCloud}, pipeline::{channel::Channel, PipelineMessage}, utils::read_file_to_point_cloud};
+use crate::{formats::{pointxyzrgba::PointXyzRgba, PointCloud}, pipeline::{channel::Channel, PipelineMessage}};
 
 use super::Subcommand;
 
@@ -43,13 +43,10 @@ impl Subcommand for Extension {
         println!("path is {:?}", paths);
         let mut input_pc: Option<PointCloud<PointXyzRgba>> = None;
         for message in messages {
-            // TODO: Only implement for SubcommandMessage for now, need to handle other kind of input later
-            // Testing: the second vv extend should receive pc from here
             // Current assumption of vv extend is it only takes in PointCloud and output a point cloud
             // Didn't handle PointCloud<PointXyzRgbaNormal>  for now
             match &message {
-                // For testing purpose, test for the second extend process (TODO: delete later)
-                PipelineMessage::SubcommandMessage(subcommand_object, _, _) => {
+                PipelineMessage::SubcommandMessage(subcommand_object,) => {
                     input_pc = Some(*(subcommand_object.content).clone());
             }
             PipelineMessage::IndexedPointCloud(pc, _) => {
@@ -67,7 +64,7 @@ impl Subcommand for Extension {
             execute_subcommand_executable(paths, &self.args.cmd_name, &self.args.xargs, input_pc) {
             // send the message to the channel
             // TODO: remove the bool here completely
-            channel.send(PipelineMessage::SubcommandMessage(child_deserialized_output, true, false));
+            channel.send(PipelineMessage::SubcommandMessage(child_deserialized_output));
             println!("The command is sent!");
             // //TODO: implement a function to convert from string to PointXyzRgba for SubcommandObject
         }
@@ -98,15 +95,6 @@ fn execute_subcommand_executable(paths:Vec<PathBuf>, cmd: &str, cmd_args:&Vec<St
     execute_external_subcommand(Some(&command), cmd_args, input_pc)
 }
 
-// This function will execute subcommand that is stored as rust code
-fn execute_rust_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>, input_pc: Option<PointCloud<PointXyzRgba>>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
-    execute_external_subcommand(None, cmd_args, input_pc)
-    // Input and execute customised library code here
-    // Assume that there is a crate call subcommands, 
-    // then by calling subcommands.
-    // then the user should give me the crate name
-}
-
 // execute external code or binaries 
 fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>, input_pc: Option<PointCloud<PointXyzRgba>>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
     println!("input pc is {:?}", input_pc);
@@ -123,7 +111,6 @@ fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>
     let serialized = serde_json::to_string(&input).unwrap();
     match cmd_path {
         Some(cmd_path) => {
-            let mut child_deserialized_output:Option<SubcommandObject<PointCloud<PointXyzRgba>>> = None;
             let mut child = Command::new(cmd_path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -146,6 +133,17 @@ fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>
             io::stdout().write_all(&output.stdout).unwrap();
             //pass the SubcommandObject<PointCloud> back to the pipeline
             let child_stdout:String = String::from_utf8(output.stdout.clone()).unwrap();
+            let child_deserialized_output: Option<SubcommandObject<PointCloud<PointXyzRgba>>>;
+            // TODO: clean up this part
+            /* 
+            let _ = serde_json::from_str::<SubcommandObject<PointCloud<PointXyzRgba>>>(&child_stdout) {
+                Ok(value) => Ok(value), 
+                Err(error) => {
+                    println!("error is {:?}", error);
+                    Err("Failed to get deserialized output of the child process")
+                } 
+            }
+            */
             child_deserialized_output = Some(serde_json::from_str(&child_stdout).unwrap());
             match child_deserialized_output {
                 Some(child_deserialized_output) => Ok(child_deserialized_output),
@@ -183,7 +181,12 @@ impl<T:Clone + Serialize> SubcommandObject<T> {
             content: Box::new(content),
         }
     }
+
+    pub fn get_content(&self) -> &T {
+        &self.content
+    }
 }
+
 
 impl<T:Clone + Serialize> Clone for SubcommandObject<T> {
     fn clone(&self) -> Self {
