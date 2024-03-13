@@ -44,6 +44,7 @@ impl Read {
 
 impl Subcommand for Read {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
+        println!("handle is invoked for vv read");
         if messages.is_empty() {
             let mut files = find_all_files(&self.args.files);
             //println!("the current file is {:?}", &files);

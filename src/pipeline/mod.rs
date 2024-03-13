@@ -48,7 +48,7 @@ pub enum PipelineMessage {
     Metrics(Metrics),
     // Pipeline for external subcommand, contains the object that subcommand wants to past
     // and if it is input or output stream
-    //TODO: make it an option? or past in an option into Any, anything that goes inside any need to implement Clone
+    //TODO: make it an option? or past in an optddion into Any, anything that goes inside any need to implement Clone
     // Set it as string and deserialized it if needed 
     // Can add a type to SubcommandObject is
     SubcommandMessage(SubcommandObject<PointCloud<PointXyzRgba>>, bool, bool),
@@ -91,6 +91,7 @@ impl Pipeline {
                     //t: TODO trace this part
                     if executor.output_name().eq(input_name) {
                         inputs.push(executor.output());
+                        println!("the input names are {:?}",input_name);
                     }
                 }
             }
@@ -101,14 +102,15 @@ impl Pipeline {
         //t: collect all the names, progress, and spawn all the porgess at once?? why they didn't wait?
         for (exec, progress) in executors.into_iter().zip(progresses) {
             names.push(exec.name());
+            println!("the names are {:?}",names);
             progress_recvs.push(progress);
-            //t: this creates a JoinHandler by spawning a thread
             handles.push(exec.run());
         }
 
         // println!("progress_recvs.len(): {}", progress_recvs.len());
         let mut completed = 0;
         let mut progress = vec![0; progress_recvs.len()];
+        println!("the length is {:?}",progress_recvs.len());
         while completed < progress_recvs.len() {
             for (idx, recv) in progress_recvs.iter().enumerate() {
                 while let Ok(prog) = recv.try_recv() {

@@ -34,7 +34,6 @@ impl Subcommand for Downsampler {
             match message {
                 PipelineMessage::IndexedPointCloud(pc, i) => {
                     let downsampled_pc = downsample(pc, self.points_per_voxel);
-                    println!("{:?}", downsampled_pc);
                     channel.send(PipelineMessage::IndexedPointCloud(downsampled_pc, i));
                 }
                 PipelineMessage::Metrics(_)

@@ -38,7 +38,9 @@ impl Subcommand for Extension {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         println!("this handle is invoked");
         let testdir = PathBuf::from(&self.args.binary_paths);
+        println!("testdir is {:?}", testdir);
         let paths: Vec<PathBuf> = vec![testdir];
+        println!("path is {:?}", paths);
         let mut input_pc: Option<PointCloud<PointXyzRgba>> = None;
         for message in messages {
             // TODO: Only implement for SubcommandMessage for now, need to handle other kind of input later
@@ -70,6 +72,7 @@ impl Subcommand for Extension {
             // //TODO: implement a function to convert from string to PointXyzRgba for SubcommandObject
         }
         else {
+            println!("pipeline message end is executed!");
             channel.send(PipelineMessage::End);
         }
         println!("handle ends here");

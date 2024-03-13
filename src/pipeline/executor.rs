@@ -99,6 +99,7 @@ impl ExecutorBuilder {
         }
 
         //t: certain command will not need to have an input, if not, throw an error 
+        println!("current command detected by executor: {:?}", cmd.as_str());
         if has_input
             || cmd.as_str() == "read"
             || cmd.as_str() == "convert"
@@ -129,6 +130,7 @@ impl ExecutorBuilder {
             channel,
             handler,
         };
+        println!("current executor created is {:?}", executor.name);
         Ok((executor, progress_rx))
     }
 }
@@ -136,7 +138,6 @@ impl ExecutorBuilder {
 unsafe impl Send for Executor {}
 
 impl Executor {
-    //t: what's the point of having two create
     #[allow(dead_code)]
     pub fn create(args: Vec<String>, creator: SubcommandCreator) -> (Self, Receiver<Progress>) {
         let name = args.first().expect("Should have command name").clone();
@@ -203,7 +204,6 @@ impl Executor {
     }
 
     fn start(mut self) {
-        //t: why this part use the handler when the input is empty, for some command, the input can be empty tho?
         if self.inputs.is_empty() {
             self.handler.handle(vec![], &self.channel);
             return;
@@ -225,6 +225,7 @@ impl Executor {
             });
 
             // the handle is called here
+            println!("handle is invoked for {:?}", self.name);
             self.handler.handle(messages, &self.channel);
 
             if should_break {
