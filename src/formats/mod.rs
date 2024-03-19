@@ -9,6 +9,7 @@ use self::pointxyzrgba::PointXyzRgba;
 pub mod pointxyzrgba;
 pub mod pointxyzrgbanormal;
 
+// Possible change: put index number here (motivation: PipelineMessage IndexedPointCloud)
 #[derive(Clone, Deserialize, Serialize)]
 pub struct PointCloud<T> {
     pub number_of_points: usize,

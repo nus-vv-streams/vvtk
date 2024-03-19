@@ -35,10 +35,17 @@ impl Subcommand for Upsampler {
                     let upsampled_pc = upsample(pc, self.factor);
                     channel.send(PipelineMessage::IndexedPointCloud(upsampled_pc, i));
                 }
+                PipelineMessage::SubcommandMessage(subcommand_object, i) => {
+                    // Only vv extend will send SubcommandMessage, other subcommand will send IndexedPointCloud to make sure the other command will
+                    // continue to be compatible by receiving IndexedPointCloud
+                    let pc = subcommand_object.get_content();
+                    let upsampled_pc = upsample(pc.clone(), self.factor);
+                    channel.send(PipelineMessage::IndexedPointCloud(upsampled_pc, i));
+                }
                 PipelineMessage::Metrics(_)
                 | PipelineMessage::IndexedPointCloudNormal(_, _)
-                | PipelineMessage::DummyForIncrement
-                | PipelineMessage::SubcommandMessage(_) => {}
+                | PipelineMessage::DummyForIncrement => {}
+
                 PipelineMessage::End => {
                     channel.send(message);
                 }

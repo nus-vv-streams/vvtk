@@ -1,4 +1,4 @@
-use std::{fs, io::{self, Write}, path::{Path, PathBuf}, process::{Command, Stdio}};
+use std::{fs, io::{self, Write}, path::{Path, PathBuf}, process::{Command, Stdio}, env};
 
 use clap::Parser;
 use serde::{Deserialize, Serialize};
@@ -9,15 +9,16 @@ use super::Subcommand;
 
 #[derive(Parser)]
 #[clap(
-    about = "This commmand will run the extension subcommand"
+    about = "vv extend is used for custom subcommands."
 )]
 pub struct Args {
-    //command name of the extension
+    // Command name of the extension
     cmd_name: String,
-    // If it is a binaries, where to find the binary paths, TODO, make it a vector of path later
-    // default path for internal subcommand is ~/.cargo/
+    // Extra path to search for the binary executable, use if binaries is not found from "HOME/.cargo/bin"
+    // TODO: make this optional
+    #[clap(short, long)]
     binary_paths: String,
-    //TODO: use clap for this to parse a new vec   
+    // Arguments that needs to pass in to the binary executable, value separate by comma
     #[clap(short, long, value_parser, num_args = 1.., value_delimiter = ',')]
     xargs: Vec<String>,
 }
@@ -36,43 +37,58 @@ impl Extension {
 impl Subcommand for Extension {
     // This will be called by the executor to execute this particular subcommand
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
-        println!("this handle is invoked");
-        let testdir = PathBuf::from(&self.args.binary_paths);
+        // default cargo home, if not go $PATH
+        // Search through path directory
+        // TODO: set to cargo home
+        let key = "HOME";
+        match env::var_os(key) {
+            Some(val) => println!("{key}: {val:?}"),
+            None => println!("{key} is not defined in the environment.")
+        }
+        let testdir= [key, ".cargo", "bin"].iter().collect();
+        //let testdir = PathBuf::from(&self.args.binary_paths);
         println!("testdir is {:?}", testdir);
         let paths: Vec<PathBuf> = vec![testdir];
         println!("path is {:?}", paths);
         let mut input_pc: Option<PointCloud<PointXyzRgba>> = None;
+        let mut should_execute_subcommand = false;
+        let mut pc_index: Option<u32> = None;
         for message in messages {
-            // Current assumption of vv extend is it only takes in PointCloud and output a point cloud
-            // Didn't handle PointCloud<PointXyzRgbaNormal>  for now
+            // Didn't handle PointCloud<PointXyzRgbaNormal>
             match &message {
-                PipelineMessage::SubcommandMessage(subcommand_object,) => {
+                PipelineMessage::SubcommandMessage(subcommand_object,index) => {
                     input_pc = Some(*(subcommand_object.content).clone());
+                    pc_index = Some(index.clone());
+                    should_execute_subcommand = true;
             }
-            PipelineMessage::IndexedPointCloud(pc, _) => {
+            PipelineMessage::IndexedPointCloud(pc, index) => {
                 input_pc = Some(pc.clone());
+                pc_index = Some(index.clone());
+                should_execute_subcommand = true;
             }
             PipelineMessage::End => {
+                println!("vv extend must receive a PointCloud, terminate now");
                 channel.send(PipelineMessage::End);
             }
-            _ => {}
+            // TODO: look into what this should do
+            // this is all other types?
+            _ => {
+                channel.send(message);
+            }
             }
         }
         println!("the point cloud received by vv extend is {:?}", input_pc);
-        if let Ok(child_deserialized_output) = 
-        // None because right not extend is executed as the first command, will change later
-            execute_subcommand_executable(paths, &self.args.cmd_name, &self.args.xargs, input_pc) {
-            // send the message to the channel
-            // TODO: remove the bool here completely
-            channel.send(PipelineMessage::SubcommandMessage(child_deserialized_output));
-            println!("The command is sent!");
-            // //TODO: implement a function to convert from string to PointXyzRgba for SubcommandObject
+        if should_execute_subcommand {
+            if let Ok(child_deserialized_output) = 
+            // None because right not extend is executed as the first command, will change later
+                execute_subcommand_executable(paths, &self.args.cmd_name, &self.args.xargs, input_pc) {
+                // send the message to the channel
+                channel.send(PipelineMessage::SubcommandMessage(child_deserialized_output, pc_index.unwrap()));
+            }
+            else {
+                channel.send(PipelineMessage::End);
+            }
         }
-        else {
-            println!("pipeline message end is executed!");
-            channel.send(PipelineMessage::End);
-        }
-        println!("handle ends here");
     }
 }
 // Find the executable which has the name "vv-(cmd)" in all the paths listed in paths
@@ -97,8 +113,7 @@ fn execute_subcommand_executable(paths:Vec<PathBuf>, cmd: &str, cmd_args:&Vec<St
 
 // execute external code or binaries 
 fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>, input_pc: Option<PointCloud<PointXyzRgba>>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
-    println!("input pc is {:?}", input_pc);
-    // Should receive a pointCloud, and also output a point cloud to the pipeline
+    // vv extend expects to receive a pointCloud, and also output a point cloud to the pipeline
     let input;
     match input_pc {
         Some(input_pc) => {
@@ -134,16 +149,6 @@ fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>
             //pass the SubcommandObject<PointCloud> back to the pipeline
             let child_stdout:String = String::from_utf8(output.stdout.clone()).unwrap();
             let child_deserialized_output: Option<SubcommandObject<PointCloud<PointXyzRgba>>>;
-            // TODO: clean up this part
-            /* 
-            let _ = serde_json::from_str::<SubcommandObject<PointCloud<PointXyzRgba>>>(&child_stdout) {
-                Ok(value) => Ok(value), 
-                Err(error) => {
-                    println!("error is {:?}", error);
-                    Err("Failed to get deserialized output of the child process")
-                } 
-            }
-            */
             child_deserialized_output = Some(serde_json::from_str(&child_stdout).unwrap());
             match child_deserialized_output {
                 Some(child_deserialized_output) => Ok(child_deserialized_output),
@@ -159,17 +164,20 @@ fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>
 }
 
 
-// implement the logic for is_executable
-// copied from cargo, and there is another version for window
-// TODO: fix this part
+// is_executable implementation referred Rust cargo src/bin/cargo/main.rs
+// https://github.com/rust-lang/cargo/blob/master/src/bin/cargo/main.rs
+#[cfg(unix)]
 fn is_executable<P: AsRef<Path>>(path: P) -> bool {
     use std::os::unix::prelude::*;
     fs::metadata(path)
         .map(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
         .unwrap_or(false)
 }
+#[cfg(windows)]
+fn is_executable<P: AsRef<Path>>(path: P) -> bool {
+    path.as_ref().is_file()
+}
 
-//TODO: move this somewhere else when tidy up
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SubcommandObject<T:Clone + Serialize> {
     content: Box<T>,

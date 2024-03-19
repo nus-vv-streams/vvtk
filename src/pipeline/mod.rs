@@ -47,11 +47,8 @@ pub enum PipelineMessage {
     // PointCloud(PointCloud<PointXyzRgba>),
     Metrics(Metrics),
     // Pipeline for external subcommand, contains the object that subcommand wants to past
-    // and if it is input or output stream
-    //TODO: make it an option? or past in an optddion into Any, anything that goes inside any need to implement Clone
-    // Set it as string and deserialized it if needed 
-    // Can add a type to SubcommandObject is
-    SubcommandMessage(SubcommandObject<PointCloud<PointXyzRgba>>,),
+    // TODO: Add in i to match with IndexedPointCloud
+    SubcommandMessage(SubcommandObject<PointCloud<PointXyzRgba>>, u32),
     End,
     DummyForIncrement,
 }
