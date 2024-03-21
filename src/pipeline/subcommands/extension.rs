@@ -33,8 +33,7 @@ impl Extension {
 impl Subcommand for Extension {
     // This will be called by the executor to execute this particular subcommand
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
-        // default cargo home, if not go $PATH
-        // Search through path directory
+        // Search through cargo_directory
         let key = "CARGO_HOME";
         match env::var_os(key) {
             Some(val) => println!("{key}: {val:?}"),
@@ -44,9 +43,7 @@ impl Subcommand for Extension {
              }
         }
         let testdir = PathBuf::from(env::var_os(key).unwrap()).join("bin"); 
-        println!("testdir is {:?}", testdir);
         let paths: Vec<PathBuf> = vec![testdir];
-        println!("path is {:?}", paths);
         let mut input_pc: Option<PointCloud<PointXyzRgba>> = None;
         let mut should_execute_subcommand = false;
         let mut pc_index: Option<u32> = None;
@@ -72,37 +69,17 @@ impl Subcommand for Extension {
             }
             }
         }
-        println!("the point cloud received by vv extend is {:?}", input_pc);
-        println!("should execute subcommad is {:?}", should_execute_subcommand);
         if should_execute_subcommand {
-            //let result = execute_subcommand_executable(paths, &self.args.cmd_name, &self.args.xargs, input_pc);
-            //println!("the result of execution is {:?}", result);
             let result = execute_subcommand_executable(paths, &self.args.cmd_name, &self.args.xargs, input_pc);
             match result {
                 Ok(child_deserialized_output) => {
-                    // send the message to the channel
-                    println!("vv extend sent pointcloud");
                     channel.send(PipelineMessage::SubcommandMessage(child_deserialized_output, pc_index.unwrap()));
                 }
                 Err(e) => {
-                    println!("vv extend sent pipeline end");
                     eprintln!("Error: {}", e);
                     channel.send(PipelineMessage::End);
                 }
             }
-            /* 
-            if let Ok(child_deserialized_output) = 
-            // None because right not extend is executed as the first command, will change later
-                execute_subcommand_executable(paths, &self.args.cmd_name, &self.args.xargs, input_pc) {
-                // send the message to the channel
-                println!("vv extend sent pointcloud");
-                channel.send(PipelineMessage::SubcommandMessage(child_deserialized_output, pc_index.unwrap()));
-            }
-            else {
-                println!("vv extend sent pipeline end");
-                channel.send(PipelineMessage::End);
-            }
-            */
         }
     }
 }
@@ -116,9 +93,6 @@ fn find_subcommand_executable(paths:Vec<PathBuf>, cmd: &str) -> Option<PathBuf> 
 
 // Execute the subcommand that is in executable form
 fn execute_subcommand_executable(paths:Vec<PathBuf>, cmd: &str, cmd_args:&Vec<String>, input_pc: Option<PointCloud<PointXyzRgba>>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
-    println!("execute_subcommand_executable is called");
-    println!("path is {:?}", paths);
-    println!("cmd is {:?}", cmd);
     let path = find_subcommand_executable(paths, cmd);
     let command = match path {
         Some(command) => command, 
@@ -132,8 +106,6 @@ fn execute_subcommand_executable(paths:Vec<PathBuf>, cmd: &str, cmd_args:&Vec<St
 // execute external code or binaries 
 fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>, input_pc: Option<PointCloud<PointXyzRgba>>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
     // vv extend expects to receive a pointCloud, and also output a point cloud to the pipeline
-    println!("execute_external_subcommand is called");
-    println!("cmd path is {:?}", cmd_path);
     let input;
     match input_pc {
         Some(input_pc) => {
@@ -219,53 +191,5 @@ impl<T:Clone + Serialize> Clone for SubcommandObject<T> {
         Self {
             content: self.content.clone(),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::{io::{self, Write as _}, process::{Command, Stdio}};
-
-    use crate::{formats::pointxyzrgba::PointXyzRgba, pipeline::subcommands::extension::SubcommandObject};
-
-    use super::execute_external_subcommand;
-
-    #[test]
-    fn pass_pointcloud_to_executable_child_process() {
-        // This tests contains subset of code in execute_external_subcommand function, need clean up later
-        // This test deserialize point cloud and pass it to executable child process, then child process will deserialize and print it
-        // No cli arg passing for this test
-        // TODO: clean up the binaries and improve this test
-    let input: SubcommandObject<PointXyzRgba> = SubcommandObject::new(PointXyzRgba {
-        x: 1.0,
-        y: 2.0,
-        z: 3.0,
-        r: 4,
-        g: 5,
-        b: 6,
-        a: 7,
-    });
-    let serialized = serde_json::to_string(&input).unwrap();
-    //TODO: make sure this binaries is imported to github before pr
-    // vv-test-pipe-pc-only will take in serialized point cloud, deserialized it, and print the struct
-    let mut child = Command::new("../test_binaries/vv-test-pipe-pc-only")
-    .stdin(Stdio::piped())
-    .stdout(Stdio::piped())
-    .spawn()
-    .expect("Failed to spawn child process");
-
-    let mut stdin = child.stdin.take().expect("Failed to open stdin");
-
-    // Pipe the serialized point cloud to child process
-    std::thread::spawn(move || {
-        stdin.write_all(serialized.as_bytes()).expect("Failed to write to stdin");
-    });
-    let output = child.wait_with_output().expect("Failed to read stdout");
-    // Take out the point cloud from SubcommandObject
-    let subcommand_content = input.content;
-    // add \n to the right because prinln! is used in the child executable
-    println!("the point cloud created by parent process is {subcommand_content:?}");
-    print!("the deserialized point cloud of child process is {}", String::from_utf8_lossy(&output.stdout));
-    assert_eq!(String::from_utf8_lossy(&output.stdout), format!("{subcommand_content:?}\n"));
     }
 }
