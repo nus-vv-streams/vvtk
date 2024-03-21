@@ -70,6 +70,7 @@ impl Subcommand for NormalEstimation {
                 PipelineMessage::IndexedPointCloud(pc, i) 
                 => {
                     let normal_estimation_result = perform_normal_estimation(&pc, self.args.k);
+                    println!("normal estimation result is {:?}", normal_estimation_result.clone());
                     channel.send(PipelineMessage::IndexedPointCloudNormal(
                         normal_estimation_result,
                         i,
@@ -79,6 +80,7 @@ impl Subcommand for NormalEstimation {
                     // Only vv extend will send SubcommandMessage, other subcommand will send IndexedPointCloud to make sure the other command will
                     // continue to be compatible by receiving IndexedPointCloud
                     let normal_estimation_result = perform_normal_estimation(subcommand_object.get_content(), self.args.k);
+                    println!("normal estimation result is {:?}", normal_estimation_result.clone());
                     channel.send(PipelineMessage::IndexedPointCloudNormal(
                         normal_estimation_result,
                         i,

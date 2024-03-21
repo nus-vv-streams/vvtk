@@ -46,6 +46,7 @@ impl Subcommand for MetricsCalculator {
                 PipelineMessage::IndexedPointCloud(reconstructed, _),
             ) => {
                 let metrics = calculate_metrics(original, reconstructed, &self.metrics);
+                println!("metrics is {:?}", metrics);
                 channel.send(PipelineMessage::Metrics(metrics));
             }
             (
@@ -54,6 +55,7 @@ impl Subcommand for MetricsCalculator {
             ) => {
                 let original = subcommand_object.get_content();
                 let metrics = calculate_metrics(original, reconstructed, &self.metrics);
+                println!("metrics is {:?}", metrics);
                 channel.send(PipelineMessage::Metrics(metrics));
             }
             (
@@ -62,6 +64,7 @@ impl Subcommand for MetricsCalculator {
             ) => {
                 let reconstructed = subcommand_object.get_content();
                 let metrics = calculate_metrics(original, reconstructed, &self.metrics);
+                println!("metrics is {:?}", metrics);
                 channel.send(PipelineMessage::Metrics(metrics));
             }
             (
@@ -71,6 +74,7 @@ impl Subcommand for MetricsCalculator {
                 let reconstructed = subcommand_object_reconstructed.get_content();
                 let original = subcommand_object_original.get_content();
                 let metrics = calculate_metrics(original, reconstructed, &self.metrics);
+                println!("metrics is {:?}", metrics);
                 channel.send(PipelineMessage::Metrics(metrics));
             }
             (PipelineMessage::End, _) | (_, PipelineMessage::End) => {

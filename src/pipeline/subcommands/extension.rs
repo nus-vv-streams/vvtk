@@ -14,10 +14,6 @@ use super::Subcommand;
 pub struct Args {
     // Command name of the extension
     cmd_name: String,
-    // Extra path to search for the binary executable, use if binaries is not found from "HOME/.cargo/bin"
-    // TODO: make this optional
-    #[clap(short, long)]
-    binary_paths: String,
     // Arguments that needs to pass in to the binary executable, value separate by comma
     #[clap(short, long, value_parser, num_args = 1.., value_delimiter = ',')]
     xargs: Vec<String>,
@@ -39,14 +35,15 @@ impl Subcommand for Extension {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         // default cargo home, if not go $PATH
         // Search through path directory
-        // TODO: set to cargo home
-        let key = "HOME";
+        let key = "CARGO_HOME";
         match env::var_os(key) {
             Some(val) => println!("{key}: {val:?}"),
-            None => println!("{key} is not defined in the environment.")
+            None => {
+                println!("{key} is not defined in the environment.");
+                return;
+             }
         }
-        let testdir= [key, ".cargo", "bin"].iter().collect();
-        //let testdir = PathBuf::from(&self.args.binary_paths);
+        let testdir = PathBuf::from(env::var_os(key).unwrap()).join("bin"); 
         println!("testdir is {:?}", testdir);
         let paths: Vec<PathBuf> = vec![testdir];
         println!("path is {:?}", paths);
@@ -67,27 +64,45 @@ impl Subcommand for Extension {
                 should_execute_subcommand = true;
             }
             PipelineMessage::End => {
-                println!("vv extend must receive a PointCloud, terminate now");
+                println!("vv extend received pipeline end");
                 channel.send(PipelineMessage::End);
             }
-            // TODO: look into what this should do
-            // this is all other types?
             _ => {
                 channel.send(message);
             }
             }
         }
         println!("the point cloud received by vv extend is {:?}", input_pc);
+        println!("should execute subcommad is {:?}", should_execute_subcommand);
         if should_execute_subcommand {
+            //let result = execute_subcommand_executable(paths, &self.args.cmd_name, &self.args.xargs, input_pc);
+            //println!("the result of execution is {:?}", result);
+            let result = execute_subcommand_executable(paths, &self.args.cmd_name, &self.args.xargs, input_pc);
+            match result {
+                Ok(child_deserialized_output) => {
+                    // send the message to the channel
+                    println!("vv extend sent pointcloud");
+                    channel.send(PipelineMessage::SubcommandMessage(child_deserialized_output, pc_index.unwrap()));
+                }
+                Err(e) => {
+                    println!("vv extend sent pipeline end");
+                    eprintln!("Error: {}", e);
+                    channel.send(PipelineMessage::End);
+                }
+            }
+            /* 
             if let Ok(child_deserialized_output) = 
             // None because right not extend is executed as the first command, will change later
                 execute_subcommand_executable(paths, &self.args.cmd_name, &self.args.xargs, input_pc) {
                 // send the message to the channel
+                println!("vv extend sent pointcloud");
                 channel.send(PipelineMessage::SubcommandMessage(child_deserialized_output, pc_index.unwrap()));
             }
             else {
+                println!("vv extend sent pipeline end");
                 channel.send(PipelineMessage::End);
             }
+            */
         }
     }
 }
@@ -101,6 +116,9 @@ fn find_subcommand_executable(paths:Vec<PathBuf>, cmd: &str) -> Option<PathBuf> 
 
 // Execute the subcommand that is in executable form
 fn execute_subcommand_executable(paths:Vec<PathBuf>, cmd: &str, cmd_args:&Vec<String>, input_pc: Option<PointCloud<PointXyzRgba>>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
+    println!("execute_subcommand_executable is called");
+    println!("path is {:?}", paths);
+    println!("cmd is {:?}", cmd);
     let path = find_subcommand_executable(paths, cmd);
     let command = match path {
         Some(command) => command, 
@@ -114,6 +132,8 @@ fn execute_subcommand_executable(paths:Vec<PathBuf>, cmd: &str, cmd_args:&Vec<St
 // execute external code or binaries 
 fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>, input_pc: Option<PointCloud<PointXyzRgba>>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
     // vv extend expects to receive a pointCloud, and also output a point cloud to the pipeline
+    println!("execute_external_subcommand is called");
+    println!("cmd path is {:?}", cmd_path);
     let input;
     match input_pc {
         Some(input_pc) => {
@@ -156,9 +176,7 @@ fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>
             }
         },
         None => {
-            //println!("this is internal subcommand, not implemented yet");
-            //TODO: implement someting here
-            Err("Internal subcommand not implemented yet")
+            Err("Command path not found")
         }
     }
 }
