@@ -25,7 +25,7 @@ impl Channel {
         }
         .expect("Should be able to send progress");
 
-        //t: send pipeline message to all the listeners
+        // Send pipeline message to all the listeners
         self.listeners
             .iter()
             .map(|sender| {
@@ -36,7 +36,6 @@ impl Channel {
             .collect()
     }
 
-    //t: when subscribe, return a receiver for pipeline message, and push the sender to the listeners
     pub fn subscribe(&mut self) -> Receiver<PipelineMessage> {
         let (tx, rx) = bounded(MAX_MESSAGES);
         self.listeners.push(tx);

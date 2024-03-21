@@ -251,7 +251,7 @@ fn main() {
             } else {
                 //if the source is not remote, load the file and update the status as fetchdone
                 let path = Path::new(&args.src);
-                //t: one vector of ply_files contains all the file of certain format in one directory
+                // This vector contains all the ply_files in one directory
                 let mut ply_files: Vec<PathBuf> = vec![];
                 debug!("1. Finished downloading to / reading from {:?}", path);
 
@@ -411,7 +411,6 @@ fn main() {
     //         metrics,
     //     ))
     // } else {
-        //t: pcd reader still using normal render reader, and it is not implemented now
         builder.add_window(Renderer::new(
             pcd_reader,
             args.fps,

@@ -72,29 +72,23 @@ impl Pipeline {
         };
 
         let mut handles = vec![];
-        //t: This one only for debugging?
         let mut names = vec![];
-        //t: This contains all receiver for all process progress
         let mut progress_recvs = vec![];
         let all_input_names: Vec<Vec<String>> = executors.iter().map(|e| e.input_names()).collect();
 
         // !! set named input outputs
-        //t: this part is important, need to reread later
         for (idx, input_names) in all_input_names.iter().enumerate() {
             let mut inputs = vec![];
             for input_name in input_names {
                 for executor in &mut executors {
-                    //t: this process need the output, so it needs to get notified for the state of previous command 
                     if executor.output_name().eq(input_name) {
                         inputs.push(executor.output());
                     }
                 }
             }
-            //t: this line will take all the receiver, so the executor can take the pipeline message from previous process
             executors[idx].set_inputs(inputs);
         }
 
-        //t: collect all the names, progress, and spawn all the porgess at once?? why they didn't wait?
         for (exec, progress) in executors.into_iter().zip(progresses) {
             names.push(exec.name());
             progress_recvs.push(progress);
@@ -127,13 +121,11 @@ impl Pipeline {
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
 
-        //t: all the thread is ensured to be finished here
         for handle in handles {
             handle.join().expect("Failed to wait for thread");
         }
     }
 
-    // t: this function contains the parsing of command and args, and creating executor and channel
     // !! collect all the arguments from terminal and create the pipeline
     fn gather_pipeline_from_args() -> Result<(Vec<Executor>, Vec<Receiver<Progress>>), String> {
         let args: Vec<String> = std::env::args().collect();
@@ -162,17 +154,13 @@ impl Pipeline {
         }
 
         // !! skip the first argument, which is the name of the program
-        //t: every args is separated by space or \ , vv will not be included because first one is skipped
         for arg in args.iter().skip(1) {
-            //t: try to match each arg with command, might need to change this part to work with external subcommand
-            //t: can try to search and setup external subcommand here
             let is_command = subcommand(arg);
             // If the subcommand is valid
             if is_command.is_some() {
                 if let Some(creator) = command_creator.take()
                 // !! the first take is always None
                 {
-                    //t: forwarded_args vec has the first element as command, the other elements as the args of the command
                     // !! enters here when there are at least two subcommands
                     let forwarded_args = accumulated_args;
                     accumulated_args = vec![];
@@ -231,7 +219,6 @@ fn display_main_help_msg() {
     let _subcommand = VVSubCommand::parse_from(&["vv", "--help"]);
 }
 
-//TODO: update the test here
 #[cfg(test)]
 mod pipeline_mod_test {
     use super::*;
