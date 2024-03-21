@@ -40,7 +40,6 @@ impl Subcommand for Upsampler {
                     // continue to be compatible by receiving IndexedPointCloud
                     let pc = subcommand_object.get_content();
                     let upsampled_pc = upsample(pc.clone(), self.factor);
-                    println!("the pointcloud sent by upsample is {:?}", upsampled_pc.clone());
                     channel.send(PipelineMessage::IndexedPointCloud(upsampled_pc, i));
                 }
                 PipelineMessage::Metrics(_)

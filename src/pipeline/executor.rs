@@ -97,9 +97,6 @@ impl ExecutorBuilder {
                 inner_args.push(arg);
             }
         }
-
-        //t: certain command will not need to have an input, if not, throw an error 
-        println!("current command detected by executor: {:?}", cmd.as_str());
         if has_input
             || cmd.as_str() == "read"
             || cmd.as_str() == "convert"
@@ -130,7 +127,6 @@ impl ExecutorBuilder {
             channel,
             handler,
         };
-        println!("current executor created is {:?}", executor.name);
         Ok((executor, progress_rx))
     }
 }
@@ -215,7 +211,7 @@ impl Executor {
             .map(|recv| recv.recv())
             .collect::<Result<Vec<PipelineMessage>, _>>()
         {
-            //t: so if one of the provider sent the end message, this process will end
+            // If one of the provider sent the end message, this process will end
             let should_break = messages.iter().any(|message| {
                 if let PipelineMessage::End = message {
                     true
@@ -224,8 +220,6 @@ impl Executor {
                 }
             });
 
-            // the handle is called here
-            println!("handle is invoked for {:?}", self.name);
             self.handler.handle(messages, &self.channel);
 
             if should_break {

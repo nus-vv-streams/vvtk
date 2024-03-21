@@ -12,7 +12,7 @@ use super::Subcommand;
     about = "vv extend is used for custom subcommands."
 )]
 pub struct Args {
-    // Command name of the extension
+    // Command name of the extension without the vv-prefix
     cmd_name: String,
     // Arguments that needs to pass in to the binary executable, value separate by comma
     #[clap(short, long, value_parser, num_args = 1.., value_delimiter = ',')]
@@ -36,7 +36,7 @@ impl Subcommand for Extension {
         // Search through cargo_directory
         let key = "CARGO_HOME";
         match env::var_os(key) {
-            Some(val) => println!("{key}: {val:?}"),
+            Some(val) => {},
             None => {
                 println!("{key} is not defined in the environment.");
                 return;
@@ -61,7 +61,6 @@ impl Subcommand for Extension {
                 should_execute_subcommand = true;
             }
             PipelineMessage::End => {
-                println!("vv extend received pipeline end");
                 channel.send(PipelineMessage::End);
             }
             _ => {
@@ -168,6 +167,9 @@ fn is_executable<P: AsRef<Path>>(path: P) -> bool {
     path.as_ref().is_file()
 }
 
+// SubcommandObject is used to pass the point cloud to the external subcommand
+// Motivation: Ensure that struct that being passed to child must implement Clone and Serialize
+// Assumption: The child must also know how to serialize and deserialize the struct
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SubcommandObject<T:Clone + Serialize> {
     content: Box<T>,

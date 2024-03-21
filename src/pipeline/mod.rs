@@ -85,10 +85,8 @@ impl Pipeline {
             for input_name in input_names {
                 for executor in &mut executors {
                     //t: this process need the output, so it needs to get notified for the state of previous command 
-                    //t: TODO trace this part
                     if executor.output_name().eq(input_name) {
                         inputs.push(executor.output());
-                        println!("the input names are {:?}",input_name);
                     }
                 }
             }
@@ -99,7 +97,6 @@ impl Pipeline {
         //t: collect all the names, progress, and spawn all the porgess at once?? why they didn't wait?
         for (exec, progress) in executors.into_iter().zip(progresses) {
             names.push(exec.name());
-            println!("the names are {:?}",names);
             progress_recvs.push(progress);
             handles.push(exec.run());
         }
@@ -107,7 +104,6 @@ impl Pipeline {
         // println!("progress_recvs.len(): {}", progress_recvs.len());
         let mut completed = 0;
         let mut progress = vec![0; progress_recvs.len()];
-        println!("the length is {:?}",progress_recvs.len());
         while completed < progress_recvs.len() {
             for (idx, recv) in progress_recvs.iter().enumerate() {
                 while let Ok(prog) = recv.try_recv() {
