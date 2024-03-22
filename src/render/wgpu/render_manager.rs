@@ -1,14 +1,20 @@
+use wgpu_glyph::ab_glyph::Point;
+
+use cgmath::*;
 use crate::formats::metadata::MetaData;
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
+use crate::render::wgpu::antialias;
 use std::marker::PhantomData;
 use std::path::Path;
 use std::process::exit;
+use std::time::{Duration, Instant};
 
 use super::camera::CameraState;
 use super::reader::{LODFileReader, RenderReader};
 use super::renderable::Renderable;
 use super::resolution_controller::ResolutionController;
+use super::upsampler::Upsampler;
 
 pub trait RenderManager<T: Renderable> {
     fn start(&mut self) -> Option<T>;
@@ -18,6 +24,7 @@ pub trait RenderManager<T: Renderable> {
     fn set_len(&mut self, len: usize);
     fn set_camera_state(&mut self, camera_state: Option<CameraState>);
     fn should_redraw(&mut self, camera_state: &CameraState) -> bool;
+    fn get_visible_points(&self, point_cloud: PointCloud<PointXyzRgba>) -> PointCloud<PointXyzRgba>;
 }
 
 pub struct AdaptiveManager {
@@ -33,6 +40,13 @@ pub struct AdaptiveManager {
     // As the temporary cache
     current_index: usize,
     additional_points_loaded: Vec<usize>,
+
+    // For upsampling
+    upsampler: Upsampler,
+    pc: Option<PointCloud<PointXyzRgba>>,
+
+    total_latency: Duration,
+    sample_size: i32,
 }
 
 fn infer_format(src: &String) -> String {
@@ -122,12 +136,17 @@ impl AdaptiveManager {
             let additional_points_loaded = vec![0; reader.len()];
 
             Self {
+                pc: None,
+                upsampler: Upsampler {  },
                 reader,
                 camera_state: None,
                 resolution_controller: Some(resolution_controller),
                 metadata: Some(metadata),
                 current_index: usize::MAX, // no point cloud loaded yet
                 additional_points_loaded,
+                total_latency: Duration::new(0, 0),
+                sample_size: 0,
+                
             }
         } else {
             let reader = LODFileReader::new(base_path, None, &play_format);
@@ -138,12 +157,16 @@ impl AdaptiveManager {
             }
 
             Self {
+                pc: None,
+                upsampler: Upsampler {  },
                 reader,
                 camera_state: None,
                 resolution_controller: None,
                 metadata: None,
                 current_index: usize::MAX,
                 additional_points_loaded: vec![],
+                total_latency: Duration::new(0, 0),
+                sample_size: 0,
             }
         }
     }
@@ -237,7 +260,54 @@ impl RenderManager<PointCloud<PointXyzRgba>> for AdaptiveManager {
     }
 
     fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-        self.get_desired_point_cloud(index)
+        // println!("RenderManager get_at: {:?}", index);
+
+        if index != self.current_index || self.pc.is_none() {
+            // println!("Loading point cloud at index: {:?}, {:?} {:?}", index, self.current_index, self.pc.is_none());
+            self.pc = Some(self.get_desired_point_cloud(index)?);
+            self.current_index = index;
+        }
+
+        let pc = self.pc.as_ref().unwrap();
+        let start = Instant::now();
+        let mut visible_pc = self.get_visible_points(pc.clone());
+        let visibility_elasped = start.elapsed();
+        // println!("Calculated visibility in {:?}", visibility_elasped);
+
+        let should_upsample = self.upsampler.should_upsample(&visible_pc, &self.camera_state.as_ref().unwrap());
+
+        if should_upsample {
+            let init_len = visible_pc.points.len();
+            let upsampled_points = self.upsampler.upsample_grid(visible_pc.points.clone());
+            let upsampled_pc = PointCloud::new(upsampled_points.len(), upsampled_points.clone());
+            visible_pc.combine(&upsampled_pc);
+            self.pc.as_mut().unwrap().combine(&upsampled_pc);
+            let upsample_elasped: Duration = start.elapsed();
+
+            println!("Upsampled points from {:?} to {:?} in {:?}", init_len, visible_pc.points.len(), upsample_elasped);
+        }
+        Some(visible_pc)
+        // println!("Point visibility took: {:?}", start.elapsed());
+        // self.total_latency += start.elapsed();
+        // self.sample_size += 1;
+        // println!("Average Point visibility took: {:?}", self.total_latency / self.sample_size.try_into().unwrap());
+
+    }
+
+    fn get_visible_points(&self, point_cloud: PointCloud<PointXyzRgba>) -> PointCloud<PointXyzRgba> {
+        // println!("Number of points total: {:?}", point_cloud.points.len());
+        let view_proj_matrix = Matrix4::from(self.camera_state.as_ref().unwrap().camera_uniform.view_proj);
+        let antialias = point_cloud.antialias();
+        let visible_points = point_cloud.points.into_iter().filter(|point| {
+            let point_vec = Point3::new(point.x - antialias.x, point.y - antialias.y, point.z - antialias.z) / antialias.scale;
+            let point_in_view = view_proj_matrix.transform_point(point_vec);
+
+            point_in_view.x.abs() <= 1.0 &&
+            point_in_view.y.abs() <= 1.0 &&
+            point_in_view.z.abs() <= 1.0
+        }).collect::<Vec<_>>();
+        // println!("Number of points visible: {:?}", visible_points.len());
+        PointCloud::new(visible_points.len(), visible_points)
     }
 
     fn len(&self) -> usize {
@@ -257,7 +327,8 @@ impl RenderManager<PointCloud<PointXyzRgba>> for AdaptiveManager {
     }
 
     fn should_redraw(&mut self, camera_state: &CameraState) -> bool {
-        self.should_load_more_points(camera_state)
+        true
+        // self.should_load_more_points(camera_state)
     }
 }
 
@@ -313,5 +384,9 @@ where
 
     fn should_redraw(&mut self, _camera_state: &CameraState) -> bool {
         false
+    }
+
+    fn get_visible_points(&self, point_cloud: PointCloud<PointXyzRgba>) -> PointCloud<PointXyzRgba> {
+        PointCloud::new(0, vec![])
     }
 }

@@ -6,10 +6,10 @@ use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalPosition;
 use winit::event::*;
 
-const CAMERA_SPEED: f32 = 2.0;
-const CAMERA_SENSITIVITY: f32 = 0.5;
+const CAMERA_SPEED: f32 = 1.0;
+const CAMERA_SENSITIVITY: f32 = 0.2;
 const PROJECTION_FOXY: f32 = 45.0;
-const PROJECTION_ZNEAR: f32 = 0.1;
+const PROJECTION_ZNEAR: f32 = 0.001;
 const PROJECTION_ZFAR: f32 = 100.0;
 
 #[derive(Clone)]
@@ -152,8 +152,8 @@ impl CameraState {
 /// Create a uniform buffer: a blob of data that is available to every invocation of a set of shaders.
 /// This buffer is used to store our view projection matrix
 pub struct CameraUniform {
-    view_position: [f32; 4],
-    view_proj: [[f32; 4]; 4],
+    pub view_position: [f32; 4],
+    pub view_proj: [[f32; 4]; 4],
 }
 
 impl Default for CameraUniform {

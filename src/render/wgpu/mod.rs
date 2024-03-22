@@ -10,3 +10,4 @@ pub mod render_manager;
 pub mod renderable;
 pub mod renderer;
 pub mod resolution_controller;
+pub mod upsampler;
