@@ -35,15 +35,27 @@ impl Subcommand for Extension {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         // Search through cargo_directory
         let key = "CARGO_HOME";
+        let cargo_path;
         match env::var_os(key) {
-            Some(val) => {},
+            Some(val) => {
+                cargo_path = val;
+            },
             None => {
                 println!("{key} is not defined in the environment.");
                 return;
              }
         }
-        let testdir = PathBuf::from(env::var_os(key).unwrap()).join("bin"); 
-        let paths: Vec<PathBuf> = vec![testdir];
+        let testdir = PathBuf::from(&cargo_path).join("bin"); 
+        let mut paths: Vec<PathBuf> = vec![testdir];
+        // Add more paths from PATH variable as backup
+        match env::var_os("PATH") {
+            Some(paths_str) => {
+                for path in env::split_paths(&paths_str) {
+                    paths.push(path);
+                }
+            }
+            None => println!("PATH is not defined in the environment, only CARGO_HOME path is used.")
+        }
         let mut input_pc: Option<PointCloud<PointXyzRgba>> = None;
         let mut should_execute_subcommand = false;
         let mut pc_index: Option<u32> = None;

@@ -5,7 +5,7 @@ use crate::{
     pipeline::{channel::Channel, PipelineMessage},
 };
 
-use super::{extension::SubcommandObject, Subcommand};
+use super::Subcommand;
 
 /// Downsample a pointcloud from the stream.
 #[derive(Parser)]
