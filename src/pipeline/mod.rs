@@ -13,7 +13,7 @@ use self::{
     executor::Executor,
     executor::ExecutorBuilder,
     subcommands::{
-        convert, dash, downsample, info, metrics, normal_estimation, read, render, upsample, write,
+        convert, dash, downsample, info, metrics, normal_estimation, read, render, upsample, write, extension,
         Convert, Dash, Downsampler, Info, MetricsCalculator, NormalEstimation, Read, Render,
         Subcommand, Upsampler, Write, Extension,
     },
@@ -213,6 +213,8 @@ enum VVSubCommand {
     Info(info::Args),
     #[clap(name = "dash")]
     Dash(dash::Args),
+    #[clap(name = "extend")]
+    Extend(extension::Args),
 }
 
 fn display_main_help_msg() {

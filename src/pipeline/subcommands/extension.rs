@@ -9,12 +9,12 @@ use super::Subcommand;
 
 #[derive(Parser)]
 #[clap(
-    about = "vv extend is used for custom subcommands."
+    about = "Extend is used for running custom subcommands."
 )]
 pub struct Args {
-    // Command name of the extension without the vv-prefix
+    /// Command name of the extension without the vv-prefix
     cmd_name: String,
-    // Arguments that needs to pass in to the binary executable, value separate by comma
+    /// Arguments that needs to pass in to the binary executable, value separate by comma
     #[clap(short, long, value_parser, num_args = 1.., value_delimiter = ',')]
     xargs: Vec<String>,
 }
