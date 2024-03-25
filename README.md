@@ -455,9 +455,14 @@ Options:
 ```
 
 **Example:**  
-Read a ply_ascii, pass to ``~/.cargo/bin/vv-test-executable`` then perform downsample. 
+Read a ply-ascii file, pass to ``~/.cargo/bin/vv-test-executable`` then perform downsample. 
 ```
 vv read ./test_files/ply_ascii/  +output=plyc \extend test-executable +input=plyc +output=plyd \downsample -p 2 +input=plyd
+```
+
+Read a ply-ascii, then pass to ``~/.cargo/bin/vv-test-args`` that takes in two command line argument. 
+```
+vv read ./test_files/ply_ascii/  +output=plyc \extend test-args +input=plyc --xargs=hello,world
 ```
 
 ### `vvplay`

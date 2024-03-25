@@ -59,6 +59,13 @@ impl Subcommand for Extension {
         let mut input_pc: Option<PointCloud<PointXyzRgba>> = None;
         let mut should_execute_subcommand = false;
         let mut pc_index: Option<u32> = None;
+        // If there is no input message, throw an error
+        if messages.is_empty() {
+            eprintln!("Error: vv extend should receive a point cloud as input.");
+            channel.send(PipelineMessage::End);
+            return;
+        }
+
         for message in messages {
             // Didn't handle PointCloud<PointXyzRgbaNormal>
             match &message {
@@ -144,19 +151,28 @@ fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>
             //print exit code of the child process
             match &output.status.code() {
                 Some(code) => println!("Subprocess exited with status code: {}", code),
-                None => println!("Process terminated by signal"),
+                None => return Err("Process terminated by signal"),
             }
             //print error and stdout from child process
             io::stderr().write_all(&output.stderr).unwrap();    
             io::stdout().write_all(&output.stdout).unwrap();
             //pass the SubcommandObject<PointCloud> back to the pipeline
             let child_stdout:String = String::from_utf8(output.stdout.clone()).unwrap();
-            let child_deserialized_output: Option<SubcommandObject<PointCloud<PointXyzRgba>>>;
-            child_deserialized_output = Some(serde_json::from_str(&child_stdout).unwrap());
-            match child_deserialized_output {
-                Some(child_deserialized_output) => Ok(child_deserialized_output),
-                None => Err("Failed to get deserialized output of the child process"),
+            //let child_deserialized_output: Option<SubcommandObject<PointCloud<PointXyzRgba>>>;
+            match serde_json::from_str(&child_stdout) {
+                Ok(child_deserialized_output) => {
+                    Ok(child_deserialized_output)
+                },
+                Err(e) => {
+                    eprintln!("Error: {}", e);
+                    return Err("Failed to get deserialized output of the child process");
+                }
             }
+            //child_deserialized_output = Some(serde_json::from_str(&child_stdout).unwrap());
+            //match child_deserialized_output {
+            //    Some(child_deserialized_output) => Ok(child_deserialized_output),
+            //    None => Err("Failed to get deserialized output of the child process"),
+            //}
         },
         None => {
             Err("Command path not found")
