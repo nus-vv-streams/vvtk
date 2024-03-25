@@ -12,12 +12,12 @@ use crate::{
 use self::{
     executor::Executor,
     executor::ExecutorBuilder,
-    subcommands::{
-        convert, dash, downsample, info, metrics, normal_estimation, read, render, upsample, write, extension,
-        Convert, Dash, Downsampler, Info, MetricsCalculator, NormalEstimation, Read, Render,
-        Subcommand, Upsampler, Write, Extension,
-    },
     subcommands::extension::SubcommandObject,
+    subcommands::{
+        convert, dash, downsample, extension, info, metrics, normal_estimation, read, render,
+        upsample, write, Convert, Dash, Downsampler, Extension, Info, MetricsCalculator,
+        NormalEstimation, Read, Render, Subcommand, Upsampler, Write,
+    },
 };
 
 pub type SubcommandCreator = Box<dyn Fn(Vec<String>) -> Box<dyn Subcommand>>;

@@ -1,4 +1,7 @@
-use serde::{ser::{Serialize, SerializeStruct, Serializer}, Deserialize};
+use serde::{
+    ser::{Serialize, SerializeStruct, Serializer},
+    Deserialize,
+};
 #[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq, bytemuck::Pod, bytemuck::Zeroable, Deserialize)]
 pub struct PointXyzRgba {

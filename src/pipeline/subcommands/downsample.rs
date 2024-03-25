@@ -38,12 +38,15 @@ impl Subcommand for Downsampler {
                 PipelineMessage::SubcommandMessage(subcommand_object, i) => {
                     // Only vv extend will send SubcommandMessage, other subcommand will send IndexedPointCloud to make sure the other command will
                     // continue to be compatible by receiving IndexedPointCloud
-                    let downsampled_pc = downsample(subcommand_object.get_content().clone(), self.points_per_voxel);
+                    let downsampled_pc = downsample(
+                        subcommand_object.get_content().clone(),
+                        self.points_per_voxel,
+                    );
                     channel.send(PipelineMessage::IndexedPointCloud(downsampled_pc, i));
                 }
                 PipelineMessage::Metrics(_)
                 | PipelineMessage::IndexedPointCloudNormal(_, _)
-                | PipelineMessage::DummyForIncrement  => {}
+                | PipelineMessage::DummyForIncrement => {}
                 PipelineMessage::End => {
                     channel.send(message);
                 }

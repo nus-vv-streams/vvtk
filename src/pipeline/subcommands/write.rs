@@ -44,7 +44,7 @@ impl Write {
 }
 
 impl Subcommand for Write {
-    // Possible change: merge the copy and paste part of the code 
+    // Possible change: merge the copy and paste part of the code
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         println!("Start writing...");
         let output_path = Path::new(&self.args.output_dir);
@@ -196,8 +196,7 @@ impl Subcommand for Write {
                         }
                     }
                 }
-                PipelineMessage::End 
-                | PipelineMessage::DummyForIncrement => {}
+                PipelineMessage::End | PipelineMessage::DummyForIncrement => {}
             }
             channel.send(message);
         }

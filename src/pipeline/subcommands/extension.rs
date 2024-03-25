@@ -1,16 +1,22 @@
-use std::{fs, io::{self, Write}, path::{Path, PathBuf}, process::{Command, Stdio}, env};
+use std::{
+    env, fs,
+    io::{self, Write},
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+};
 
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 
-use crate::{formats::{pointxyzrgba::PointXyzRgba, PointCloud}, pipeline::{channel::Channel, PipelineMessage}};
+use crate::{
+    formats::{pointxyzrgba::PointXyzRgba, PointCloud},
+    pipeline::{channel::Channel, PipelineMessage},
+};
 
 use super::Subcommand;
 
 #[derive(Parser)]
-#[clap(
-    about = "Extend is used for running custom subcommands."
-)]
+#[clap(about = "Extend is used for running custom subcommands.")]
 pub struct Args {
     /// Command name of the extension without the vv-prefix
     cmd_name: String,
@@ -19,7 +25,7 @@ pub struct Args {
     xargs: Vec<String>,
 }
 pub struct Extension {
-    args: Args, 
+    args: Args,
 }
 
 impl Extension {
@@ -33,19 +39,19 @@ impl Extension {
 impl Subcommand for Extension {
     // This will be called by the executor to execute this particular subcommand
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
-        // Search through cargo_directory
+        // Add CARGO_HOME path
         let key = "CARGO_HOME";
         let cargo_path;
         match env::var_os(key) {
             Some(val) => {
                 cargo_path = val;
-            },
+            }
             None => {
                 println!("{key} is not defined in the environment.");
                 return;
-             }
+            }
         }
-        let testdir = PathBuf::from(&cargo_path).join("bin"); 
+        let testdir = PathBuf::from(&cargo_path).join("bin");
         let mut paths: Vec<PathBuf> = vec![testdir];
         // Add more paths from PATH variable as backup
         match env::var_os("PATH") {
@@ -54,7 +60,9 @@ impl Subcommand for Extension {
                     paths.push(path);
                 }
             }
-            None => println!("PATH is not defined in the environment, only CARGO_HOME path is used.")
+            None => {
+                println!("PATH is not defined in the environment, only CARGO_HOME path is used.")
+            }
         }
         let mut input_pc: Option<PointCloud<PointXyzRgba>> = None;
         let mut should_execute_subcommand = false;
@@ -69,29 +77,37 @@ impl Subcommand for Extension {
         for message in messages {
             // Didn't handle PointCloud<PointXyzRgbaNormal>
             match &message {
-                PipelineMessage::SubcommandMessage(subcommand_object,index) => {
+                PipelineMessage::SubcommandMessage(subcommand_object, index) => {
                     input_pc = Some(*(subcommand_object.content).clone());
                     pc_index = Some(index.clone());
                     should_execute_subcommand = true;
-            }
-            PipelineMessage::IndexedPointCloud(pc, index) => {
-                input_pc = Some(pc.clone());
-                pc_index = Some(index.clone());
-                should_execute_subcommand = true;
-            }
-            PipelineMessage::End => {
-                channel.send(PipelineMessage::End);
-            }
-            _ => {
-                channel.send(message);
-            }
+                }
+                PipelineMessage::IndexedPointCloud(pc, index) => {
+                    input_pc = Some(pc.clone());
+                    pc_index = Some(index.clone());
+                    should_execute_subcommand = true;
+                }
+                PipelineMessage::End => {
+                    channel.send(PipelineMessage::End);
+                }
+                _ => {
+                    channel.send(message);
+                }
             }
         }
         if should_execute_subcommand {
-            let result = execute_subcommand_executable(paths, &self.args.cmd_name, &self.args.xargs, input_pc);
+            let result = execute_subcommand_executable(
+                paths,
+                &self.args.cmd_name,
+                &self.args.xargs,
+                input_pc,
+            );
             match result {
                 Ok(child_deserialized_output) => {
-                    channel.send(PipelineMessage::SubcommandMessage(child_deserialized_output, pc_index.unwrap()));
+                    channel.send(PipelineMessage::SubcommandMessage(
+                        child_deserialized_output,
+                        pc_index.unwrap(),
+                    ));
                 }
                 Err(e) => {
                     eprintln!("Error: {}", e);
@@ -102,18 +118,24 @@ impl Subcommand for Extension {
     }
 }
 // Find the executable which has the name "vv-(cmd)" in all the paths listed in paths
-fn find_subcommand_executable(paths:Vec<PathBuf>, cmd: &str) -> Option<PathBuf> {
+fn find_subcommand_executable(paths: Vec<PathBuf>, cmd: &str) -> Option<PathBuf> {
     let command_name = format!("vv-{}{}", cmd, std::env::consts::EXE_SUFFIX);
-    paths.iter()
-         .map(|dir| dir.join(&command_name))
-         .find(|file| is_executable(file))
+    paths
+        .iter()
+        .map(|dir| dir.join(&command_name))
+        .find(|file| is_executable(file))
 }
 
 // Execute the subcommand that is in executable form
-fn execute_subcommand_executable(paths:Vec<PathBuf>, cmd: &str, cmd_args:&Vec<String>, input_pc: Option<PointCloud<PointXyzRgba>>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
+fn execute_subcommand_executable(
+    paths: Vec<PathBuf>,
+    cmd: &str,
+    cmd_args: &Vec<String>,
+    input_pc: Option<PointCloud<PointXyzRgba>>,
+) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
     let path = find_subcommand_executable(paths, cmd);
     let command = match path {
-        Some(command) => command, 
+        Some(command) => command,
         None => {
             return Err("The executable is not found");
         }
@@ -121,8 +143,12 @@ fn execute_subcommand_executable(paths:Vec<PathBuf>, cmd: &str, cmd_args:&Vec<St
     execute_external_subcommand(Some(&command), cmd_args, input_pc)
 }
 
-// execute external code or binaries 
-fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>, input_pc: Option<PointCloud<PointXyzRgba>>) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
+// Execute external code or binaries
+fn execute_external_subcommand(
+    cmd_path: Option<&PathBuf>,
+    cmd_args: &Vec<String>,
+    input_pc: Option<PointCloud<PointXyzRgba>>,
+) -> Result<SubcommandObject<PointCloud<PointXyzRgba>>, &'static str> {
     // vv extend expects to receive a pointCloud, and also output a point cloud to the pipeline
     let input;
     match input_pc {
@@ -137,48 +163,39 @@ fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>
     match cmd_path {
         Some(cmd_path) => {
             let mut child = Command::new(cmd_path)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .args(cmd_args)
-            .spawn()
-            .expect("Failed to spawn child process");
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .args(cmd_args)
+                .spawn()
+                .expect("Failed to spawn child process");
             let mut stdin = child.stdin.take().expect("Failed to open stdin");
-            // pass the string as the stdin of the child process
-            std::thread::spawn(move || {            
-                stdin.write_all(serialized.as_bytes()).expect("Failed to write to stdin");
+            // Pass the serialized point cloud as the stdin of the child process
+            std::thread::spawn(move || {
+                stdin
+                    .write_all(serialized.as_bytes())
+                    .expect("Failed to write to stdin");
             });
             let output = child.wait_with_output().expect("Failed to read stdout");
-            //print exit code of the child process
+            // Print exit code of the child process, 0 means success
             match &output.status.code() {
                 Some(code) => println!("Subprocess exited with status code: {}", code),
                 None => return Err("Process terminated by signal"),
             }
-            //print error and stdout from child process
-            io::stderr().write_all(&output.stderr).unwrap();    
-            //pass the SubcommandObject<PointCloud> back to the pipeline
-            let child_stdout:String = String::from_utf8(output.stdout.clone()).unwrap();
-            //let child_deserialized_output: Option<SubcommandObject<PointCloud<PointXyzRgba>>>;
+            // Print error from child process
+            io::stderr().write_all(&output.stderr).unwrap();
+            // Pass the SubcommandObject<PointCloud> back to the pipeline
+            let child_stdout: String = String::from_utf8(output.stdout.clone()).unwrap();
             match serde_json::from_str(&child_stdout) {
-                Ok(child_deserialized_output) => {
-                    Ok(child_deserialized_output)
-                },
+                Ok(child_deserialized_output) => Ok(child_deserialized_output),
                 Err(e) => {
                     eprintln!("Error: {}", e);
                     return Err("Failed to get deserialized output of the child process");
                 }
             }
-            //child_deserialized_output = Some(serde_json::from_str(&child_stdout).unwrap());
-            //match child_deserialized_output {
-            //    Some(child_deserialized_output) => Ok(child_deserialized_output),
-            //    None => Err("Failed to get deserialized output of the child process"),
-            //}
-        },
-        None => {
-            Err("Command path not found")
         }
+        None => Err("Command path not found"),
     }
 }
-
 
 // is_executable implementation referred Rust cargo src/bin/cargo/main.rs
 // https://github.com/rust-lang/cargo/blob/master/src/bin/cargo/main.rs
@@ -198,11 +215,11 @@ fn is_executable<P: AsRef<Path>>(path: P) -> bool {
 // Motivation: Ensure that struct that being passed to child must implement Clone and Serialize
 // Assumption: The child must also know how to serialize and deserialize the struct
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SubcommandObject<T:Clone + Serialize> {
+pub struct SubcommandObject<T: Clone + Serialize> {
     content: Box<T>,
 }
 
-impl<T:Clone + Serialize> SubcommandObject<T> {
+impl<T: Clone + Serialize> SubcommandObject<T> {
     pub fn new(content: T) -> Self {
         Self {
             content: Box::new(content),
@@ -214,8 +231,7 @@ impl<T:Clone + Serialize> SubcommandObject<T> {
     }
 }
 
-
-impl<T:Clone + Serialize> Clone for SubcommandObject<T> {
+impl<T: Clone + Serialize> Clone for SubcommandObject<T> {
     fn clone(&self) -> Self {
         Self {
             content: self.content.clone(),
