@@ -155,7 +155,6 @@ fn execute_external_subcommand(cmd_path: Option<&PathBuf>, cmd_args:&Vec<String>
             }
             //print error and stdout from child process
             io::stderr().write_all(&output.stderr).unwrap();    
-            io::stdout().write_all(&output.stdout).unwrap();
             //pass the SubcommandObject<PointCloud> back to the pipeline
             let child_stdout:String = String::from_utf8(output.stdout.clone()).unwrap();
             //let child_deserialized_output: Option<SubcommandObject<PointCloud<PointXyzRgba>>>;
