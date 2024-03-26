@@ -131,18 +131,9 @@ fn partition(
     let pc_bound = get_pc_bound(&pc);
     let child_bounds = pc_bound.partition(partitions);
 
-    let num_segments = child_bounds.len();
-    let mut partitioned_points = vec![vec![]; num_segments];
-
-    for point in &pc.points {
-        for (index, bound) in child_bounds.iter().enumerate() {
-            if contains(&bound, &point) {
-                partitioned_points[index].push(point.clone());
-            }
-        }
-    }
-    
-    partitioned_points
+    child_bounds.par_iter().map(|bound| {
+        pc.points.iter().map(|point| point.clone()).filter(|point| contains(bound, point)).collect::<Vec<_>>()
+    }).collect::<Vec<_>>()
 }
 
 
@@ -216,7 +207,6 @@ pub fn upsample_grid(point_cloud: PointCloud<PointXyzRgba>, partition_k: usize) 
     println!("Time taken for grid upsample: {:?}", start.elapsed());
     PointCloud::new(new_points.len(), new_points)
 }
-
 
 fn upsample_grid_vertices(vertices: &Vec<PointXyzRgba>) -> Vec<PointXyzRgba> {
     let mut kd_tree = KdTree::new();
