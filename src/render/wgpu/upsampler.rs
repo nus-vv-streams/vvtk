@@ -20,42 +20,43 @@ impl Upsampler {
     }
 
     pub fn should_upsample(&self, point_cloud: &PointCloud<PointXyzRgba>, camera_state: &CameraState) -> bool {
-        /*
-        1. Get points in NDC
-        2. Calculate the average distance normalised by viewport
-        3. If greater than **threshold**, upsample
-         */
-        let start = Instant::now();
-        let point_num = point_cloud.points.len();
-        if point_num == 0 || point_num > 100_000 {
-            return false
-        }
-        let view_proj_matrix = Matrix4::from(camera_state.camera_uniform.view_proj);
-        let antialias = point_cloud.antialias();
-        let width = camera_state.get_window_size().width;
-        let height = camera_state.get_window_size().height;
-        let points_viewport = point_cloud.points.par_iter().map(|point| {
-            let point_vec = Point3::new(point.x - antialias.x, point.y - antialias.y, point.z - antialias.z) / antialias.scale;
-            let point_ndc = view_proj_matrix.transform_point(point_vec);
-            let x = (point_ndc.x * (width as f32)) as i32;
-            let y = (point_ndc.y * (height as f32))  as i32;
-            (x, y)
-        }).collect::<BTreeSet<_>>().par_iter().map(|coords| {
-            PointXyzRgba {
-                x: coords.0 as f32,
-                y: coords.1 as f32,
-                z: 0 as f32,
-                r: 0,
-                g: 0,
-                b: 0,
-                a: 0,
-            }
-        }).collect::<Vec<_>>();
+        false
+        // /*
+        // 1. Get points in NDC
+        // 2. Calculate the average distance normalised by viewport
+        // 3. If greater than **threshold**, upsample
+        //  */
+        // let start = Instant::now();
+        // let point_num = point_cloud.points.len();
+        // if point_num == 0 || point_num > 100_000 {
+        //     return false
+        // }
+        // let view_proj_matrix = Matrix4::from(camera_state.camera_uniform.view_proj);
+        // let antialias = point_cloud.antialias();
+        // let width = camera_state.get_window_size().width;
+        // let height = camera_state.get_window_size().height;
+        // let points_viewport = point_cloud.points.par_iter().map(|point| {
+        //     let point_vec = Point3::new(point.x - antialias.x, point.y - antialias.y, point.z - antialias.z) / antialias.scale;
+        //     let point_ndc = view_proj_matrix.transform_point(point_vec);
+        //     let x = (point_ndc.x * (width as f32)) as i32;
+        //     let y = (point_ndc.y * (height as f32))  as i32;
+        //     (x, y)
+        // }).collect::<BTreeSet<_>>().par_iter().map(|coords| {
+        //     PointXyzRgba {
+        //         x: coords.0 as f32,
+        //         y: coords.1 as f32,
+        //         z: 0 as f32,
+        //         r: 0,
+        //         g: 0,
+        //         b: 0,
+        //         a: 0,
+        //     }
+        // }).collect::<Vec<_>>();
 
-        let average_spacing = Self::calculate_spacing(&points_viewport);
-        println!("{:?}", average_spacing);
-        println!("Time taken {:?}", start.elapsed());
-        return average_spacing > VIEWPORT_DIST_UPSAMPLING_THRESHOLD
+        // let average_spacing = Self::calculate_spacing(&points_viewport);
+        // println!("{:?}", average_spacing);
+        // println!("Time taken {:?}", start.elapsed());
+        // return average_spacing > VIEWPORT_DIST_UPSAMPLING_THRESHOLD
     }
 
     fn calculate_spacing(points: &Vec<PointXyzRgba>) -> f32 {
