@@ -29,7 +29,7 @@ pub trait RenderReaderCameraPos<T: Renderable> {
     /// Returns the optional new camera position requested by the player backend and the `index`-th frame given the current camera position
     fn get_at(
         &mut self,
-    index: usize,
+        index: usize,
         camera_pos: Option<CameraPosition>,
     ) -> (Option<CameraPosition>, Option<T>);
     fn len(&self) -> usize;
@@ -267,7 +267,7 @@ impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         camera_pos: Option<CameraPosition>,
     ) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
         println!("----------------------------------");
-        println!{"get at request index: {}", index};
+        println! {"get at request index: {}", index};
         let index = index as u64;
         if let Some(&ref result) = self.cache.iter().find(|&i| i.0 == index) {
             //if the result is already inside the cache, just return
@@ -321,13 +321,13 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
 
     fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
         println!("----------------------------------");
-        println!{"get at request index: {}", index};
+        println! {"get at request index: {}", index};
         let index = index as u64;
         // Everytime a request is made, find it from the playback cache first
         if let Some(&ref result) = self.cache.iter().find(|&i| i.0 == index) {
             //can improve this O(n) find algorithm in future
-        println!("----------------------------------");
-        println!{"{} is found in the cache", index};
+            println!("----------------------------------");
+            println! {"{} is found in the cache", index};
             return Some(result.1.clone());
         }
         // Send request to prepare for the frame
@@ -341,7 +341,10 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
             if self.cache.len() >= 10 {
                 self.cache.pop_front();
             }
-            println!("one frame is added to the point cloud cache: index:{}", index);
+            println!(
+                "one frame is added to the point cloud cache: index:{}",
+                index
+            );
             self.cache.push_back((index, pc.clone()));
             Some(pc)
         } else {
