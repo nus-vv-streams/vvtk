@@ -336,7 +336,7 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
                 "one frame is added to the point cloud cache: index:{}",
                 index
             );
-            self.cache.push_back((index, pc.clone()));
+            self.cache.push((index, pc.clone()));
             Some(pc)
         } else {
             None
