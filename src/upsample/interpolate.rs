@@ -87,33 +87,6 @@ pub fn upsample(point_cloud: PointCloud<PointXyzRgba>, factor: usize) -> PointCl
 }
 
 
-fn calculate_spacing(points: &Vec<PointXyzRgba>) -> f32 {
-    let mut tree = KdTree::new();
-    for (i, p) in points.iter().enumerate() {
-        tree.add(&[p.x, p.y, p.z], i).unwrap();
-    }
-
-    let mut sum = 0.0;
-    // The value is currently hard coded. Can potentially be improved with variance
-    let k_nearest = 4;
-
-    for p in points.iter() {
-        let avg_spacing = tree
-            .nearest(&[p.x, p.y, p.z], k_nearest, &squared_euclidean)
-            .unwrap()
-            .iter()
-            .skip(1) // ignore the first point (same point)
-            .map(|(d, _)| d.sqrt())
-            .sum::<f32>()
-            / (k_nearest - 1) as f32;
-
-        sum += avg_spacing;
-    }
-
-    sum / points.len() as f32
-}
-
-
 pub fn contains(bound: &Bounds, point: &PointXyzRgba) -> bool {
     const ERROR_MARGIN_PERCENTAGE: f32 = 1.01;
     point.x * ERROR_MARGIN_PERCENTAGE >= bound.min_x 
@@ -202,13 +175,71 @@ pub fn upsample_grid(point_cloud: PointCloud<PointXyzRgba>, partition_k: usize) 
      */
     let start = Instant::now();
     let partitions = partition(&point_cloud, (partition_k, partition_k, partition_k));
-    println!("Time taken for partition: {:?}", start.elapsed());
-    let new_points = partitions.par_iter().filter(|vertices| !vertices.is_empty()).flat_map(|vertices| upsample_grid_vertices(vertices)).collect::<Vec<_>>();
-    println!("Time taken for grid upsample: {:?}", start.elapsed());
+    let new_points = partitions.par_iter().filter(|vertices| !vertices.is_empty()).flat_map(|vertices| upsample_grid_vertices_dedup(vertices.clone())).collect::<Vec<_>>();
+    println!("{:?}", start.elapsed().as_micros());
     PointCloud::new(new_points.len(), new_points)
 }
 
-fn upsample_grid_vertices(vertices: &Vec<PointXyzRgba>) -> Vec<PointXyzRgba> {
+fn upsample_grid_vertices_dedup(vertices: Vec<PointXyzRgba>) -> Vec<PointXyzRgba> {
+    let mut vertices = vertices;
+    vertices.sort_unstable();
+    let mut kd_tree = KdTree::new();
+    for (i, pt) in vertices.iter().enumerate() {
+        kd_tree
+            .add(&[pt.x, pt.y, pt.z], i)
+            .expect("Failed to add to kd tree");
+    }
+    // let end_kd_init = start.elapsed();
+    let mut visited: HashSet<(usize, usize)> = HashSet::new();
+    let mut new_points: Vec<PointXyzRgba> = vec![];
+    let mut visited_points: HashSet<usize> = HashSet::new();
+    for source in 0..vertices.len() {
+        if visited_points.contains(&source){
+            continue;
+        }
+        let point = vertices[source];
+        let x = point.x;
+        let y = point.y;
+        let z = point.z;
+        match kd_tree.nearest(&[x, y, z], 9, &squared_euclidean){
+            Ok(nearest) => {
+                let neighbours = nearest.iter().map(|(_, second)| **second).skip(1).collect::<Vec<_>>();
+                if neighbours.len() != 8 {
+                    continue;
+                }
+                visited_points.extend(&neighbours);
+                
+                let order = get_circumference_order(&neighbours, &vertices);
+                
+                for i in 0..order.len() {
+                    let next_i = (i + 1) % order.len();
+                    let circumference_pair = if order[i] < order[next_i] { (order[i], order[next_i]) } else { (order[next_i], order[i]) };
+                    let source_pair = if order[i] < source { (order[i], source) } else { (source, order[i]) };
+                    
+                    for &pair in &[circumference_pair, source_pair] {
+                        if visited.contains(&pair) {
+                            continue;
+                        }
+                        let middlepoint  = get_middlepoint(&vertices[pair.0], &vertices[pair.1]);
+                        new_points.push(middlepoint);
+                    }
+                    visited.insert(source_pair);
+                    visited.insert(circumference_pair);
+                    
+                    let next_next_i = (i + 2) % order.len();
+                    let dup_pair = if order[next_next_i] < source { (order[next_next_i], source) } else { (source, order[next_next_i]) };
+                    visited.insert(dup_pair);
+                }
+            }
+            Err(e) => {
+                println!("{:?}", e);
+            }
+        }
+    };
+    new_points.extend(vertices);
+    new_points
+}
+fn upsample_grid_vertices(vertices: Vec<PointXyzRgba>) -> Vec<PointXyzRgba> {
     let mut kd_tree = KdTree::new();
     for (i, pt) in vertices.iter().enumerate() {
         kd_tree
