@@ -44,11 +44,9 @@ impl Read {
 
 impl Subcommand for Read {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
-        println!("Reading files");
         if messages.is_empty() {
             let mut files = find_all_files(&self.args.files);
             files.sort();
-            // if self.num is not None, then take the first self.num files
             if let Some(num) = self.args.num {
                 if num < files.len() {
                     files = files.into_iter().take(num).collect();

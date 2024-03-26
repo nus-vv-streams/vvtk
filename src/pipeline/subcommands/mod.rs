@@ -1,6 +1,7 @@
 pub mod convert;
 pub mod dash;
 pub mod downsample;
+pub mod extension;
 pub mod info;
 pub mod metrics;
 pub mod normal_estimation;
@@ -12,6 +13,7 @@ pub mod write;
 pub use convert::Convert;
 pub use dash::Dash;
 pub use downsample::Downsampler;
+pub use extension::Extension;
 pub use info::Info;
 pub use metrics::MetricsCalculator;
 pub use normal_estimation::NormalEstimation;
@@ -23,5 +25,5 @@ pub use write::Write;
 use super::{channel::Channel, PipelineMessage};
 
 pub trait Subcommand {
-    fn handle(&mut self, messages: Vec<PipelineMessage>, out: &Channel);
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel);
 }

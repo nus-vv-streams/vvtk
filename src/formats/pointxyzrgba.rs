@@ -1,6 +1,9 @@
-use serde::ser::{Serialize, SerializeStruct, Serializer};
+use serde::{
+    ser::{Serialize, SerializeStruct, Serializer},
+    Deserialize,
+};
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Debug, Copy, Clone, PartialEq, bytemuck::Pod, bytemuck::Zeroable, Deserialize)]
 pub struct PointXyzRgba {
     pub x: f32,
     pub y: f32,
@@ -10,7 +13,6 @@ pub struct PointXyzRgba {
     pub b: u8,
     pub a: u8,
 }
-
 impl Serialize for PointXyzRgba {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
