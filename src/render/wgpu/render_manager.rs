@@ -272,16 +272,19 @@ impl RenderManager<PointCloud<PointXyzRgba>> for AdaptiveManager {
         let start = Instant::now();
         let mut visible_pc = self.get_visible_points(pc.clone());
         let visibility_elasped = start.elapsed();
-        // println!("Calculated visibility in {:?}", visibility_elasped);
+        println!("Total points {:?}, Visible points {:?}, took {:?}", pc.points.len(), visible_pc.points.len(), visibility_elasped);
 
         let should_upsample = self.upsampler.should_upsample(&visible_pc, &self.camera_state.as_ref().unwrap());
 
         if should_upsample {
             let init_len = visible_pc.points.len();
-            let upsampled_points = self.upsampler.upsample_grid(visible_pc.points.clone());
+
+            let upsampled_points = self.upsampler.upsample_grid(&visible_pc, 3);
             let upsampled_pc = PointCloud::new(upsampled_points.len(), upsampled_points.clone());
-            visible_pc.combine(&upsampled_pc);
             self.pc.as_mut().unwrap().combine(&upsampled_pc);
+
+            visible_pc.combine(&upsampled_pc);
+
             let upsample_elasped: Duration = start.elapsed();
 
             println!("Upsampled points from {:?} to {:?} in {:?}", init_len, visible_pc.points.len(), upsample_elasped);

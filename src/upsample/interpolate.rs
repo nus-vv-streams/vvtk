@@ -207,10 +207,13 @@ fn upsample_grid_vertices_dedup(vertices: Vec<PointXyzRgba>) -> Vec<PointXyzRgba
                 if neighbours.len() != 8 {
                     continue;
                 }
-                visited_points.extend(&neighbours);
                 
                 let order = get_circumference_order(&neighbours, &vertices);
-                
+                for (index, value) in order.iter().enumerate() {
+                    if index % 2 == 0 {
+                        visited_points.insert(*value);
+                    }
+                }
                 for i in 0..order.len() {
                     let next_i = (i + 1) % order.len();
                     let circumference_pair = if order[i] < order[next_i] { (order[i], order[next_i]) } else { (order[next_i], order[i]) };
@@ -227,9 +230,10 @@ fn upsample_grid_vertices_dedup(vertices: Vec<PointXyzRgba>) -> Vec<PointXyzRgba
                     visited.insert(circumference_pair);
                     
                     let next_next_i = (i + 2) % order.len();
-                    let dup_pair = if order[next_next_i] < source { (order[next_next_i], source) } else { (source, order[next_next_i]) };
+                    let dup_pair = if order[next_next_i] < order[i] { (order[next_next_i], order[i]) } else { (order[i], order[next_next_i]) };
                     visited.insert(dup_pair);
                 }
+
             }
             Err(e) => {
                 println!("{:?}", e);
@@ -237,8 +241,11 @@ fn upsample_grid_vertices_dedup(vertices: Vec<PointXyzRgba>) -> Vec<PointXyzRgba
         }
     };
     new_points.extend(vertices);
+
     new_points
 }
+
+
 fn upsample_grid_vertices(vertices: Vec<PointXyzRgba>) -> Vec<PointXyzRgba> {
     let mut kd_tree = KdTree::new();
     for (i, pt) in vertices.iter().enumerate() {
@@ -257,12 +264,13 @@ fn upsample_grid_vertices(vertices: Vec<PointXyzRgba>) -> Vec<PointXyzRgba> {
         let z = point.z;
         match kd_tree.nearest(&[x, y, z], 9, &squared_euclidean){
             Ok(nearest) => {
+
                 let neighbours = nearest.iter().map(|(_, second)| **second).skip(1).collect::<Vec<_>>();
                 if neighbours.len() != 8 {
                     continue;
                 }
                 let order = get_circumference_order(&neighbours, &vertices);
-                
+
                 for i in 0..order.len() {
                     let next_i = (i + 1) % order.len();
                     let circumference_pair = if order[i] < order[next_i] { (order[i], order[next_i]) } else { (order[next_i], order[i]) };
@@ -279,7 +287,7 @@ fn upsample_grid_vertices(vertices: Vec<PointXyzRgba>) -> Vec<PointXyzRgba> {
                     visited.insert(circumference_pair);
                     
                     let next_next_i = (i + 2) % order.len();
-                    let dup_pair = if order[next_next_i] < source { (order[next_next_i], source) } else { (source, order[next_next_i]) };
+                    let dup_pair = if order[next_next_i] < order[i] { (order[next_next_i], order[i]) } else { (order[i], order[next_next_i]) };
                     visited.insert(dup_pair);
                 }
             }
@@ -288,7 +296,10 @@ fn upsample_grid_vertices(vertices: Vec<PointXyzRgba>) -> Vec<PointXyzRgba> {
             }
         }
     };
+    println!("Original count: {:?}", vertices.len());
     new_points.extend(vertices);
+    println!("Upsampled count: {:?}", new_points.len());
+    println!("Visited pairs count: {:?}", visited.len());
     new_points
 }
 
