@@ -258,7 +258,6 @@ fn main() {
                 let mut dir = tokio::fs::read_dir(path).await.unwrap();
                 while let Some(entry) = dir.next_entry().await.unwrap() {
                     let f = entry.path();
-                    println!("current f is: {}", f.display());
                     if !f.extension().map(|f| play_format.as_str().eq(f)).unwrap_or(false) {
                         continue;
                     }
@@ -275,7 +274,6 @@ fn main() {
                             break;
                         },
                         Some(req) = buf_in_rx.recv() => {
-                            //TODO: use req to specify which one to choose from
                             trace!("[fetcher] got fetch request {:?}", req);
                             _ = in_dec_sx.send((req, FetchResult {
                                 paths: [ply_files.get(req.frame_offset as usize).map(|p| p.to_path_buf()), None, None, None, None, None],
@@ -293,8 +291,6 @@ fn main() {
 
     // We run the decoder as a separate tokio task.
     // Decoder will read the buffer and send it over to the renderer.
-    // TODO: might need to change here to get the correct path for the reader, but at this point, we need to know which reader
-    // why keep cloning here, this might contribute to the slowness
     {
         let to_buf_sx = to_buf_sx.clone();
         let mut shutdown_recv = shutdown_recv.clone();

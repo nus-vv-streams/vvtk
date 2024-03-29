@@ -44,10 +44,9 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
 pub enum PipelineMessage {
     IndexedPointCloud(PointCloud<PointXyzRgba>, u32),
     IndexedPointCloudNormal(PointCloud<PointXyzRgbaNormal>, u32),
-    // PointCloud(PointCloud<PointXyzRgba>),
     Metrics(Metrics),
-    // Pipeline for external subcommand, contains the object that subcommand wants to past
-    // TODO: Add in i to match with IndexedPointCloud
+    // Pipeline message used by vv extend, contains the object that
+    // subcommand wants to pass to children or subsequennt subcommand
     SubcommandMessage(SubcommandObject<PointCloud<PointXyzRgba>>, u32),
     End,
     DummyForIncrement,

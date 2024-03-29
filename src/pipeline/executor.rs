@@ -5,7 +5,7 @@ use crossbeam_channel::{unbounded, Receiver};
 use std::collections::HashSet;
 
 pub struct Executor {
-    //subcommand name
+    // Subcommand name
     name: String,
     input_stream_names: Vec<String>,
     output_name: String,

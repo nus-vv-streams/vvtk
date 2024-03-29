@@ -316,9 +316,7 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         let index = index as u64;
         // Everytime a request is made, find it from the playback cache first
         if let Some(&ref result) = self.cache.iter().find(|&i| i.0 == index) {
-            //can improve this O(n) find algorithm in future
-            println!("----------------------------------");
-            println! {"{} is found in the cache", index};
+            // Enhancement: can improve this O(n) find algorithm in future
             return Some(result.1.clone());
         }
         // Send request to prepare for the frame
