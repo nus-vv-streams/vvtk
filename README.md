@@ -439,7 +439,8 @@ vv dash ./input ./sim_nw_avg_14050.txt -a quetra +out=dash \
 
 ### `extend`
 
-``extend`` can be used to run external subcommands that is in the form of executable. Read [docs/dev/extension.md](./docs/dev/extension.md) for more details. 
+``extend`` can be used to run external subcommands that is in the form of executable. Read [extension.md](./docs/dev/vv-extend/extension.md) for more details on creating subcommands and [test.md](./docs/dev/vv-extend/test.md) on testing ``extend``.
+
 
 ```sh
 Extend is used for running custom subcommands.

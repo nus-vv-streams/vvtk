@@ -37,7 +37,7 @@ cd vv-test-command
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.113"
 ```
-3. Copy the code in [docs/dev/vv-extend-template.rs](./vv-extend-template.rs) to ``src/main.rs``
+3. Copy the code in [vv-extend-template.rs](./vv-extend-template.rs) to ``src/main.rs``
 4. Implement additional point cloud transformation feature in ``new_pc_transform_function``.
 ```rust
 fn main() {
