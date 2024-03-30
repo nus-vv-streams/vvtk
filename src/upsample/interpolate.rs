@@ -1,10 +1,11 @@
 use std::{collections::HashSet, time::Instant};
 
+use cgmath::Matrix4;
 use kiddo::{distance::squared_euclidean, KdTree};
 use log::warn;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
-use crate::{formats::{bounds::Bounds, pointxyzrgba::PointXyzRgba, PointCloud}, utils::get_pc_bound};
+use crate::{formats::{bounds::Bounds, pointxyzrgba::PointXyzRgba, PointCloud}, render::wgpu::upsampler::Upsampler, utils::get_pc_bound};
 
 pub fn upsample(point_cloud: PointCloud<PointXyzRgba>, factor: usize) -> PointCloud<PointXyzRgba> {
     if factor <= 1 {
@@ -302,7 +303,6 @@ fn upsample_grid_vertices(vertices: Vec<PointXyzRgba>) -> Vec<PointXyzRgba> {
     println!("Visited pairs count: {:?}", visited.len());
     new_points
 }
-
 
 #[cfg(test)]
 mod test {

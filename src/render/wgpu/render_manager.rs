@@ -1,3 +1,4 @@
+use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use wgpu_glyph::ab_glyph::Point;
 
 use cgmath::*;
@@ -271,15 +272,15 @@ impl RenderManager<PointCloud<PointXyzRgba>> for AdaptiveManager {
         let pc = self.pc.as_ref().unwrap();
         let start = Instant::now();
         let mut visible_pc = self.get_visible_points(pc.clone());
-        let visibility_elasped = start.elapsed();
-        println!("Total points {:?}, Visible points {:?}, took {:?}", pc.points.len(), visible_pc.points.len(), visibility_elasped);
+        // let visibility_elasped = start.elapsed();
+        // println!("Total points {:?}, Visible points {:?}, took {:?}", pc.points.len(), visible_pc.points.len(), visibility_elasped);
 
         let should_upsample = self.upsampler.should_upsample(&visible_pc, &self.camera_state.as_ref().unwrap());
 
         if should_upsample {
             let init_len = visible_pc.points.len();
 
-            let upsampled_points = self.upsampler.upsample_grid(&visible_pc, 3);
+            let upsampled_points = self.upsampler.upsample_grid(&visible_pc, 7);
             let upsampled_pc = PointCloud::new(upsampled_points.len(), upsampled_points.clone());
             self.pc.as_mut().unwrap().combine(&upsampled_pc);
 
@@ -301,7 +302,7 @@ impl RenderManager<PointCloud<PointXyzRgba>> for AdaptiveManager {
         // println!("Number of points total: {:?}", point_cloud.points.len());
         let view_proj_matrix = Matrix4::from(self.camera_state.as_ref().unwrap().camera_uniform.view_proj);
         let antialias = point_cloud.antialias();
-        let visible_points = point_cloud.points.into_iter().filter(|point| {
+        let visible_points = point_cloud.points.into_par_iter().filter(|point| {
             let point_vec = Point3::new(point.x - antialias.x, point.y - antialias.y, point.z - antialias.z) / antialias.scale;
             let point_in_view = view_proj_matrix.transform_point(point_vec);
 
