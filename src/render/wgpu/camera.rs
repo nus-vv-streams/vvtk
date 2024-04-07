@@ -128,6 +128,23 @@ impl CameraState {
         }
     }
 
+    pub fn coincident_plane(&self, point: [f32; 3]) -> [f32; 3] {
+        let point = Point3::from(point);
+        let view_proj = self.projection.matrix() * self.camera.calc_matrix();
+        let point_t = view_proj.transform_point(point);
+
+        // if not in the NDC space, return the original point
+        if point_t.x.abs() > 1.0 || point_t.y.abs() > 1.0 || point_t.z > 1.0 {
+            return point.into();
+        }
+
+        let midpoint = Point3::new(0.0, 0.0, point_t.z);
+        let inv_view_proj = view_proj.inverse_transform().unwrap();
+
+        let res = inv_view_proj.transform_point(midpoint);
+        res.into()
+    }
+
     pub fn distance(&self, point: [f32; 3]) -> f32 {
         let point = Point3::from(point);
         (point - self.camera.position).magnitude()

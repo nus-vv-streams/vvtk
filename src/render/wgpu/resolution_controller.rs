@@ -55,7 +55,11 @@ impl ResolutionController {
             let z = bound
                 .get_vertexes()
                 .iter()
-                .map(|poi| camera_state.distance(self.anti_alias.apply_single(poi)))
+                .map(|poi| {
+                    let point = self.anti_alias.apply_single(poi);
+                    let plane_midpoint = camera_state.coincident_plane(point);
+                    camera_state.distance(plane_midpoint)
+                })
                 .min_by(|a, b| a.partial_cmp(b).unwrap())
                 .unwrap();
             // - margin)
@@ -85,7 +89,7 @@ impl ResolutionController {
         // println!("x_spacing: {}, y_spacing: {}", x_spacing, y_spacing);
 
         let desired_spacing = x_spacing.min(y_spacing);
-        let scaling_factor = (self.anchor_spacing / desired_spacing).powi(2);
+        let scaling_factor = (self.anchor_spacing / desired_spacing).powi(3);
         // let scaling_factor = self.anchor_spacing / desired_spacing;
         // println!(
         //     "desired_spacing: {}, anchor_spacing: {}, scaling_factor: {}",
@@ -104,16 +108,17 @@ impl ResolutionController {
         let mut sum = 0.0;
         // The value is currently hard coded. Can potentially be improved with variance
         let k_nearest = 27;
+        let top_k = 8;
 
         for p in points.iter() {
             let avg_spacing = tree
                 .nearest(&[p.x, p.y, p.z], k_nearest, &squared_euclidean)
                 .unwrap()
                 .iter()
-                .skip(1) // ignore the first point (same point)
+                .skip(k_nearest - top_k)
                 .map(|(d, _)| d.sqrt())
                 .sum::<f32>()
-                / (k_nearest - 1) as f32;
+                / (top_k) as f32;
 
             sum += avg_spacing;
         }
