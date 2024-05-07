@@ -1,10 +1,11 @@
 use cgmath::{Matrix4, Point3, Transform};
 use kiddo::{distance::squared_euclidean, KdTree};
+use nalgebra::ComplexField;
 use num_traits::Float;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 use crate::{formats::{bounds::Bounds, pointxyzrgba::PointXyzRgba, PointCloud}, utils::get_pc_bound};
-use std::{cmp::{max, min}, collections::{BTreeSet, HashSet}, time::Instant};
+use std::{cmp::{max, min}, collections::{BTreeSet, HashSet}, time::{Duration, Instant}};
 
 use super::{camera::CameraState, renderable::Renderable, resolution_controller::ResolutionController};
 
@@ -17,14 +18,38 @@ impl Upsampler {
         Self {}
     }
 
-    pub fn should_upsample(&self, point_cloud: &PointCloud<PointXyzRgba>, camera_state: &CameraState) -> bool {
+    pub fn upsample(pc: &PointCloud<PointXyzRgba>, camera_state: &CameraState, partition_k: usize) -> Option<PointCloud<PointXyzRgba>> {
+        let should_upsample = Self::should_upsample(pc, camera_state);
+
+        if should_upsample {
+            let upsampled_points = Self::upsample_grid(pc, partition_k);
+            Some(PointCloud::new(upsampled_points.len(), upsampled_points.clone()))
+        } else {
+            None
+        }
+    }
+
+    pub fn get_visible_points(point_cloud: PointCloud<PointXyzRgba>, camera_state: &CameraState) -> PointCloud<PointXyzRgba> {
+        let view_proj_matrix = Matrix4::from(camera_state.camera_uniform.view_proj);
+        let antialias = point_cloud.antialias();
+
+        let visible_points = point_cloud.points.into_par_iter().filter(|point| {
+            let point_vec = Point3::new(point.x - antialias.x, point.y - antialias.y, point.z - antialias.z) / antialias.scale;
+            let point_in_view = view_proj_matrix * point_vec.to_homogeneous();
+            (point_in_view.x / point_in_view.w).abs() <= 1.0 &&
+            (point_in_view.y / point_in_view.w).abs() <= 1.0 &&
+            (point_in_view.z  / point_in_view.w).abs() <= 1.0
+        }).collect::<Vec<_>>();
+        PointCloud::new(visible_points.len(), visible_points)
+    }
+
+    pub fn should_upsample(point_cloud: &PointCloud<PointXyzRgba>, camera_state: &CameraState) -> bool {
         if point_cloud.points.is_empty() || point_cloud.points.len() > 300_000 {
             return false
         }
-        const RANGE_PIXEL_THRESHOLD: i32 = 2;
-        const PERCENTAGE_THRESHOLD: f32 = 0.6;
+        const RANGE_PIXEL_THRESHOLD: i32 = 1;
+        const PERCENTAGE_THRESHOLD: f32 = 0.8;
 
-        // let start = Instant::now();
         let view_proj_matrix = Matrix4::from(camera_state.camera_uniform.view_proj);
         let antialias = point_cloud.antialias();
         let width = camera_state.get_window_size().width as usize;
@@ -36,10 +61,6 @@ impl Upsampler {
             let y = min(((point_ndc.y + 1.0) * (height as f32) / 2.0)  as usize, height);
             (x, y)
         }).collect::<Vec<_>>();
-        // println!("viewport coords processing duration: {:?}", start.elapsed());
-        // row: height, y; 
-        // col: width, x
-        // let dedup_start = Instant::now();
 
         let mut viewport_is_filled = vec![false; (height + 1) * (width + 1)];
 
@@ -47,8 +68,6 @@ impl Upsampler {
             let (x, y) = coords;
             viewport_is_filled[y * (width + 1) + x] = true;
         });
-        // println!("viewport coords dedup duration: {:?}", dedup_start.elapsed());
-        // let calculate_space_start = Instant::now();
 
 
         let number_pixels_with_close_neighbours = (0..(viewport_is_filled.len())).into_par_iter()
@@ -57,6 +76,7 @@ impl Upsampler {
             .filter(|(x, y)| {
                 let x = *x;
                 let y = *y;
+                let mut filled_neighbours_count = 0;
                 for x_curr in ((x as i32) - RANGE_PIXEL_THRESHOLD)..((x as i32) + RANGE_PIXEL_THRESHOLD + 1) {
                     for y_curr in ((y as i32) - RANGE_PIXEL_THRESHOLD)..((y as i32) + RANGE_PIXEL_THRESHOLD + 1) {
                         if 0 > x_curr || x_curr > (width as i32) || 0 > y_curr || y_curr > (height as i32) || (x_curr, y_curr) == (x as i32, y as i32)  {
@@ -65,66 +85,16 @@ impl Upsampler {
                         let x_curr = x_curr as usize;
                         let y_curr = y_curr as usize;
                         if viewport_is_filled[y_curr * (width + 1) + x_curr] {
-                            return true;
+                            filled_neighbours_count += 1;
                         }
                     }
                 }
-                return false
+                return filled_neighbours_count >= 4
             }).count();
         let filled_pixels: usize = viewport_is_filled.par_iter().filter(|&&is_filled| is_filled).count();
         let percentage_pixels_close_enough = (number_pixels_with_close_neighbours as f32) / (filled_pixels as f32);
-        // println!("Number of pixels with close neighbours: {:?}/{:?}={:?}", number_pixels_with_close_neighbours, filled_pixels, percentage_pixels_close_enough);
-        // println!("Calculate space duration {:?}", calculate_space_start.elapsed());
-        // println!("Total should_upsample duration {:?}", start.elapsed());
+
         percentage_pixels_close_enough < PERCENTAGE_THRESHOLD
-        // let deduped_viewport_pixels = points_viewport.into_par_iter().collect::<BTreeSet<_>>();
-
-        // let calculate_space_start = Instant::now();
-        // let deduped_viewport_points = deduped_viewport_pixels.par_iter().map(|coords| {
-        //     PointXyzRgba {
-        //         x: coords.0 as f32,
-        //         y: coords.1 as f32,
-        //         z: 0 as f32,
-        //         r: 0,
-        //         g: 0,
-        //         b: 0,
-        //         a: 0,
-        //     }
-        // }).collect::<Vec<_>>();
-
-        // println!("deduped viewport points {:?}", deduped_viewport_points.len());
-
-        // let average_spacing = Self::calculate_spacing(&deduped_viewport_points);
-        // println!("Calculate space duration {:?}", calculate_space_start.elapsed());
-        // println!("Total should_upsample duration {:?}", start.elapsed());
-
-        // return average_spacing > VIEWPORT_DIST_UPSAMPLING_THRESHOLD
-    }
-
-    fn calculate_spacing(points: &Vec<PointXyzRgba>) -> f32 {
-        let mut tree = KdTree::new();
-        for (i, p) in points.iter().enumerate() {
-            tree.add(&[p.x, p.y, p.z], i).unwrap();
-        }
-
-        let mut sum = 0.0;
-        // The value is currently hard coded. Can potentially be improved with variance
-        let k_nearest = 4;
-
-        for p in points.iter() {
-            let avg_spacing = tree
-                .nearest(&[p.x, p.y, p.z], k_nearest, &squared_euclidean)
-                .unwrap()
-                .iter()
-                .skip(1) // ignore the first point (same point)
-                .map(|(d, _)| d.sqrt())
-                .sum::<f32>()
-                / (k_nearest - 1) as f32;
-
-            sum += avg_spacing;
-        }
-
-        sum / points.len() as f32
     }
 
     pub fn contains(bound: &Bounds, point: &PointXyzRgba) -> bool {
@@ -207,20 +177,19 @@ impl Upsampler {
         order
     }
     
-    pub fn upsample_grid(&self, point_cloud: &PointCloud<PointXyzRgba>, partition_k: usize) -> Vec<PointXyzRgba> {
+    pub fn upsample_grid(point_cloud: &PointCloud<PointXyzRgba>, partition_k: usize) -> Vec<PointXyzRgba> {
         /*
         1. Partition the vertices
         2. Parallel iter upsampling each segment
         3. combining into a single point cloud
          */
-        let start = Instant::now();
+        // let start = Instant::now();
         let partitions = Self::partition(&point_cloud, (partition_k, partition_k, partition_k));
-        let new_points = partitions.par_iter().filter(|vertices| !vertices.is_empty()).flat_map(|vertices| Self::upsample_grid_vertices_dedup(vertices.clone())).collect::<Vec<_>>();
-        println!("Upsample took: {:?}", start.elapsed());
+        let new_points = partitions.par_iter().filter(|vertices| !vertices.is_empty()).flat_map(|vertices| Self::upsample_grid_vertices(vertices.clone())).collect::<Vec<_>>();
         new_points
     }
     
-    fn upsample_grid_vertices_dedup(vertices: Vec<PointXyzRgba>) -> Vec<PointXyzRgba> {
+    fn upsample_grid_vertices(vertices: Vec<PointXyzRgba>) -> Vec<PointXyzRgba> {
         let mut vertices = vertices;
         vertices.sort_unstable();
         let mut kd_tree = KdTree::new();
@@ -244,6 +213,8 @@ impl Upsampler {
             match kd_tree.nearest(&[x, y, z], 9, &squared_euclidean){
                 Ok(nearest) => {
                     let neighbours = nearest.iter().map(|(_, second)| **second).skip(1).collect::<Vec<_>>();
+                    // visited_points.extend(neighbours.clone());
+                    
                     if neighbours.len() != 8 {
                         continue;
                     }
@@ -284,61 +255,4 @@ impl Upsampler {
     
         new_points
     }
-
-    fn upsample_grid_vertices(vertices: Vec<PointXyzRgba>) -> Vec<PointXyzRgba> {
-        let mut kd_tree = KdTree::new();
-        for (i, pt) in vertices.iter().enumerate() {
-            kd_tree
-                .add(&[pt.x, pt.y, pt.z], i)
-                .expect("Failed to add to kd tree");
-        }
-        // let end_kd_init = start.elapsed();
-        let mut visited: HashSet<(usize, usize)> = HashSet::new();
-        let mut new_points: Vec<PointXyzRgba> = vec![];
-        for source in 0..vertices.len() {
-            
-            let point = vertices[source];
-            let x = point.x;
-            let y = point.y;
-            let z = point.z;
-            match kd_tree.nearest(&[x, y, z], 9, &squared_euclidean){
-                Ok(nearest) => {
-                    let neighbours = nearest.iter().map(|(_, second)| **second).skip(1).collect::<Vec<_>>();
-                    if neighbours.len() != 8 {
-                        continue;
-                    }
-                    let order = Self::get_circumference_order(&neighbours, &vertices);
-                    
-                    for i in 0..order.len() {
-                        let next_i = (i + 1) % order.len();
-                        let circumference_pair = if order[i] < order[next_i] { (order[i], order[next_i]) } else { (order[next_i], order[i]) };
-                        let source_pair = if order[i] < source { (order[i], source) } else { (source, order[i]) };
-                        
-                        for &pair in &[circumference_pair, source_pair] {
-                            if visited.contains(&pair) {
-                                continue;
-                            }
-                            let middlepoint  = Self::get_middlepoint(&vertices[pair.0], &vertices[pair.1]);
-                            new_points.push(middlepoint);
-                        }
-                        visited.insert(source_pair);
-                        visited.insert(circumference_pair);
-                        
-                        let next_next_i = (i + 2) % order.len();
-                        let dup_pair = if order[next_next_i] < order[i] { (order[next_next_i], order[i]) } else { (order[i], order[next_next_i]) };
-                        visited.insert(dup_pair);
-                    }
-                }
-                Err(e) => {
-                    println!("{:?}", e);
-                }
-            }
-        };
-        new_points.extend(vertices);
-        new_points
-    }
-    
-
-
-
 }

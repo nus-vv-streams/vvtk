@@ -373,8 +373,8 @@ where
             }
         } else if self.reader.should_redraw(&self.camera_state) {
             self.redisplay();
-        } 
-
+        }
+        
         let info = RenderInformation {
             camera: self.camera_state.camera,
             current_position: self.current_position,

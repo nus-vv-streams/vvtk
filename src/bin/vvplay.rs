@@ -4,7 +4,7 @@ use std::path::Path;
 
 use vivotk::render::wgpu::{
     builder::RenderBuilder, camera::Camera, controls::Controller, metrics_reader::MetricsReader,
-    render_manager::AdaptiveManager, renderer::Renderer,
+    render_manager::AdaptiveUpsamplingManager, renderer::Renderer,
 };
 
 /// Plays a folder of pcd files in lexicographical order
@@ -60,7 +60,7 @@ struct Args {
     #[clap(long, default_value = "rgb(255,255,255)")]
     bg_color: OsString,
     #[clap(long, default_value = "false")]
-    lod: bool,
+    adaptive_upsampling: bool,
 }
 
 #[derive(clap::ValueEnum, Clone, Copy)]
@@ -71,7 +71,7 @@ enum DecoderType {
 
 fn main() {
     let args: Args = Args::parse();
-    let adaptive_manager = AdaptiveManager::new(&args.src, args.lod);
+    let adaptive_manager = AdaptiveUpsamplingManager::new(&args.src, args.adaptive_upsampling);
 
     let camera = Camera::new(
         (args.camera_x, args.camera_y, args.camera_z),

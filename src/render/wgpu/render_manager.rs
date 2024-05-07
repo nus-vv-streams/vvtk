@@ -1,18 +1,13 @@
-use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use wgpu_glyph::ab_glyph::Point;
 
-use cgmath::*;
 use crate::formats::metadata::MetaData;
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
-use crate::render::wgpu::antialias;
 use std::marker::PhantomData;
 use std::path::Path;
 use std::process::exit;
-use std::time::{Duration, Instant};
 
 use super::camera::CameraState;
-use super::reader::{LODFileReader, RenderReader};
+use super::reader::{LODFileReader, PointCloudFileReader, RenderReader};
 use super::renderable::Renderable;
 use super::resolution_controller::ResolutionController;
 use super::upsampler::Upsampler;
@@ -25,10 +20,9 @@ pub trait RenderManager<T: Renderable> {
     fn set_len(&mut self, len: usize);
     fn set_camera_state(&mut self, camera_state: Option<CameraState>);
     fn should_redraw(&mut self, camera_state: &CameraState) -> bool;
-    fn get_visible_points(&self, point_cloud: PointCloud<PointXyzRgba>) -> PointCloud<PointXyzRgba>;
 }
 
-pub struct AdaptiveManager {
+pub struct AdaptiveLODManager {
     reader: LODFileReader,
 
     // For adaptive loading
@@ -41,57 +35,9 @@ pub struct AdaptiveManager {
     // As the temporary cache
     current_index: usize,
     additional_points_loaded: Vec<usize>,
-
-    // For upsampling
-    upsampler: Upsampler,
-    pc: Option<PointCloud<PointXyzRgba>>,
-
-    total_latency: Duration,
-    sample_size: i32,
 }
 
-fn infer_format(src: &String) -> String {
-    let choices = ["pcd", "ply", "bin", "http"];
-    const PCD: usize = 0;
-    const PLY: usize = 1;
-    const BIN: usize = 2;
-
-    if choices.contains(&src.as_str()) {
-        return src.clone();
-    }
-
-    let path = Path::new(src);
-    // infer by counting extension numbers (pcd ply and bin)
-
-    let mut choice_count = [0, 0, 0];
-    for file_entry in path.read_dir().unwrap() {
-        match file_entry {
-            Ok(entry) => {
-                if let Some(ext) = entry.path().extension() {
-                    if ext.eq("pcd") {
-                        choice_count[PCD] += 1;
-                    } else if ext.eq("ply") {
-                        choice_count[PLY] += 1;
-                    } else if ext.eq("bin") {
-                        choice_count[BIN] += 1;
-                    }
-                }
-            }
-            Err(e) => {
-                eprintln!("{e}")
-            }
-        }
-    }
-
-    let max_index = choice_count
-        .iter()
-        .enumerate()
-        .max_by_key(|(_, &item)| item)
-        .map(|(index, _)| index);
-    choices[max_index.unwrap()].to_string()
-}
-
-impl AdaptiveManager {
+impl AdaptiveLODManager {
     pub fn new(src: &String, lod: bool) -> Self {
         let base_path = if lod {
             src.clone() + "/base"
@@ -137,17 +83,12 @@ impl AdaptiveManager {
             let additional_points_loaded = vec![0; reader.len()];
 
             Self {
-                pc: None,
-                upsampler: Upsampler {  },
                 reader,
                 camera_state: None,
                 resolution_controller: Some(resolution_controller),
                 metadata: Some(metadata),
                 current_index: usize::MAX, // no point cloud loaded yet
                 additional_points_loaded,
-                total_latency: Duration::new(0, 0),
-                sample_size: 0,
-                
             }
         } else {
             let reader = LODFileReader::new(base_path, None, &play_format);
@@ -158,25 +99,19 @@ impl AdaptiveManager {
             }
 
             Self {
-                pc: None,
-                upsampler: Upsampler {  },
                 reader,
                 camera_state: None,
                 resolution_controller: None,
                 metadata: None,
                 current_index: usize::MAX,
                 additional_points_loaded: vec![],
-                total_latency: Duration::new(0, 0),
-                sample_size: 0,
             }
         }
     }
 
     pub fn get_desired_point_cloud(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-        // let now = std::time::Instant::now();
 
         if self.metadata.is_none() {
-            // println!("get base pc: {:?}", now.elapsed());
             let pc = self.reader.get_at(index).unwrap();
             return Some(pc);
         }
@@ -255,63 +190,109 @@ impl AdaptiveManager {
     }
 }
 
-impl RenderManager<PointCloud<PointXyzRgba>> for AdaptiveManager {
+
+impl RenderManager<PointCloud<PointXyzRgba>> for AdaptiveLODManager {
     fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
         self.get_desired_point_cloud(0)
     }
 
     fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-        // println!("RenderManager get_at: {:?}", index);
+        self.get_desired_point_cloud(index)
+    }
 
+    fn len(&self) -> usize {
+        self.reader.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.reader.is_empty()
+    }
+
+    fn set_len(&mut self, len: usize) {
+        self.reader.set_len(len);
+    }
+
+    fn set_camera_state(&mut self, camera_state: Option<CameraState>) {
+        self.camera_state = camera_state;
+    }
+
+    fn should_redraw(&mut self, camera_state: &CameraState) -> bool {
+        self.should_load_more_points(camera_state)
+    }
+}
+
+pub struct AdaptiveUpsamplingManager {
+    reader: PointCloudFileReader,
+
+    // For adaptive loading
+    camera_state: Option<CameraState>,
+
+    // As the temporary cache
+    current_index: usize,
+    pc: Option<PointCloud<PointXyzRgba>>,
+
+    should_adaptive_upsample: bool
+}
+
+impl AdaptiveUpsamplingManager {
+    pub fn new(src: &String, should_adaptive_upsample: bool) -> Self {
+        let play_format = infer_format(src);
+        let base_path = Path::new(src);
+
+        let reader = PointCloudFileReader::from_directory(base_path, &play_format);
+
+        if reader.is_empty() {
+            eprintln!("Must provide at least one file!");
+            exit(1);
+        }
+
+        Self {
+            pc: None,
+            reader,
+            camera_state: None,
+            current_index: usize::MAX,
+            should_adaptive_upsample
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.reader.len()
+    }
+}
+
+impl RenderManager<PointCloud<PointXyzRgba>> for AdaptiveUpsamplingManager {
+    fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
+        self.reader.get_at(0)
+    }
+
+    fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
+        if !self.should_adaptive_upsample {
+            return self.reader.get_at(index);
+        }
+
+        const PARTITION_SIZE: usize = 6;
         if index != self.current_index || self.pc.is_none() {
-            // println!("Loading point cloud at index: {:?}, {:?} {:?}", index, self.current_index, self.pc.is_none());
-            self.pc = Some(self.get_desired_point_cloud(index)?);
+            let pc = self.reader.get_at(index)?;
+            self.pc = Some(pc);
             self.current_index = index;
         }
 
-        let pc = self.pc.as_ref().unwrap();
-        let start = Instant::now();
-        let mut visible_pc = self.get_visible_points(pc.clone());
-        // let visibility_elasped = start.elapsed();
-        // println!("Total points {:?}, Visible points {:?}, took {:?}", pc.points.len(), visible_pc.points.len(), visibility_elasped);
+        let camera_state = self.camera_state.as_ref().unwrap();
 
-        let should_upsample = self.upsampler.should_upsample(&visible_pc, &self.camera_state.as_ref().unwrap());
-
-        if should_upsample {
-            let init_len = visible_pc.points.len();
-
-            let upsampled_points = self.upsampler.upsample_grid(&visible_pc, 7);
-            let upsampled_pc = PointCloud::new(upsampled_points.len(), upsampled_points.clone());
-            self.pc.as_mut().unwrap().combine(&upsampled_pc);
-
-            visible_pc.combine(&upsampled_pc);
-
-            let upsample_elasped: Duration = start.elapsed();
-
-            println!("Upsampled points from {:?} to {:?} in {:?}", init_len, visible_pc.points.len(), upsample_elasped);
+        let mut visible_pc = Upsampler::get_visible_points(self.pc.as_ref().unwrap().clone(), camera_state);
+        let mut needs_upsampling = true;
+        while needs_upsampling {
+            let upsampled_points = Upsampler::upsample(&visible_pc, camera_state, PARTITION_SIZE);
+            
+            if let Some(upsampled_points) = upsampled_points {
+                self.pc.as_mut().unwrap().combine(&upsampled_points);
+                visible_pc.combine(&upsampled_points);
+            } else {
+                needs_upsampling = false;
+            }
         }
+        
         Some(visible_pc)
-        // println!("Point visibility took: {:?}", start.elapsed());
-        // self.total_latency += start.elapsed();
-        // self.sample_size += 1;
-        // println!("Average Point visibility took: {:?}", self.total_latency / self.sample_size.try_into().unwrap());
-
-    }
-
-    fn get_visible_points(&self, point_cloud: PointCloud<PointXyzRgba>) -> PointCloud<PointXyzRgba> {
-        // println!("Number of points total: {:?}", point_cloud.points.len());
-        let view_proj_matrix = Matrix4::from(self.camera_state.as_ref().unwrap().camera_uniform.view_proj);
-        let antialias = point_cloud.antialias();
-        let visible_points = point_cloud.points.into_par_iter().filter(|point| {
-            let point_vec = Point3::new(point.x - antialias.x, point.y - antialias.y, point.z - antialias.z) / antialias.scale;
-            let point_in_view = view_proj_matrix.transform_point(point_vec);
-
-            point_in_view.x.abs() <= 1.0 &&
-            point_in_view.y.abs() <= 1.0 &&
-            point_in_view.z.abs() <= 1.0
-        }).collect::<Vec<_>>();
-        // println!("Number of points visible: {:?}", visible_points.len());
-        PointCloud::new(visible_points.len(), visible_points)
     }
 
     fn len(&self) -> usize {
@@ -332,7 +313,6 @@ impl RenderManager<PointCloud<PointXyzRgba>> for AdaptiveManager {
 
     fn should_redraw(&mut self, camera_state: &CameraState) -> bool {
         true
-        // self.should_load_more_points(camera_state)
     }
 }
 
@@ -389,8 +369,45 @@ where
     fn should_redraw(&mut self, _camera_state: &CameraState) -> bool {
         false
     }
+}
 
-    fn get_visible_points(&self, point_cloud: PointCloud<PointXyzRgba>) -> PointCloud<PointXyzRgba> {
-        PointCloud::new(0, vec![])
+fn infer_format(src: &String) -> String {
+    let choices = ["pcd", "ply", "bin", "http"];
+    const PCD: usize = 0;
+    const PLY: usize = 1;
+    const BIN: usize = 2;
+
+    if choices.contains(&src.as_str()) {
+        return src.clone();
     }
+
+    let path = Path::new(src);
+    // infer by counting extension numbers (pcd ply and bin)
+
+    let mut choice_count = [0, 0, 0];
+    for file_entry in path.read_dir().unwrap() {
+        match file_entry {
+            Ok(entry) => {
+                if let Some(ext) = entry.path().extension() {
+                    if ext.eq("pcd") {
+                        choice_count[PCD] += 1;
+                    } else if ext.eq("ply") {
+                        choice_count[PLY] += 1;
+                    } else if ext.eq("bin") {
+                        choice_count[BIN] += 1;
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("{e}")
+            }
+        }
+    }
+
+    let max_index = choice_count
+        .iter()
+        .enumerate()
+        .max_by_key(|(_, &item)| item)
+        .map(|(index, _)| index);
+    choices[max_index.unwrap()].to_string()
 }

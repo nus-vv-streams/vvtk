@@ -504,7 +504,7 @@ Options:
       --decoder <DECODER_TYPE>       [default: noop] [possible values: noop, draco]
       --decoder-path <DECODER_PATH>  
       --bg-color <BG_COLOR>          [default: rgb(255,255,255)]
-  --lodify                           [default: False]
+  --adaptive-upsampling              [default: False]
   -h, --help                         Print help
 ```
 
