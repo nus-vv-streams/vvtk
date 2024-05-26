@@ -10,7 +10,7 @@
 3. If you are using **linux**, make sure `gcc`, `g++`, `cmake`, `libssl-dev`, `pkg-config`, `libfontconfig1-dev` are installed
 4. Compile and build the binaries with `cargo build --release --bins`
 5. Install the binaries if you want to use it anywhere you want. `cargo install --path .`
-6. Use `vv` and `vvplay` in other directory. Now you are good to go!
+6. Use `vv`, `vvplay` and `vvplay_async` in other directory. Now you are good to go!
 7. Download the [8i_dataset](https://plenodb.jpeg.org/pc/8ilabs/) to use and test our tool!
 
 ## Commands
@@ -466,6 +466,72 @@ Options:
       --decoder-path <DECODER_PATH>  
       --bg-color <BG_COLOR>          [default: rgb(255,255,255)]
   -h, --help                         Print help
+```
+
+
+### `vvplay_async`
+
+Plays a folder of ply files in lexicographical order, leveraging prefetching and playback caching for optimized performance. A window will appear upon running the binary from which you can navigate using your mouse and keyboard. Controls are described further below.
+
+```shell
+Usage: vvplay_async [OPTIONS] <SRC>
+
+Arguments:
+  <SRC>  src can be:
+
+Options:
+  -f, --fps <FPS>
+          [default: 30]
+  -x, --camera-x <CAMERA_X>
+          [default: 0]
+  -y, --camera-y <CAMERA_Y>
+          [default: 0]
+  -z, --camera-z <CAMERA_Z>
+          [default: 1.5]
+      --pitch <CAMERA_PITCH>
+          [default: 0]
+      --yaw <CAMERA_YAW>
+          [default: -90]
+  -W, --width <WIDTH>
+          Set the screen width [default: 1600]
+  -H, --height <HEIGHT>
+          Set the screen height [default: 900]
+      --controls
+          
+  -b, --buffer-capacity <BUFFER_CAPACITY>
+          buffer capacity in seconds
+  -m, --metrics <METRICS>
+          
+      --abr <ABR_TYPE>
+          [default: quetra] [possible values: quetra, quetra-multiview, mckp]
+      --decoder <DECODER_TYPE>
+          [default: noop] [possible values: noop, draco, tmc2rs]
+      --multiview
+          Set this flag if each view is encoded separately, i.e. multiview
+      --decoder-path <DECODER_PATH>
+          Path to the decoder binary (only for Draco)
+      --tp <THROUGHPUT_PREDICTION_TYPE>
+          [default: last] [possible values: last, avg, ema, gaema, lpema]
+      --throughput-alpha <THROUGHPUT_ALPHA>
+          Alpha for throughput prediction. Only used for EMA, GAEMA, and LPEMA [default: 0.1]
+      --vp <VIEWPORT_PREDICTION_TYPE>
+          [default: last] [possible values: last]
+      --network-trace <NETWORK_TRACE>
+          Path to network trace for repeatable simulation. 
+          Network trace is expected to be given in Kbps
+      --camera-trace <CAMERA_TRACE>
+          Path to camera trace for repeatable simulation.
+          Camera trace is expected to be given in 
+          (pos_x, pos_y, pos_z, rot_pitch, rot_yaw, rot_roll). 
+          Rotation is in degrees
+      --record-camera-trace <RECORD_CAMERA_TRACE>
+          Path to record camera trace from the player
+      --enable-fetcher-optimizations
+          Enable fetcher optimizations
+      --bg-color <BG_COLOR>
+          [default: rgb(255,255,255)]
+  -h, --help
+          Print help (see more with '--help')
 ```
 
 ### Controls
