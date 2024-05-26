@@ -149,13 +149,23 @@ impl PCDHeader {
     /// Calculates the number of bytes that should be present in the
     /// data portion of the point cloud.
     pub fn buffer_size(&self) -> u64 {
+        self.buffer_size_for_points(self.points)
+    }
+
+    /// Calculate the number of bytes needed given the point num
+    pub fn buffer_size_for_points(&self, point_num: u64) -> u64 {
         let mut size_per_point = 0;
         for field in &self.fields {
             let field_size = field.size() as u64;
             size_per_point += field_size * field.count;
         }
 
-        size_per_point * self.points
+        size_per_point * point_num
+    }
+
+    /// Update the point number of the header
+    pub fn set_points(&mut self, point_num: u64) {
+        self.points = point_num;
     }
 
     /// Calculates the number of data points that should be present per line

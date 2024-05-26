@@ -3,8 +3,8 @@ use std::ffi::OsString;
 use std::path::Path;
 
 use vivotk::render::wgpu::{
-    adaptive_reader::AdaptiveReader, builder::RenderBuilder, camera::Camera, controls::Controller,
-    metrics_reader::MetricsReader, renderer::Renderer,
+    builder::RenderBuilder, camera::Camera, controls::Controller, metrics_reader::MetricsReader,
+    render_manager::AdaptiveManager, renderer::Renderer,
 };
 
 /// Plays a folder of pcd files in lexicographical order
@@ -13,7 +13,7 @@ struct Args {
     /// src can be:
     /// 1. Directory with all the pcd files in lexicographical order
     /// 2. location of the mpd file
-    src: Vec<String>,
+    src: String,
     #[clap(short = 'q', long, default_value_t = 0)]
     quality: u8,
     #[clap(short, long, default_value_t = 30.0)]
@@ -59,6 +59,8 @@ struct Args {
     decoder_path: Option<OsString>,
     #[clap(long, default_value = "rgb(255,255,255)")]
     bg_color: OsString,
+    #[clap(long, default_value = "false")]
+    lod: bool,
 }
 
 #[derive(clap::ValueEnum, Clone, Copy)]
@@ -69,7 +71,7 @@ enum DecoderType {
 
 fn main() {
     let args: Args = Args::parse();
-    let adaptive_reader = AdaptiveReader::new(&args.src);
+    let adaptive_manager = AdaptiveManager::new(&args.src, args.lod);
 
     let camera = Camera::new(
         (args.camera_x, args.camera_y, args.camera_z),
@@ -80,9 +82,9 @@ fn main() {
         .metrics
         .map(|os_str| MetricsReader::from_directory(Path::new(&os_str)));
     let mut builder = RenderBuilder::default();
-    let slider_end = adaptive_reader.len() - 1;
+    let slider_end = adaptive_manager.len() - 1;
     let render = builder.add_window(Renderer::new(
-        adaptive_reader,
+        adaptive_manager,
         args.fps,
         camera,
         (args.width, args.height),

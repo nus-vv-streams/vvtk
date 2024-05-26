@@ -9,7 +9,7 @@ use vivotk::codec::decoder::{DracoDecoder, NoopDecoder, Tmc2rsDecoder};
 use vivotk::codec::Decoder;
 use vivotk::dash::fetcher::{FetchResult, Fetcher};
 use vivotk::dash::{ThroughputPrediction, ViewportPrediction};
-use vivotk::render::wgpu::reader::RenderReaderCameraPos;
+use vivotk::render::wgpu::render_manager::{RenderManager, RenderReaderWrapper};
 use vivotk::render::wgpu::{
     builder::{EventType, RenderBuilder, RenderEvent},
     camera::{Camera, CameraPosition},
@@ -384,9 +384,10 @@ fn main() {
             .await
     });
     // let mut pcd_reader = PcdAsyncReader::new(buf_out_rx, out_buf_sx, args.buffer_size);
-    let mut pcd_reader = PcdAsyncReader::new(buf_out_rx, to_buf_sx);
+    let pcd_reader = PcdAsyncReader::new(buf_out_rx, to_buf_sx);
+    let mut pcd_manager = RenderReaderWrapper::new(pcd_reader);
     // set the reader max length
-    pcd_reader.set_len(total_frames);
+    pcd_manager.set_len(total_frames);
 
     let camera = Camera::new(
         (args.camera_x, args.camera_y, args.camera_z),
@@ -398,7 +399,7 @@ fn main() {
         .map(|os_str| MetricsReader::from_directory(Path::new(&os_str)));
 
     let mut builder = RenderBuilder::default();
-    let slider_end = pcd_reader.len() - 1;
+    let slider_end = pcd_manager.len() - 1;
 
     // This is the main window that renders the point cloud
     let render_window_id =
@@ -413,7 +414,7 @@ fn main() {
     // } else {
         //t: pcd reader still using normal render reader, and it is not implemented now
         builder.add_window(Renderer::new(
-            pcd_reader,
+            pcd_manager,
             args.fps,
             camera,
             (args.width, args.height),

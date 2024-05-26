@@ -1,12 +1,14 @@
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
 use crate::pcd::read_pcd_file;
+use crate::utils::{read_file_to_point_cloud, read_files_to_point_cloud};
 use crate::BufMsg;
 
-use crate::utils::read_file_to_point_cloud;
+// use crate::utils::read_file_to_point_cloud;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
+use std::process::exit;
 use std::sync::mpsc::Receiver;
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -20,7 +22,6 @@ pub trait RenderReader<T: Renderable> {
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
     fn set_len(&mut self, len: usize);
-    fn set_camera_state(&mut self, camera_state: Option<CameraState>);
 }
 // RenderReaderCameraPos for the one with CameraPosition
 pub trait RenderReaderCameraPos<T: Renderable> {
@@ -114,8 +115,6 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
     }
 
     fn set_len(&mut self, _len: usize) {}
-
-    fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
 }
 
 impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PointCloudFileReader {
@@ -171,8 +170,6 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdFileReader {
     }
 
     fn set_len(&mut self, _len: usize) {}
-
-    fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
 }
 
 pub struct PcdMemoryReader {
@@ -203,8 +200,100 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdMemoryReader {
     }
 
     fn set_len(&mut self, _len: usize) {}
+}
 
-    fn set_camera_state(&mut self, _camera: Option<CameraState>) {}
+pub struct LODFileReader {
+    base_files: Vec<PathBuf>,
+    additional_files: Option<Vec<Vec<PathBuf>>>,
+}
+
+impl LODFileReader {
+    pub fn new(base_dir: &Path, additional_dirs: Option<Vec<&Path>>, file_type: &str) -> Self {
+        let base_files = Self::from_directory(base_dir, file_type);
+
+        if additional_dirs.is_none() {
+            return Self {
+                base_files,
+                additional_files: None,
+            };
+        }
+
+        let additional_files = additional_dirs
+            .unwrap()
+            .iter()
+            .map(|dir| Self::from_directory(dir, file_type))
+            .collect::<Vec<_>>();
+
+        let len = base_files.len();
+        for reader in additional_files.iter() {
+            if reader.len() != len {
+                eprintln!("All readers must have the same length");
+                exit(1);
+            }
+        }
+
+        Self {
+            base_files,
+            additional_files: Some(additional_files),
+        }
+    }
+
+    fn from_directory(directory: &Path, file_type: &str) -> Vec<PathBuf> {
+        let mut files = vec![];
+        for file_entry in directory.read_dir().unwrap() {
+            match file_entry {
+                Ok(entry) => {
+                    if let Some(ext) = entry.path().extension() {
+                        if ext.eq(file_type) {
+                            files.push(entry.path());
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("{e}")
+                }
+            }
+        }
+        files.sort();
+        files
+    }
+
+    /// Get the point point cloud at the given index with additional points at the given indices.
+    pub fn get_with_additional_at(
+        &self,
+        index: usize,
+        additional_points: &Vec<usize>,
+    ) -> Option<PointCloud<PointXyzRgba>> {
+        let base_file = self.base_files.get(index)?;
+        let additional_files = self
+            .additional_files
+            .as_ref()?
+            .iter()
+            .map(|reader| reader.get(index).unwrap())
+            .collect::<Vec<_>>();
+        read_files_to_point_cloud(base_file, &additional_files, additional_points)
+    }
+}
+
+impl RenderReader<PointCloud<PointXyzRgba>> for LODFileReader {
+    fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
+        self.get_at(0)
+    }
+
+    fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
+        let file_path = self.base_files.get(index)?;
+        read_file_to_point_cloud(file_path)
+    }
+
+    fn len(&self) -> usize {
+        self.base_files.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.base_files.is_empty()
+    }
+
+    fn set_len(&mut self, _len: usize) {}
 }
 
 #[cfg(feature = "dash")]
@@ -363,8 +452,6 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
     fn set_len(&mut self, len: usize) {
         self.total_frames = len as u64;
     }
-
-    fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
 }
 
 // !! BufRenderReader is not used and comments are deleted.
