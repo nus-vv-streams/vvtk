@@ -292,7 +292,8 @@ impl Subcommand for Write {
                                 if let Err(e) = write_pcd_file(&pcd, pcd_data_type, &output_file) {
                                     println!("Failed to write {:?}\n{e}", output_file);
                                 }
-                            } else if let Err(e) = write_pcd_data(&pcd, pcd_data_type, &output_file) {
+                            } else if let Err(e) = write_pcd_data(&pcd, pcd_data_type, &output_file)
+                            {
                                 println!("Failed to write {:?}\n{e}", output_file);
                             }
                         }
