@@ -127,7 +127,7 @@ impl Subcommand for Reconstructer {
                 PipelineMessage::Metrics(_)
                 | PipelineMessage::DummyForIncrement
                 | PipelineMessage::IndexedPointCloudWithName(_, _, _, _)
-                | PipelineMessage::MetaData(_, _, _, _) 
+                | PipelineMessage::MetaData(_, _, _, _)
                 | PipelineMessage::SubcommandMessage(_, _)
                 | PipelineMessage::IndexedPointCloudWithTriangleFaces(_, _, _) => {}
                 PipelineMessage::End => {

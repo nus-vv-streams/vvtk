@@ -245,12 +245,13 @@ impl Subcommand for Write {
                             }
                         }
                         "ply" => {
-                            if let Err(_e) = pcd_to_ply_from_data(&output_file, pcd_data_type, pcd) {
-                            //if let Err(e) =
-                            //    pcd_to_ply_from_data_normal(&output_file, pcd_data_type, pcd)
-                            //{
-                            //    println!("Failed to write {:?}\n{e}", output_file);
-                            //}
+                            if let Err(_e) = pcd_to_ply_from_data(&output_file, pcd_data_type, pcd)
+                            {
+                                //if let Err(e) =
+                                //    pcd_to_ply_from_data_normal(&output_file, pcd_data_type, pcd)
+                                //{
+                                //    println!("Failed to write {:?}\n{e}", output_file);
+                                //}
                             }
                         }
                         _ => {
