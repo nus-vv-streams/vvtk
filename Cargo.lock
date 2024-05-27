@@ -207,6 +207,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "atomic_float"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62af46d040ba9df09edc6528dae9d8e49f5f3e82f55b7d2ec31a733c38dbc49d"
+
+[[package]]
 name = "atomic_refcell"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -743,7 +749,7 @@ dependencies = [
  "ciborium",
  "clap 3.2.25",
  "criterion-plot",
- "itertools",
+ "itertools 0.10.5",
  "lazy_static",
  "num-traits",
  "oorandom",
@@ -764,7 +770,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b50826342786a51a89e2da3a28f1c32b06e387201bc2d19791f622c673706b1"
 dependencies = [
  "cast",
- "itertools",
+ "itertools 0.10.5",
 ]
 
 [[package]]
@@ -1791,6 +1797,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1903,6 +1918,12 @@ dependencies = [
  "cfg-if",
  "windows-targets 0.52.5",
 ]
+
+[[package]]
+name = "libm"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ec2a862134d2a7d32d7983ddcdd1c4923530833c9f2ea1a44fc5fa473989058"
 
 [[package]]
 name = "linked-hash-map"
@@ -2077,6 +2098,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "nalgebra-sparse"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b113b3101e137b3d0ef20b76b7579cde88e3d1f2f64993d4d6a49f232055cc9"
+dependencies = [
+ "nalgebra",
+ "num-traits",
+]
+
+[[package]]
 name = "native-tls"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2209,6 +2240,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51d515d32fb182ee37cda2ccdcb92950d6a3c2893aa280e540671c2cd0f3b1d9"
 
 [[package]]
+name = "num-derive"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed3955f1a9c7c0c15e092f9c887db08b1fc683305fdf6eb6684f22555355e202"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.66",
+]
+
+[[package]]
 name = "num-integer"
 version = "0.1.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2234,6 +2276,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
+ "libm",
 ]
 
 [[package]]
@@ -2396,6 +2439,27 @@ dependencies = [
  "redox_syscall",
  "smallvec",
  "windows-targets 0.52.5",
+]
+
+[[package]]
+name = "parry3d-f64"
+version = "0.13.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c46e77bfaf70d3f26dd0615dfab06a39f17ef2ae989bad44561318f47997ca7"
+dependencies = [
+ "approx 0.5.1",
+ "arrayvec 0.7.4",
+ "bitflags 1.3.2",
+ "downcast-rs",
+ "either",
+ "nalgebra",
+ "num-derive",
+ "num-traits",
+ "rustc-hash",
+ "simba",
+ "slab",
+ "smallvec",
+ "spade",
 ]
 
 [[package]]
@@ -2759,6 +2823,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "robust"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cbf4a6aa5f6d6888f39e980649f3ad6b666acdce1d78e95b8a2cb076e687ae30"
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3098,6 +3168,18 @@ checksum = "ce305eb0b4296696835b71df73eb912e0f1ffd2556a501fcede6e0c50349191c"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "spade"
+version = "2.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b20a809169ae442497e41a997fc5f14e2eea04e6ac590816a910d5d8068c8c0"
+dependencies = [
+ "hashbrown 0.14.5",
+ "num-traits",
+ "robust",
+ "smallvec",
 ]
 
 [[package]]
@@ -3576,6 +3658,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "approx 0.5.1",
+ "atomic_float",
  "bincode",
  "bytemuck",
  "byteorder",
@@ -3591,14 +3674,18 @@ dependencies = [
  "epi",
  "ffmpeg-next",
  "float-ord",
+ "fnv",
  "futures",
  "image",
+ "itertools 0.11.0",
  "kdam",
  "kdtree",
  "kiddo",
  "log",
  "nalgebra",
+ "nalgebra-sparse",
  "num-traits",
+ "parry3d-f64",
  "ply-rs",
  "pollster",
  "quick-xml",

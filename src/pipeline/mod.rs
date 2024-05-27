@@ -6,8 +6,9 @@ use crossbeam_channel::Receiver;
 
 use crate::{
     formats::{
-        bounds::Bounds, pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal,
-        PointCloud,
+        bounds::Bounds,
+        pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal,
+        triangle_face::TriangleFace, PointCloud,
     },
     metrics::Metrics,
 };
@@ -57,6 +58,7 @@ pub enum PipelineMessage {
     SubcommandMessage(SubcommandObject<PointCloud<PointXyzRgba>>, u32),
     End,
     DummyForIncrement,
+    IndexedPointCloudWithTriangleFaces(PointCloud<PointXyzRgba>, u32, Option<Vec<TriangleFace>>),
 }
 
 #[derive(Debug)]
@@ -223,6 +225,8 @@ enum VVSubCommand {
     Dash(dash::Args),
     #[clap(name = "extend")]
     Extend(extension::Args),
+    #[clap(name = "normal")]
+    NormalEstimation(normal_estimation::Args),
 }
 
 fn display_main_help_msg() {

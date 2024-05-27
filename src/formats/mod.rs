@@ -13,6 +13,7 @@ pub mod bounds;
 pub mod metadata;
 pub mod pointxyzrgba;
 pub mod pointxyzrgbanormal;
+pub mod triangle_face;
 
 // Possible change: put index number here (motivation: PipelineMessage IndexedPointCloud)
 #[derive(Clone, Deserialize, Serialize)]

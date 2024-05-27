@@ -45,6 +45,7 @@ impl Subcommand for Downsampler {
                     channel.send(PipelineMessage::IndexedPointCloud(downsampled_pc, i));
                 }
                 PipelineMessage::Metrics(_)
+                | PipelineMessage::IndexedPointCloudWithTriangleFaces(_, _, _)
                 | PipelineMessage::IndexedPointCloudNormal(_, _)
                 | PipelineMessage::IndexedPointCloudWithName(_, _, _, _)
                 | PipelineMessage::MetaData(_, _, _, _)
