@@ -69,10 +69,7 @@ pub fn read_bin_to_point_cloud_xyzrgba<P: AsRef<Path>>(
         b: 0,
         a: 255,
     };
-    Some(PointCloud {
-        number_of_points: (1),
-        points: (vec![p]),
-    })
+    Some(PointCloud::new(1, vec![p]))
 }
 
 #[cfg(test)]

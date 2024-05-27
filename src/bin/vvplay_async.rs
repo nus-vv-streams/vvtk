@@ -9,7 +9,7 @@ use vivotk::codec::decoder::{DracoDecoder, NoopDecoder};
 use vivotk::codec::Decoder;
 use vivotk::dash::fetcher::{FetchResult, Fetcher};
 use vivotk::dash::{ThroughputPrediction, ViewportPrediction};
-use vivotk::render::wgpu::reader::RenderReaderCameraPos;
+use vivotk::render::wgpu::render_manager::{RenderManager, RenderReaderWrapper};
 use vivotk::render::wgpu::{
     builder::{EventType, RenderBuilder, RenderEvent},
     camera::{Camera, CameraPosition},
@@ -113,7 +113,8 @@ fn main() {
     let (total_frames_tx, total_frames_rx) = tokio::sync::oneshot::channel();
 
     // initialize variables based on args
-    let buffer_capacity = args.buffer_capacity.unwrap_or(11);
+    // the real buffer capacity is buffer capacity in seconds * fps
+    let buffer_capacity = args.buffer_capacity.unwrap_or(11) * args.fps as u64;
     let simulated_network_trace = args.network_trace.map(|path| NetworkTrace::new(&path));
     let simulated_camera_trace = args.camera_trace.map(|path| CameraTrace::new(&path, false));
     let record_camera_trace = args
@@ -331,7 +332,11 @@ fn main() {
                                 },
                             };
                             decoder.start().unwrap();
+                            //t: the unbound receiver for PointCloud is here, trace this down
+                            // Everytime a PointCloud is ready, an unbounded channel is created
+                            // t: For case of Noop, only one PointCloud will be produced each time, not sure about other decoder
                             let (output_sx, output_rx) = tokio::sync::mpsc::unbounded_channel();
+                            // Send BufMsg to inform the buffer that the PointCloud is ready
                             _ = to_buf_sx
                                 .send(BufMsg::PointCloud((
                                     PCMetadata {
@@ -384,9 +389,10 @@ fn main() {
             .await
     });
     // let mut pcd_reader = PcdAsyncReader::new(buf_out_rx, out_buf_sx, args.buffer_size);
-    let mut pcd_reader = PcdAsyncReader::new(buf_out_rx, to_buf_sx);
+    let pcd_reader = PcdAsyncReader::new(buf_out_rx, to_buf_sx);
+    let mut pcd_manager = RenderReaderWrapper::new(pcd_reader);
     // set the reader max length
-    pcd_reader.set_len(total_frames);
+    pcd_manager.set_len(total_frames);
 
     let camera = Camera::new(
         (args.camera_x, args.camera_y, args.camera_z),
@@ -398,7 +404,7 @@ fn main() {
         .map(|os_str| MetricsReader::from_directory(Path::new(&os_str)));
 
     let mut builder = RenderBuilder::default();
-    let slider_end = pcd_reader.len() - 1;
+    let slider_end = pcd_manager.len() - 1;
 
     // This is the main window that renders the point cloud
     let render_window_id =
@@ -413,7 +419,7 @@ fn main() {
     // } else {
         //t: pcd reader still using normal render reader, and it is not implemented now
         builder.add_window(Renderer::new(
-            pcd_reader,
+            pcd_manager,
             args.fps,
             camera,
             (args.width, args.height),

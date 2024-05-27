@@ -4,16 +4,27 @@ use std::fmt::Debug;
 use crate::pcd::PointCloudData;
 use crate::velodyne::{VelodynPoint, VelodyneBinData};
 
+use self::bounds::Bounds;
+
 #[cfg(feature = "with-tmc2-rs-decoder")]
 use self::pointxyzrgba::PointXyzRgba;
 
+pub mod bounds;
+pub mod metadata;
 pub mod pointxyzrgba;
 pub mod pointxyzrgbanormal;
 
 #[derive(Clone)]
 pub struct PointCloud<T> {
     pub number_of_points: usize,
+    pub segments: Option<Vec<PointCloudSegment>>,
     pub points: Vec<T>,
+}
+
+#[derive(Clone)]
+pub struct PointCloudSegment {
+    pub point_indices: Vec<usize>,
+    pub bounds: Bounds,
 }
 
 impl<T> PointCloud<T>
@@ -24,6 +35,94 @@ where
     pub(crate) fn combine(&mut self, other: &Self) {
         self.points.extend_from_slice(&other.points);
         self.number_of_points += other.number_of_points;
+    }
+
+    pub fn new(number_of_points: usize, points: Vec<T>) -> Self {
+        Self {
+            number_of_points,
+            points,
+            segments: None,
+        }
+    }
+
+    pub fn is_partitioned(&self) -> bool {
+        self.segments.is_some()
+    }
+
+    /// Add points to the segment with the given index
+    pub fn add_points(&mut self, points: Vec<T>, segment_index: usize) {
+        if let Some(segments) = &mut self.segments {
+            let prev_len = self.points.len();
+            self.number_of_points += points.len();
+            self.points.extend_from_slice(&points);
+            let point_indices = prev_len..self.points.len();
+            segments[segment_index].add_points(point_indices.collect());
+        }
+    }
+
+    /// Segments the point cloud based on the given offsets and bounds
+    pub fn self_segment(&mut self, offsets: &Vec<usize>, bounds: &Vec<Bounds>) {
+        let mut segments = Vec::with_capacity(offsets.len());
+        let mut start = 0;
+
+        for i in 0..offsets.len() {
+            let end = start + offsets[i];
+            let point_indices = (start..end).collect::<Vec<usize>>();
+
+            segments.push(PointCloudSegment {
+                point_indices: point_indices.clone(),
+                bounds: bounds[i].clone(),
+            });
+            start = end;
+        }
+
+        self.segments = Some(segments);
+    }
+
+    pub fn self_segment_with_bound_indices(
+        &mut self,
+        offsets: &Vec<usize>,
+        bound_indices: &Vec<usize>,
+        bounds: &Vec<Bounds>,
+    ) {
+        // create segments first
+        let mut segments = Vec::with_capacity(offsets.len());
+        for _ in 0..bounds.len() {
+            segments.push(PointCloudSegment {
+                point_indices: Vec::new(),
+                bounds: bounds[0].clone(),
+            });
+        }
+
+        let mut start = 0;
+
+        for i in 0..offsets.len() {
+            let end = start + offsets[i];
+            let point_indices = (start..end).collect::<Vec<usize>>();
+            segments[bound_indices[i]].add_points(point_indices);
+            start = end;
+        }
+
+        self.segments = Some(segments);
+    }
+
+    pub fn get_points_in_segment(&self, segment_index: usize) -> Vec<T> {
+        if let Some(segments) = &self.segments {
+            let segment = &segments[segment_index];
+            segment
+                .point_indices
+                .iter()
+                .map(|i| self.points[*i].clone())
+                .collect()
+        } else {
+            self.points.clone()
+        }
+    }
+}
+
+impl PointCloudSegment {
+    fn add_points(&mut self, point_indices: Vec<usize>) {
+        self.point_indices.extend(point_indices);
     }
 }
 
@@ -66,6 +165,7 @@ impl<T> From<PointCloudData> for PointCloud<T> {
         Self {
             number_of_points,
             points,
+            segments: None,
         }
     }
 }
@@ -92,6 +192,7 @@ impl From<tmc2rs::codec::PointSet3> for PointCloud<PointXyzRgba> {
         Self {
             number_of_points,
             points,
+            segments: None,
         }
     }
 }
@@ -104,6 +205,7 @@ impl From<VelodyneBinData> for PointCloud<pointxyzrgba::PointXyzRgba> {
         Self {
             number_of_points,
             points,
+            segments: None,
         }
     }
 }
