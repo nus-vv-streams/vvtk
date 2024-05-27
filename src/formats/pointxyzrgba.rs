@@ -2,6 +2,7 @@ use serde::{
     ser::{Serialize, SerializeStruct, Serializer},
     Deserialize,
 };
+use std::cmp::Ordering;
 #[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq, bytemuck::Pod, bytemuck::Zeroable, Deserialize)]
 pub struct PointXyzRgba {
@@ -13,6 +14,24 @@ pub struct PointXyzRgba {
     pub b: u8,
     pub a: u8,
 }
+
+impl PartialOrd for PointXyzRgba {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for PointXyzRgba {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.x
+            .total_cmp(&other.x)
+            .then_with(|| self.y.total_cmp(&other.y))
+            .then_with(|| self.z.total_cmp(&other.z))
+    }
+}
+
+impl Eq for PointXyzRgba {}
+
 impl Serialize for PointXyzRgba {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

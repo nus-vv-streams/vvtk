@@ -529,9 +529,12 @@ where
     pub fn update_vertices(&mut self, device: &Device, queue: &Queue, data: &T) {
         let vertices = data.num_vertices();
         if vertices > self.num_vertices {
+            // print!("creating new device");
+
             self.vertex_buffer.destroy();
             self.vertex_buffer = data.create_buffer(device);
         } else {
+            // print!("writing to buffer length: {}", data.bytes().len());
             queue.write_buffer(&self.vertex_buffer, 0, data.bytes());
         }
         self.num_vertices = vertices;

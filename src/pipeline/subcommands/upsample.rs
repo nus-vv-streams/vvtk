@@ -5,7 +5,9 @@ use std::time::Instant;
 use crate::{
     pipeline::{channel::Channel, PipelineMessage},
     reconstruct::poisson_reconstruct::reconstruct,
-    upsample::{interpolate::upsample, upsample_methods::UpsampleMethod},
+    upsample::{
+        interpolate::upsample, interpolate::upsample_grid, upsample_methods::UpsampleMethod,
+    },
 };
 
 use super::Subcommand;
@@ -68,8 +70,9 @@ impl Subcommand for Upsampler {
         for message in messages {
             match message {
                 PipelineMessage::IndexedPointCloud(pc, i) => {
-                    println!("Doing upsample");
-                    let upsampled_pc = upsample(pc, self.factor);
+                    let upsampled_pc = upsample_grid(pc, self.factor);
+                    // println!("Doing upsample");
+                    // let upsampled_pc = upsample(pc, self.factor);
                     channel.send(PipelineMessage::IndexedPointCloud(upsampled_pc, i));
                 }
                 PipelineMessage::SubcommandMessage(subcommand_object, i) => {
