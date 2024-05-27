@@ -1,10 +1,8 @@
 use crate::{
     formats::{bounds::Bounds, pointxyzrgba::PointXyzRgba, PointCloud},
-    utils::get_pc_bound,
+    // utils::get_pc_bound,
 };
 
-// import the const DELTA found crate::bounds
-use crate::formats::bounds::DELTA;
 use rayon::prelude::*;
 
 pub fn downsample(

@@ -201,6 +201,8 @@ impl<const N: usize> ThroughputPrediction for SimpleRunningAverage<f64, N> {
                 + (value - self.values[self.next]))
                 / std::cmp::min(N, self.divide_by + 1) as f64,
         );
+        self.values[self.next] = value;
+        self.next = (self.next + 1) % N;
         self.divide_by = std::cmp::min(self.divide_by + 1, N);
     }
 

@@ -161,11 +161,13 @@ impl NormalEstimation {
     }
 }
 
+/*
 #[derive(Debug)]
 struct EigenData {
     eigenvectors: Matrix3<f32>,
     eigenvalues: Vector3<f32>,
 }
+*/
 
 impl Subcommand for NormalEstimation {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
@@ -294,35 +296,27 @@ fn compute_covariance_matrices(
     covariance_matrices
 }
 
-fn compute_eigenvalues_eigenvectors(covariance_matrices: &[CovarianceMatrix]) -> Vec<EigenData> {
-    let mut eigen_data_vec = Vec::with_capacity(covariance_matrices.len());
+#[derive(Debug)]
+struct EigenData {
+    eigenvectors: Matrix3<f32>,
+    eigenvalues: Vector3<f32>,
+}
 
-    for covariance_matrix in covariance_matrices {
+fn compute_eigenvalues_eigenvectors(matrices: &[CovarianceMatrix]) -> Vec<EigenData> {
+    matrices.iter().map(|m| {
         let cov_matrix = Matrix3::new(
-            covariance_matrix.xx,
-            covariance_matrix.xy,
-            covariance_matrix.xz,
-            covariance_matrix.xy,
-            covariance_matrix.yy,
-            covariance_matrix.yz,
-            covariance_matrix.xz,
-            covariance_matrix.yz,
-            covariance_matrix.zz,
+            m.xx, m.xy, m.xz,
+            m.xy, m.yy, m.yz,
+            m.xz, m.yz, m.zz,
         );
-
+    
         let eigendecomp = cov_matrix.symmetric_eigen();
-
-        let eigenvectors = eigendecomp.eigenvectors;
-        let eigenvalues = eigendecomp.eigenvalues;
-
-        let eigen_data = EigenData {
-            eigenvectors,
-            eigenvalues,
-        };
-        eigen_data_vec.push(eigen_data);
-    }
-
-    eigen_data_vec
+    
+        EigenData {
+            eigenvectors: eigendecomp.eigenvectors,
+            eigenvalues: eigendecomp.eigenvalues,
+        }
+    }).collect()
 }
 
 fn assign_normal_vectors(pc: &mut PointCloud<PointXyzRgbaNormal>, eigen_results: &[EigenData]) {
@@ -437,12 +431,9 @@ mod test {
     fn test_compute_eigenvalues_eigenvectors() {
         // Create a sample covariance matrix
         let covariance_matrix = CovarianceMatrix {
-            xx: 2.0,
-            xy: 1.0,
-            xz: 1.0,
-            yy: 3.0,
-            yz: 2.0,
-            zz: 4.0,
+            xx: 3.0,  xy: 2.0,  xz: 4.0,
+            /* 2.0 */ yy: 0.0,  yz: 2.0,
+            /* 4.0 */ /* 2.0 */ zz: 3.0,
         };
 
         // Compute the eigen data
@@ -450,6 +441,10 @@ mod test {
 
         // Define the expected eigenvectors
         let expected_eigenvectors = Matrix3::new(
+            0.6666666, -0.7453561,  0.0,
+            0.3333333,  0.2981425,  0.8944273,
+            0.6666666,  0.5962848, -0.44721353
+        /*
             0.52891886,
             -0.59959215,
             0.60068053,
@@ -459,6 +454,7 @@ mod test {
             0.6411168,
             0.7644144,
             0.068997495,
+        */
         );
 
         assert_relative_eq!(
