@@ -5,7 +5,9 @@ use std::time::Instant;
 use crate::{
     pipeline::{channel::Channel, PipelineMessage},
     reconstruct::poisson_reconstruct::reconstruct,
-    upsample::{interpolate::upsample, interpolate::upsample_grid, upsample_methods::UpsampleMethod},
+    upsample::{
+        interpolate::upsample, interpolate::upsample_grid, upsample_methods::UpsampleMethod,
+    },
 };
 
 use super::Subcommand;
