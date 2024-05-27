@@ -309,7 +309,7 @@ impl RenderManager<PointCloud<PointXyzRgba>> for AdaptiveUpsamplingManager {
         self.camera_state = camera_state;
     }
 
-    fn should_redraw(&mut self, camera_state: &CameraState) -> bool {
+    fn should_redraw(&mut self, _camera_state: &CameraState) -> bool {
         true
     }
 }

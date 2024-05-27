@@ -1,13 +1,11 @@
 use std::{collections::HashSet, time::Instant};
 
-use cgmath::Matrix4;
 use kiddo::{distance::squared_euclidean, KdTree};
 use log::warn;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::{
     formats::{bounds::Bounds, pointxyzrgba::PointXyzRgba, PointCloud},
-    render::wgpu::upsampler::Upsampler,
     utils::get_pc_bound,
 };
 
@@ -277,6 +275,7 @@ fn upsample_grid_vertices_dedup(vertices: Vec<PointXyzRgba>) -> Vec<PointXyzRgba
     new_points
 }
 
+/*
 fn upsample_grid_vertices(vertices: Vec<PointXyzRgba>) -> Vec<PointXyzRgba> {
     let mut kd_tree = KdTree::new();
     for (i, pt) in vertices.iter().enumerate() {
@@ -347,6 +346,7 @@ fn upsample_grid_vertices(vertices: Vec<PointXyzRgba>) -> Vec<PointXyzRgba> {
     println!("Visited pairs count: {:?}", visited.len());
     new_points
 }
+*/
 
 #[cfg(test)]
 mod test {

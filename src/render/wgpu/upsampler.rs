@@ -1,21 +1,23 @@
 use cgmath::{Matrix4, Point3, Transform};
 use kiddo::{distance::squared_euclidean, KdTree};
-use nalgebra::ComplexField;
-use num_traits::Float;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 use crate::{
-    formats::{bounds::Bounds, pointxyzrgba::PointXyzRgba, PointCloud},
+    formats::{
+        bounds::Bounds, 
+        pointxyzrgba::PointXyzRgba, 
+        PointCloud
+    },
     utils::get_pc_bound,
 };
 use std::{
-    cmp::{max, min},
-    collections::{BTreeSet, HashSet},
-    time::{Duration, Instant},
+    cmp::min,
+    collections::HashSet,
 };
 
 use super::{
-    camera::CameraState, renderable::Renderable, resolution_controller::ResolutionController,
+    camera::CameraState, 
+    renderable::Renderable
 };
 
 pub struct Upsampler {}
