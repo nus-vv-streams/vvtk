@@ -1,4 +1,3 @@
-
 use crate::formats::metadata::MetaData;
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
@@ -110,7 +109,6 @@ impl AdaptiveLODManager {
     }
 
     pub fn get_desired_point_cloud(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-
         if self.metadata.is_none() {
             let pc = self.reader.get_at(index).unwrap();
             return Some(pc);
@@ -190,7 +188,6 @@ impl AdaptiveLODManager {
     }
 }
 
-
 impl RenderManager<PointCloud<PointXyzRgba>> for AdaptiveLODManager {
     fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
         self.get_desired_point_cloud(0)
@@ -231,7 +228,7 @@ pub struct AdaptiveUpsamplingManager {
     current_index: usize,
     pc: Option<PointCloud<PointXyzRgba>>,
 
-    should_adaptive_upsample: bool
+    should_adaptive_upsample: bool,
 }
 
 impl AdaptiveUpsamplingManager {
@@ -251,7 +248,7 @@ impl AdaptiveUpsamplingManager {
             reader,
             camera_state: None,
             current_index: usize::MAX,
-            should_adaptive_upsample
+            should_adaptive_upsample,
         }
     }
 
@@ -279,11 +276,12 @@ impl RenderManager<PointCloud<PointXyzRgba>> for AdaptiveUpsamplingManager {
 
         let camera_state = self.camera_state.as_ref().unwrap();
 
-        let mut visible_pc = Upsampler::get_visible_points(self.pc.as_ref().unwrap().clone(), camera_state);
+        let mut visible_pc =
+            Upsampler::get_visible_points(self.pc.as_ref().unwrap().clone(), camera_state);
         let mut needs_upsampling = true;
         while needs_upsampling {
             let upsampled_points = Upsampler::upsample(&visible_pc, camera_state, PARTITION_SIZE);
-            
+
             if let Some(upsampled_points) = upsampled_points {
                 self.pc.as_mut().unwrap().combine(&upsampled_points);
                 visible_pc.combine(&upsampled_points);
@@ -291,7 +289,7 @@ impl RenderManager<PointCloud<PointXyzRgba>> for AdaptiveUpsamplingManager {
                 needs_upsampling = false;
             }
         }
-        
+
         Some(visible_pc)
     }
 

@@ -21,7 +21,8 @@ impl PartialOrd for PointXyzRgba {
 
 impl Ord for PointXyzRgba {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.x.total_cmp(&other.x)
+        self.x
+            .total_cmp(&other.x)
             .then_with(|| self.y.total_cmp(&other.y))
             .then_with(|| self.z.total_cmp(&other.z))
     }
