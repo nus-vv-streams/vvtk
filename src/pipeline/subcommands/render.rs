@@ -136,6 +136,19 @@ impl Subcommand for Render<'_> {
                     }
                     self.writer.write_to_png(pc, &filename);
                 }
+                PipelineMessage::SubcommandMessage(subcommand_object, i) => {
+                    // Only vv extend will send SubcommandMessage, other subcommand will send IndexedPointCloud to make sure the other command will
+                    // continue to be compatible by receiving IndexedPointCloud
+                    let pc = subcommand_object.get_content();
+                    let padded_count = format!("{:0>width$}", i, width = self.name_length as usize);
+                    let filename = format!("{}.png", padded_count);
+                    self.count += 1;
+                    if self.count >= max_count {
+                        channel.send(PipelineMessage::End);
+                        panic!("Too many files, please increase the name length by setting --name-length")
+                    }
+                    self.writer.write_to_png(pc, &filename);
+                }
                 _ => {}
             }
             channel.send(message);

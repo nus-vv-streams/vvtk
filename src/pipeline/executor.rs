@@ -5,6 +5,7 @@ use crossbeam_channel::{unbounded, Receiver};
 use std::collections::HashSet;
 
 pub struct Executor {
+    // Subcommand name
     name: String,
     input_stream_names: Vec<String>,
     output_name: String,
@@ -24,6 +25,8 @@ impl ExecutorBuilder {
         }
     }
 
+    // This function will identify what to do with the all the vv commands and args passed in
+    // then create a Executor that has a channel inside it to track the progress
     pub fn create(
         &mut self,
         args: Vec<String>,
@@ -85,12 +88,12 @@ impl ExecutorBuilder {
                 inner_args.push(arg);
             }
         }
-
         if has_input
             || cmd.as_str() == "read"
             || cmd.as_str() == "convert"
             || cmd.as_str() == "info"
             || cmd.as_str() == "dash"
+            || cmd.as_str() == "extend"
             || has_help
         {
         } else {
@@ -99,7 +102,6 @@ impl ExecutorBuilder {
                 cmd.as_str()
             ));
         }
-
         let handler = creator(inner_args);
 
         let (progress_tx, progress_rx) = unbounded();
@@ -194,6 +196,7 @@ impl Executor {
             .map(|recv| recv.recv())
             .collect::<Result<Vec<PipelineMessage>, _>>()
         {
+            // If one of the provider sent the end message, this process will end
             let should_break = messages.iter().any(|message| {
                 if let PipelineMessage::End = message {
                     true

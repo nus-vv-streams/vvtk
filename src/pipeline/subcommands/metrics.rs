@@ -39,11 +39,37 @@ impl Subcommand for MetricsCalculator {
             .next()
             .expect("Expecting two input streams for metrics");
 
+        // If either one or both is from SubcommandMessage, MetricsCalculator still able to handle
         match (&message_one, &message_two) {
             (
                 PipelineMessage::IndexedPointCloud(original, _),
                 PipelineMessage::IndexedPointCloud(reconstructed, _),
             ) => {
+                let metrics = calculate_metrics(original, reconstructed, &self.metrics);
+                channel.send(PipelineMessage::Metrics(metrics));
+            }
+            (
+                PipelineMessage::SubcommandMessage(subcommand_object, _),
+                PipelineMessage::IndexedPointCloud(reconstructed, _),
+            ) => {
+                let original = subcommand_object.get_content();
+                let metrics = calculate_metrics(original, reconstructed, &self.metrics);
+                channel.send(PipelineMessage::Metrics(metrics));
+            }
+            (
+                PipelineMessage::IndexedPointCloud(original, _),
+                PipelineMessage::SubcommandMessage(subcommand_object, _),
+            ) => {
+                let reconstructed = subcommand_object.get_content();
+                let metrics = calculate_metrics(original, reconstructed, &self.metrics);
+                channel.send(PipelineMessage::Metrics(metrics));
+            }
+            (
+                PipelineMessage::SubcommandMessage(subcommand_object_original, _),
+                PipelineMessage::SubcommandMessage(subcommand_object_reconstructed, _),
+            ) => {
+                let reconstructed = subcommand_object_reconstructed.get_content();
+                let original = subcommand_object_original.get_content();
                 let metrics = calculate_metrics(original, reconstructed, &self.metrics);
                 channel.send(PipelineMessage::Metrics(metrics));
             }

@@ -498,9 +498,9 @@ dependencies = [
 
 [[package]]
 name = "clang-sys"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67523a3b4be3ce1989d607a828d036249522dd9c1c8de7f4dd2dae43a37369d1"
+checksum = "a483f3cbf7cec2e153d424d0e92329d816becc6421389bd494375c6065921b9b"
 dependencies = [
  "glob",
  "libc",
@@ -3338,7 +3338,7 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 [[package]]
 name = "tmc2rs"
 version = "0.1.0"
-source = "git+https://github.com/nus-vv-streams/tmc2-rs?branch=main#16a5d9bc8855763079d8056b564dd8bb849114e3"
+source = "git+https://github.com/nus-vv-streams/tmc2-rs?branch=main#48af07c1a13a109ce5758669cb1e9543c2f10196"
 dependencies = [
  "cgmath",
  "clap 4.5.4",
@@ -3606,6 +3606,7 @@ dependencies = [
  "regex",
  "reqwest",
  "serde",
+ "serde_json",
  "serde_with",
  "tempfile",
  "thiserror",

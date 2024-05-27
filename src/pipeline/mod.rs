@@ -3,7 +3,6 @@ mod executor;
 pub mod subcommands;
 use clap::Parser;
 use crossbeam_channel::Receiver;
-// use std::sync::mpsc::Receiver;
 
 use crate::{
     formats::{
@@ -16,10 +15,11 @@ use crate::{
 use self::{
     executor::Executor,
     executor::ExecutorBuilder,
+    subcommands::extension::SubcommandObject,
     subcommands::{
-        convert, dash, downsample, info, lodify, metrics, normal_estimation, read, render,
-        upsample, write, Convert, Dash, Downsampler, Info, Lodifier, MetricsCalculator,
-        NormalEstimation, Read, Render, Subcommand, Upsampler, Write,
+        convert, dash, downsample, extension, info, lodify, metrics, normal_estimation, read,
+        render, upsample, write, Convert, Dash, Downsampler, Extension, Info, Lodifier,
+        MetricsCalculator, NormalEstimation, Read, Render, Subcommand, Upsampler, Write,
     },
 };
 
@@ -38,6 +38,7 @@ fn subcommand(s: &str) -> Option<SubcommandCreator> {
         // "play" => Some(Box::from(Play::from_args)),
         "dash" => Some(Box::from(Dash::from_args)),
         "info" => Some(Box::from(Info::from_args)),
+        "extend" => Some(Box::from(Extension::from_args)),
         "lodify" => Some(Box::from(Lodifier::from_args)),
         _ => None,
     }
@@ -51,6 +52,9 @@ pub enum PipelineMessage {
     // PointCloud(PointCloud<PointXyzRgba>),
     MetaData(Bounds, Vec<usize>, Vec<usize>, (usize, usize, usize)),
     Metrics(Metrics),
+    // Pipeline message used by vv extend, contains the object that
+    // subcommand wants to pass to children or subsequennt subcommand
+    SubcommandMessage(SubcommandObject<PointCloud<PointXyzRgba>>, u32),
     End,
     DummyForIncrement,
 }
@@ -158,6 +162,7 @@ impl Pipeline {
         // !! skip the first argument, which is the name of the program
         for arg in args.iter().skip(1) {
             let is_command = subcommand(arg);
+            // If the subcommand is valid
             if is_command.is_some() {
                 if let Some(creator) = command_creator.take()
                 // !! the first take is always None
@@ -191,6 +196,7 @@ impl Pipeline {
     }
 }
 
+//TODO: update this soon
 #[derive(Parser)]
 enum VVSubCommand {
     #[clap(name = "convert")]
@@ -215,6 +221,8 @@ enum VVSubCommand {
     Lodify(lodify::Args),
     #[clap(name = "dash")]
     Dash(dash::Args),
+    #[clap(name = "extend")]
+    Extend(extension::Args),
 }
 
 fn display_main_help_msg() {

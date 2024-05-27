@@ -476,6 +476,35 @@ vv dash ./input ./sim_nw_avg_14050.txt -a quetra +out=dash \
    ./pcd_quetra +in=dash
 ```
 
+### `extend`
+
+``extend`` can be used to run external subcommands that is in the form of executable. Read [extension.md](./docs/dev/vv-extend/extension.md) for more details on creating subcommands and [test.md](./docs/dev/vv-extend/test.md) on testing ``extend``.
+
+
+```sh
+Extend is used for running custom subcommands.
+
+Usage: extend [OPTIONS] <CMD_NAME>
+
+Arguments:
+  <CMD_NAME>  Command name of the extension without the vv-prefix
+
+Options:
+  -x, --xargs <XARGS>...  Arguments that needs to pass in to the binary executable, value separate by comma
+  -h, --help              Print help
+```
+
+**Example:**  
+Read a ply-ascii file, pass to ``~/.cargo/bin/vv-test-executable`` then perform downsample. 
+```
+vv read ./test_files/ply_ascii/  +output=plyc \extend test-executable +input=plyc +output=plyd \downsample -p 2 +input=plyd
+```
+
+Read a ply-ascii, then pass to ``~/.cargo/bin/vv-test-args`` that takes in two command line argument. 
+```
+vv read ./test_files/ply_ascii/  +output=plyc \extend test-args +input=plyc --xargs=hello,world
+```
+
 ### `vvplay`
 
 Plays a folder of pcd/ply/bin files in lexicographical order. A window will appear upon running the binary from which you can navigate using your mouse and keyboard. Controls are described further below.
