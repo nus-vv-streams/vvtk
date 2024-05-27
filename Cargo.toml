@@ -87,7 +87,7 @@ parry3d-f64 = "0.13.5"
 serde_json = "1.0.114"
 
 [dev-dependencies]
-criterion = "0.4"
+criterion = "0.5"
 
 [[bin]]
 name = "vvplay"
