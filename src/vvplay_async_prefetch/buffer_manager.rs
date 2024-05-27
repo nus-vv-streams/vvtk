@@ -75,8 +75,7 @@ impl BufferManager {
     pub fn prefetch_frame(&mut self, camera_pos: Option<CameraPosition>) {
         assert!(camera_pos.is_some());
         let last_req = FrameRequest {
-            //camera_pos,
-            camera_pos: camera_pos,
+            camera_pos,
             ..self.buffer.back().unwrap().req
         };
         // The frame prefetched is the next frame of the frame at the back of the buffer

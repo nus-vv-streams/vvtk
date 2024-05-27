@@ -6,8 +6,7 @@ use crossbeam_channel::Receiver;
 
 use crate::{
     formats::{
-        bounds::Bounds,
-        pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal,
+        bounds::Bounds, pointxyzrgba::PointXyzRgba, pointxyzrgbanormal::PointXyzRgbaNormal,
         triangle_face::TriangleFace, PointCloud,
     },
     metrics::Metrics,
