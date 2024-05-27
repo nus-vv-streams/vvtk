@@ -9,6 +9,7 @@ use kdtree::KdTree;
 use nalgebra::{Matrix3, Vector3};
 use rayon::prelude::*;
 use std::collections::VecDeque;
+use std::time::Instant;
 
 use super::Subcommand;
 
@@ -25,80 +26,26 @@ pub struct NormalEstimation {
     args: Args,
 }
 
-#[derive(Debug, PartialEq)]
-pub struct CovarianceMatrix {
-    xx: f32,
-    xy: f32,
-    xz: f32,
-    yy: f32,
-    yz: f32,
-    zz: f32,
-}
-
-impl CovarianceMatrix {
-    fn zeros() -> Self {
-        CovarianceMatrix {
-            xx: 0.0,
-            xy: 0.0,
-            xz: 0.0,
-            yy: 0.0,
-            yz: 0.0,
-            zz: 0.0,
-        }
-    }
-}
-
-impl NormalEstimation {
-    pub fn from_args(args: Vec<String>) -> Box<dyn Subcommand> {
-        Box::from(NormalEstimation {
-            args: Args::parse_from(args),
-        })
-    }
-}
-
-#[derive(Debug)]
-struct EigenData {
-    eigenvectors: Matrix3<f32>,
-    eigenvalues: Vector3<f32>,
-}
-
-impl Subcommand for NormalEstimation {
-    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
-        // Perform normal estimation for each point cloud in the messages
-        for message in messages {
-            match message {
-                PipelineMessage::IndexedPointCloud(pc, i) => {
-                    let normal_estimation_result = perform_normal_estimation(&pc, self.args.k);
-                    channel.send(PipelineMessage::IndexedPointCloudNormal(
-                        normal_estimation_result,
-                        i,
-                    ));
-                }
-                PipelineMessage::Metrics(_)
-                | PipelineMessage::IndexedPointCloudNormal(_, _)
-                | PipelineMessage::IndexedPointCloudWithName(_, _, _, _)
-                | PipelineMessage::MetaData(_, _, _, _)
-                | PipelineMessage::DummyForIncrement => {}
-                PipelineMessage::End => {
-                    channel.send(message);
-                }
-            }
-        }
-    }
-}
-
 fn perform_normal_estimation(
     pc: &PointCloud<PointXyzRgba>,
     k: usize,
 ) -> PointCloud<PointXyzRgbaNormal> {
+    let start_total = Instant::now(); // Record start time of the entire process
+
     // Select Neighboring Points
+    let start_neighbors = Instant::now();
     let neighbors = select_neighbors(pc, k);
+    let elapsed_neighbors = start_neighbors.elapsed();
 
     // Compute Covariance Matrix
+    let start_covariance = Instant::now();
     let covariance_matrices = compute_covariance_matrices(&pc, &neighbors);
+    let elapsed_covariance = start_covariance.elapsed();
 
     // Compute Eigenvalues and Eigenvectors
+    let start_eigen = Instant::now();
     let eigen_results = compute_eigenvalues_eigenvectors(&covariance_matrices);
+    let elapsed_eigen = start_eigen.elapsed();
 
     // Convert PointCloud<PointXyzRgba> to PointCloud<PointXyzRgbaNormal>
     let mut pc_normal: PointCloud<PointXyzRgbaNormal> = PointCloud {
@@ -124,9 +71,25 @@ fn perform_normal_estimation(
         segments: None,
     };
 
+    // Assign Normal Vector
+    let start_assign = Instant::now();
     assign_normal_vectors(&mut pc_normal, &eigen_results);
+    let elapsed_assign = start_assign.elapsed();
 
+    // Complete Normal Estimation
+    let start_propagate = Instant::now();
     propagate_normal_orientation(&mut pc_normal, &neighbors);
+    let elapsed_propagate = start_propagate.elapsed();
+
+    let elapsed_total = start_total.elapsed(); // Record end time of the entire process
+
+    // Output the runtime of each method
+    println!("Select Neighbors: {:?}", elapsed_neighbors);
+    println!("Compute Covariance Matrix: {:?}", elapsed_covariance);
+    println!("Compute Eigenvalues and Eigenvectors: {:?}", elapsed_eigen);
+    println!("Assign Normal Vector: {:?}", elapsed_assign);
+    println!("Complete Normal Estimation: {:?}", elapsed_propagate);
+    println!("Total Runtime: {:?}", elapsed_total);
 
     pc_normal
 }
@@ -165,6 +128,81 @@ fn select_neighbors(pc: &PointCloud<PointXyzRgba>, k: usize) -> Vec<Vec<usize>> 
             neighbor_indices
         })
         .collect()
+}
+
+#[derive(Debug, PartialEq)]
+pub struct CovarianceMatrix {
+    xx: f32,
+    xy: f32,
+    xz: f32,
+    yy: f32,
+    yz: f32,
+    zz: f32,
+}
+
+impl CovarianceMatrix {
+    fn zeros() -> Self {
+        CovarianceMatrix {
+            xx: 0.0,
+            xy: 0.0,
+            xz: 0.0,
+            yy: 0.0,
+            yz: 0.0,
+            zz: 0.0,
+        }
+    }
+}
+
+impl NormalEstimation {
+    pub fn from_args(args: Vec<String>) -> Box<dyn Subcommand> {
+        Box::from(NormalEstimation {
+            args: Args::parse_from(args),
+        })
+    }
+}
+
+/*
+#[derive(Debug)]
+struct EigenData {
+    eigenvectors: Matrix3<f32>,
+    eigenvalues: Vector3<f32>,
+}
+*/
+
+impl Subcommand for NormalEstimation {
+    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
+        // Perform normal estimation for each point cloud in the messages
+        for message in messages {
+            match message {
+                PipelineMessage::IndexedPointCloud(pc, i) => {
+                    let normal_estimation_result = perform_normal_estimation(&pc, self.args.k);
+                    channel.send(PipelineMessage::IndexedPointCloudNormal(
+                        normal_estimation_result,
+                        i,
+                    ));
+                }
+                PipelineMessage::SubcommandMessage(subcommand_object, i) => {
+                    // Only vv extend will send SubcommandMessage, other subcommand will send IndexedPointCloud to make sure the other command will
+                    // continue to be compatible by receiving IndexedPointCloud
+                    let normal_estimation_result =
+                        perform_normal_estimation(subcommand_object.get_content(), self.args.k);
+                    channel.send(PipelineMessage::IndexedPointCloudNormal(
+                        normal_estimation_result,
+                        i,
+                    ));
+                }
+                PipelineMessage::Metrics(_)
+                | PipelineMessage::IndexedPointCloudNormal(_, _)
+                | PipelineMessage::IndexedPointCloudWithTriangleFaces(_, _, _)
+                | PipelineMessage::IndexedPointCloudWithName(_, _, _, _)
+                | PipelineMessage::MetaData(_, _, _, _)
+                | PipelineMessage::DummyForIncrement => {}
+                PipelineMessage::End => {
+                    channel.send(message);
+                }
+            }
+        }
+    }
 }
 
 fn compute_covariance_matrices(
@@ -257,35 +295,26 @@ fn compute_covariance_matrices(
     covariance_matrices
 }
 
-fn compute_eigenvalues_eigenvectors(covariance_matrices: &[CovarianceMatrix]) -> Vec<EigenData> {
-    let mut eigen_data_vec = Vec::with_capacity(covariance_matrices.len());
+#[derive(Debug)]
+struct EigenData {
+    eigenvectors: Matrix3<f32>,
+    eigenvalues: Vector3<f32>,
+}
 
-    for covariance_matrix in covariance_matrices {
-        let cov_matrix = Matrix3::new(
-            covariance_matrix.xx,
-            covariance_matrix.xy,
-            covariance_matrix.xz,
-            covariance_matrix.xy,
-            covariance_matrix.yy,
-            covariance_matrix.yz,
-            covariance_matrix.xz,
-            covariance_matrix.yz,
-            covariance_matrix.zz,
-        );
+fn compute_eigenvalues_eigenvectors(matrices: &[CovarianceMatrix]) -> Vec<EigenData> {
+    matrices
+        .iter()
+        .map(|m| {
+            let cov_matrix = Matrix3::new(m.xx, m.xy, m.xz, m.xy, m.yy, m.yz, m.xz, m.yz, m.zz);
 
-        let eigendecomp = cov_matrix.symmetric_eigen();
+            let eigendecomp = cov_matrix.symmetric_eigen();
 
-        let eigenvectors = eigendecomp.eigenvectors;
-        let eigenvalues = eigendecomp.eigenvalues;
-
-        let eigen_data = EigenData {
-            eigenvectors,
-            eigenvalues,
-        };
-        eigen_data_vec.push(eigen_data);
-    }
-
-    eigen_data_vec
+            EigenData {
+                eigenvectors: eigendecomp.eigenvectors,
+                eigenvalues: eigendecomp.eigenvalues,
+            }
+        })
+        .collect()
 }
 
 fn assign_normal_vectors(pc: &mut PointCloud<PointXyzRgbaNormal>, eigen_results: &[EigenData]) {
@@ -350,5 +379,94 @@ fn propagate_normal_orientation(pc: &mut PointCloud<PointXyzRgbaNormal>, neighbo
                 visited[neighbor_index] = true;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use approx::assert_relative_eq;
+
+    // #[test]
+    // fn test_select_neighboring_points() {
+    //     // Create a sample point cloud
+    //     let points = vec![
+    //         PointXyzRgba { x: 0.0, y: 0.0, z: 0.0, r: 0, g: 0, b: 0, a: 255 },
+    //         PointXyzRgba { x: 1.0, y: 1.0, z: 1.0, r: 255, g: 255, b: 255, a: 255 },
+    //         PointXyzRgba { x: 2.0, y: 2.0, z: 2.0, r: 255, g: 0, b: 0, a: 255 },
+    //         PointXyzRgba { x: 3.0, y: 3.0, z: 3.0, r: 0, g: 255, b: 0, a: 255 },
+    //         PointXyzRgba { x: 4.0, y: 4.0, z: 4.0, r: 0, g: 0, b: 255, a: 255 },
+    //     ];
+
+    //     let pc = PointCloud {
+    //         number_of_points: points.len(),
+    //         points,
+    //     };
+
+    //     let radius = 3.0; // Example radius value
+
+    //     let neighbors = select_neighboring_points(&pc, radius);
+
+    //     // Assert the expected neighbors for each point
+
+    //     // Point 0 should have neighbors 1
+    //     assert_eq!(neighbors[0], vec![1]);
+
+    //     // Point 1 should have neighbors 0, 2
+    //     assert_eq!(neighbors[1], vec![0, 2]);
+
+    //     // Point 2 should have neighbors 1, 3
+    //     assert_eq!(neighbors[2], vec![1, 3]);
+
+    //     // Point 3 should have neighbors 2, 4
+    //     assert_eq!(neighbors[3], vec![2, 4]);
+
+    //     // Point 4 should have neighbors 3
+    //     assert_eq!(neighbors[4], vec![3]);
+    // }
+
+    #[test]
+    fn test_compute_eigenvalues_eigenvectors() {
+        // Create a sample covariance matrix
+        let covariance_matrix = CovarianceMatrix {
+            xx: 3.0,
+            xy: 2.0,
+            xz: 4.0,
+            /* 2.0 */ yy: 0.0,
+            yz: 2.0,
+            /* 4.0 */ /* 2.0 */ zz: 3.0,
+        };
+
+        // Compute the eigen data
+        let eigen_data = compute_eigenvalues_eigenvectors(&[covariance_matrix]);
+
+        // Define the expected eigenvectors
+        let expected_eigenvectors = Matrix3::new(
+            0.6666666,
+            -0.7453561,
+            0.0,
+            0.3333333,
+            0.2981425,
+            0.8944273,
+            0.6666666,
+            0.5962848,
+            -0.44721353, /*
+                             0.52891886,
+                             -0.59959215,
+                             0.60068053,
+                             -0.5558934,
+                             0.23822187,
+                             0.79672605,
+                             0.6411168,
+                             0.7644144,
+                             0.068997495,
+                         */
+        );
+
+        assert_relative_eq!(
+            eigen_data[0].eigenvectors,
+            expected_eigenvectors,
+            epsilon = 1e-6
+        );
     }
 }

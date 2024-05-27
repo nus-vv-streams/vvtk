@@ -1,25 +1,29 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 use crate::pcd::PointCloudData;
 use crate::velodyne::{VelodynPoint, VelodyneBinData};
 
 use self::bounds::Bounds;
+
+#[cfg(feature = "with-tmc2-rs-decoder")]
 use self::pointxyzrgba::PointXyzRgba;
 
 pub mod bounds;
 pub mod metadata;
 pub mod pointxyzrgba;
 pub mod pointxyzrgbanormal;
+pub mod triangle_face;
 
-#[derive(Clone)]
+// Possible change: put index number here (motivation: PipelineMessage IndexedPointCloud)
+#[derive(Clone, Deserialize, Serialize)]
 pub struct PointCloud<T> {
     pub number_of_points: usize,
     pub segments: Option<Vec<PointCloudSegment>>,
     pub points: Vec<T>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct PointCloudSegment {
     pub point_indices: Vec<usize>,
     pub bounds: Bounds,
@@ -29,6 +33,7 @@ impl<T> PointCloud<T>
 where
     T: Clone + Serialize,
 {
+    #[cfg(feature = "with-tmc2-rs-decoder")]
     pub(crate) fn combine(&mut self, other: &Self) {
         self.points.extend_from_slice(&other.points);
         self.number_of_points += other.number_of_points;
@@ -58,7 +63,7 @@ where
     }
 
     /// Segments the point cloud based on the given offsets and bounds
-    pub fn self_segment(&mut self, offsets: &Vec<usize>, bounds: &Vec<Bounds>) {
+    pub fn self_segment(&mut self, offsets: &[usize], bounds: &Vec<Bounds>) {
         let mut segments = Vec::with_capacity(offsets.len());
         let mut start = 0;
 
@@ -78,9 +83,9 @@ where
 
     pub fn self_segment_with_bound_indices(
         &mut self,
-        offsets: &Vec<usize>,
-        bound_indices: &Vec<usize>,
-        bounds: &Vec<Bounds>,
+        offsets: &[usize],
+        bound_indices: &[usize],
+        bounds: &[Bounds],
     ) {
         // create segments first
         let mut segments = Vec::with_capacity(offsets.len());
@@ -167,6 +172,7 @@ impl<T> From<PointCloudData> for PointCloud<T> {
     }
 }
 
+#[cfg(feature = "with-tmc2-rs-decoder")]
 impl From<tmc2rs::codec::PointSet3> for PointCloud<PointXyzRgba> {
     fn from(point_set: tmc2rs::codec::PointSet3) -> Self {
         let number_of_points = point_set.len();

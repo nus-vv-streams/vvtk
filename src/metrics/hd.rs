@@ -21,7 +21,7 @@ impl Hd {
     fn get_hd(
         p1: &Vec<PointXyzRgba>,
         _p1_tree: &KdTree<f32, usize, 3>,
-        _p2: &Vec<PointXyzRgba>,
+        _p2: &[PointXyzRgba],
         p2_tree: &KdTree<f32, usize, 3>,
     ) -> f64 {
         let hd_max = p1

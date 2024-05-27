@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::pointxyzrgba::PointXyzRgba;
 
-const DELTA: f32 = 1e-4;
+pub const DELTA: f32 = 1e-4;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Bounds {

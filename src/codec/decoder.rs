@@ -7,6 +7,8 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::{Error, Result};
+
+#[cfg(feature = "with-tmc2-rs-decoder")]
 use log::debug;
 
 pub struct NoopDecoder {
@@ -108,10 +110,12 @@ impl Decoder for DracoDecoder {
     // }
 }
 
+#[cfg(feature = "with-tmc2-rs-decoder")]
 pub struct Tmc2rsDecoder {
     decoders: Vec<tmc2rs::Decoder>,
 }
 
+#[cfg(feature = "with-tmc2-rs-decoder")]
 impl Tmc2rsDecoder {
     pub fn new(paths: &[PathBuf]) -> Self {
         let decoders = paths
@@ -122,6 +126,7 @@ impl Tmc2rsDecoder {
     }
 }
 
+#[cfg(feature = "with-tmc2-rs-decoder")]
 impl Decoder for Tmc2rsDecoder {
     fn start(&mut self) -> Result<()> {
         // start all decoders. This will run in parallel

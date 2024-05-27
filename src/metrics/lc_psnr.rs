@@ -14,7 +14,7 @@ impl LcPsnr {
     pub fn calculate_metric(
         orginal: &Vec<PointXyzRgba>,
         _original_tree: &KdTree<f32, usize, 3>,
-        reconstructed: &Vec<PointXyzRgba>,
+        reconstructed: &[PointXyzRgba],
         reconstructed_tree: &KdTree<f32, usize, 3>,
     ) -> f64 {
         let error: f64 = orginal
@@ -34,14 +34,12 @@ impl LcPsnr {
                 let rgb_p1 = Rgb::new(pt.r as f64, pt.g as f64, pt.b as f64);
                 let lab_p1 = Lab::from_rgb(&rgb_p1);
 
-                let luminance_square_error = (lab_p1.l / 255.0 - lab_p2.l / 255.0).powi(2);
-                luminance_square_error
+                (lab_p1.l / 255.0 - lab_p2.l / 255.0).powi(2)
             })
             .sum();
 
         let l_mse = error / orginal.len() as f64;
-        let lc_psnr = 10f64 * (1f64 / l_mse).log(10f64);
-        lc_psnr
+        10f64 * (1f64 / l_mse).log(10f64)
     }
 }
 

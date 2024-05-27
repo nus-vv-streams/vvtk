@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 use vivotk::abr::quetra::{Quetra, QuetraMultiview};
 use vivotk::abr::{RateAdapter, MCKP};
-use vivotk::codec::decoder::{DracoDecoder, NoopDecoder, Tmc2rsDecoder};
+use vivotk::codec::decoder::{DracoDecoder, NoopDecoder};
 use vivotk::codec::Decoder;
 use vivotk::dash::fetcher::{FetchResult, Fetcher};
 use vivotk::dash::{ThroughputPrediction, ViewportPrediction};
@@ -18,6 +18,7 @@ use vivotk::render::wgpu::{
     reader::PcdAsyncReader,
     renderer::Renderer,
 };
+
 use vivotk::utils::{
     get_cosines, predict_quality, ExponentialMovingAverage, LastValue, SimpleRunningAverage, GAEMA,
     LPEMA,
@@ -32,6 +33,9 @@ use vivotk::vvplay_async_prefetch::enums::ViewportPredictionType;
 use vivotk::vvplay_async_prefetch::fetch_request::FetchRequest;
 use vivotk::vvplay_async_prefetch::network_trace::NetworkTrace;
 use vivotk::{BufMsg, PCMetadata};
+
+#[cfg(feature = "with-tmc2-rs-decoder")]
+use vivotk::codec::decoder::Tmc2rsDecoder;
 
 /// Plays a folder of pcd files in lexicographical order
 
@@ -109,7 +113,8 @@ fn main() {
     let (total_frames_tx, total_frames_rx) = tokio::sync::oneshot::channel();
 
     // initialize variables based on args
-    let buffer_capacity = args.buffer_capacity.unwrap_or(11);
+    // the real buffer capacity is buffer capacity in seconds * fps
+    let buffer_capacity = args.buffer_capacity.unwrap_or(11) * args.fps as u64;
     let simulated_network_trace = args.network_trace.map(|path| NetworkTrace::new(&path));
     let simulated_camera_trace = args.camera_trace.map(|path| CameraTrace::new(&path, false));
     let record_camera_trace = args
@@ -251,6 +256,7 @@ fn main() {
             } else {
                 //if the source is not remote, load the file and update the status as fetchdone
                 let path = Path::new(&args.src);
+                // This vector contains all the ply_files in one directory
                 let mut ply_files: Vec<PathBuf> = vec![];
                 debug!("1. Finished downloading to / reading from {:?}", path);
 
@@ -317,6 +323,7 @@ fn main() {
                                         .as_os_str(),
                                     paths[0].take().unwrap().as_os_str(),
                                 )) },
+                                #[cfg(feature = "with-tmc2-rs-decoder")]
                                 DecoderType::Tmc2rs => {
                                     let paths = paths.into_iter().flatten().collect::<Vec<_>>();
                                     Box::new(Tmc2rsDecoder::new(&paths))
@@ -326,7 +333,11 @@ fn main() {
                                 },
                             };
                             decoder.start().unwrap();
+                            //t: the unbound receiver for PointCloud is here, trace this down
+                            // Everytime a PointCloud is ready, an unbounded channel is created
+                            // t: For case of Noop, only one PointCloud will be produced each time, not sure about other decoder
                             let (output_sx, output_rx) = tokio::sync::mpsc::unbounded_channel();
+                            // Send BufMsg to inform the buffer that the PointCloud is ready
                             _ = to_buf_sx
                                 .send(BufMsg::PointCloud((
                                     PCMetadata {
@@ -407,7 +418,6 @@ fn main() {
     //         metrics,
     //     ))
     // } else {
-        //t: pcd reader still using normal render reader, and it is not implemented now
         builder.add_window(Renderer::new(
             pcd_manager,
             args.fps,

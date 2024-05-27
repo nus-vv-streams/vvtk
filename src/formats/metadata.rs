@@ -25,7 +25,7 @@ impl MetaData {
         }
     }
 
-    pub fn default() -> Self {
+    pub fn new_with_default() -> Self {
         Self {
             bounds: vec![],
             base_point_num: vec![],

@@ -4,17 +4,18 @@ use crate::pcd::read_pcd_file;
 use crate::utils::{read_file_to_point_cloud, read_files_to_point_cloud};
 use crate::BufMsg;
 
+// use crate::utils::read_file_to_point_cloud;
+use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::sync::mpsc::Receiver;
 use tokio::sync::mpsc::UnboundedSender;
 
-use super::camera::CameraPosition;
-use super::camera::CameraState;
+use super::camera::{CameraPosition, CameraState};
 use super::renderable::Renderable;
 
-//RenderReader for the original RenderReader
+// RenderReader for the original RenderReader used by vvplay
 pub trait RenderReader<T: Renderable> {
     fn start(&mut self) -> Option<T>;
     fn get_at(&mut self, index: usize) -> Option<T>;
@@ -22,7 +23,7 @@ pub trait RenderReader<T: Renderable> {
     fn is_empty(&self) -> bool;
     fn set_len(&mut self, len: usize);
 }
-//RenderReaderCameraPos for the one with CameraPosition
+// RenderReaderCameraPos for the one with CameraPosition
 pub trait RenderReaderCameraPos<T: Renderable> {
     /// Initialize the input reader for our renderer. Returns the first frame, if any.
     fn start(&mut self) -> (Option<CameraPosition>, Option<T>);
@@ -35,6 +36,7 @@ pub trait RenderReaderCameraPos<T: Renderable> {
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
     fn set_len(&mut self, len: usize);
+    fn set_cache_size(&mut self, size: usize);
     fn set_camera_state(&mut self, camera_state: Option<CameraState>);
 }
 
@@ -117,7 +119,7 @@ impl RenderReader<PointCloud<PointXyzRgba>> for PointCloudFileReader {
 
 impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PointCloudFileReader {
     fn start(&mut self) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
-        RenderReaderCameraPos::get_at(self, 0, None)
+        RenderReaderCameraPos::get_at(self, 0, Some(CameraPosition::default()))
     }
 
     fn get_at(
@@ -126,7 +128,10 @@ impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PointCloudFileReader {
         _camera_pos: Option<CameraPosition>,
     ) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
         let file_path = self.files.get(index).unwrap();
-        (None, read_file_to_point_cloud(file_path))
+        (
+            Some(CameraPosition::default()),
+            read_file_to_point_cloud(file_path),
+        )
     }
 
     fn len(&self) -> usize {
@@ -138,6 +143,8 @@ impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PointCloudFileReader {
     }
 
     fn set_len(&mut self, _len: usize) {}
+
+    fn set_cache_size(&mut self, _size: usize) {}
 
     fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
 }
@@ -293,7 +300,9 @@ impl RenderReader<PointCloud<PointXyzRgba>> for LODFileReader {
 pub struct PcdAsyncReader {
     total_frames: u64,
     rx: Receiver<(FrameRequest, PointCloud<PointXyzRgba>)>,
-    cache: Vec<(u64, PointCloud<PointXyzRgba>)>,
+    //playback cache
+    cache: VecDeque<(u64, PointCloud<PointXyzRgba>)>,
+    cache_size: usize,
     tx: UnboundedSender<BufMsg>,
 }
 
@@ -328,7 +337,8 @@ impl PcdAsyncReader {
             tx,
             // buffer_size,
             // cache: HashMap::with_capacity(buffer_size as usize),
-            cache: vec![],
+            cache: VecDeque::new(),
+            cache_size: 10, //default number of size, Use `set_cache_size` to overwrite this value
             total_frames: 30, // default number of frames. Use `set_len` to overwrite this value
         }
     }
@@ -337,7 +347,7 @@ impl PcdAsyncReader {
 #[cfg(feature = "dash")]
 impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PcdAsyncReader {
     fn start(&mut self) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
-        RenderReaderCameraPos::get_at(self, 0, None)
+        RenderReaderCameraPos::get_at(self, 0, Some(CameraPosition::default()))
     }
 
     fn get_at(
@@ -345,15 +355,12 @@ impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         index: usize,
         camera_pos: Option<CameraPosition>,
     ) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
-        /*
         println!("----------------------------------");
-        println!{"get at request index: {}", index};
-        */
+        println! {"get at request index: {}", index};
         let index = index as u64;
         if let Some(&ref result) = self.cache.iter().find(|&i| i.0 == index) {
-            //t:
-            //it: f the result is already inside the cache, just return
-            //can improve this find algorithm
+            //if the result is already inside the cache, just return
+            //can improve this O(size) find algorithm
             return (camera_pos, Some(result.1.clone()));
         }
         _ = self.tx.send(BufMsg::FrameRequest(FrameRequest {
@@ -362,14 +369,14 @@ impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PcdAsyncReader {
             camera_pos,
         }));
         if let Ok((frame_req, pc)) = self.rx.recv() {
-            if self.cache.len() >= 10 {
-                self.cache.pop();
+            if self.cache.len() >= self.cache_size {
+                self.cache.pop_front();
             }
-            println!(
-                "one frame is added to the point cloud cache: index:{}",
-                index
-            );
-            self.cache.push((index, pc.clone()));
+            //println!(
+            //    "one frame is added to the point cloud cache: index:{}",
+            //    index
+            //);
+            self.cache.push_back((index, pc.clone()));
             (frame_req.camera_pos, Some(pc))
         } else {
             (None, None)
@@ -388,38 +395,42 @@ impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PcdAsyncReader {
         self.total_frames = len as u64;
     }
 
+    fn set_cache_size(&mut self, size: usize) {
+        self.cache_size = size;
+    }
+
     fn set_camera_state(&mut self, _camera_state: Option<CameraState>) {}
 }
 
+// This is used by vvplay_async
 impl RenderReader<PointCloud<PointXyzRgba>> for PcdAsyncReader {
     fn start(&mut self) -> Option<PointCloud<PointXyzRgba>> {
         RenderReader::get_at(self, 0)
     }
 
     fn get_at(&mut self, index: usize) -> Option<PointCloud<PointXyzRgba>> {
-        /*
-        println!("----------------------------------");
-        println!{"get at request index: {}", index};
-        */
         let index = index as u64;
         // Everytime a request is made, find it from the playback cache first
         if let Some(&ref result) = self.cache.iter().find(|&i| i.0 == index) {
-            //can improve this O(n) find algorithm in future
+            // Enhancement: can improve this O(n) find algorithm in future
             return Some(result.1.clone());
         }
         // Send request to prepare for the frame
         _ = self.tx.send(BufMsg::FrameRequest(FrameRequest {
             object_id: 0,
             frame_offset: index % self.total_frames,
-            camera_pos: None,
+            camera_pos: Some(CameraPosition::default()),
         }));
         // Wait for the point cloud to be ready, cache it then return
         if let Ok((_frame_req, pc)) = self.rx.recv() {
             if self.cache.len() >= 10 {
-                self.cache.pop();
+                self.cache.pop_front();
             }
-            //println!("one frame is added to the point cloud cache: index:{}", index);
-            self.cache.push((index, pc.clone()));
+            println!(
+                "one frame is added to the point cloud cache: index:{}",
+                index
+            );
+            self.cache.push_back((index, pc.clone()));
             Some(pc)
         } else {
             None

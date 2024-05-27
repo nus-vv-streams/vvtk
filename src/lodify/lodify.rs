@@ -17,7 +17,7 @@ pub fn lodify(
     Vec<usize>,
 ) {
     if points.points.is_empty() {
-        return (points.clone(), vec![], vec![], vec![]);
+        (points.clone(), vec![], vec![], vec![])
     } else {
         let factor = base_proportion as f32 / 100.0;
         let base_point_num = (points.points.len() as f32 * factor).ceil() as usize;
@@ -66,9 +66,9 @@ fn sample(
     points_per_voxel_threshold: usize,
 ) -> (PointCloud<PointXyzRgba>, PointCloud<PointXyzRgba>) {
     if pc.points.is_empty() {
-        return (pc.clone(), PointCloud::new(0, vec![]));
+        (pc.clone(), PointCloud::new(0, vec![]))
     } else {
-        let bound = get_pc_bound(&pc);
+        let bound = get_pc_bound(pc);
         let mut points_by_voxel = VecDeque::from(get_points_in_small_enough_voxel(
             pc.points.clone(),
             points_per_voxel_threshold,
@@ -79,7 +79,7 @@ fn sample(
         let mut additional_pcs = vec![];
 
         // this attempts to keep the base points as evenly distributed as possible
-        while points_by_voxel.len() > 0 {
+        while !points_by_voxel.is_empty() {
             let mut points = points_by_voxel.pop_front().unwrap();
 
             if points.is_empty() {
@@ -94,7 +94,7 @@ fn sample(
                 additional_pcs.push(popped);
             }
 
-            if points.len() > 0 {
+            if !points.is_empty() {
                 points_by_voxel.push_back(points);
             }
         }
@@ -136,7 +136,7 @@ fn partition(
     pc: &PointCloud<PointXyzRgba>,
     partitions: (usize, usize, usize),
 ) -> PointCloud<PointXyzRgba> {
-    let pc_bound = get_pc_bound(&pc);
+    let pc_bound = get_pc_bound(pc);
     let child_bounds = pc_bound.partition(partitions);
 
     let num_segments = child_bounds.len();
@@ -144,14 +144,14 @@ fn partition(
 
     for point in &pc.points {
         for (index, bound) in child_bounds.iter().enumerate() {
-            if bound.contains(&point) {
-                partitioned_points[index].push(point.clone());
+            if bound.contains(point) {
+                partitioned_points[index].push(*point);
                 break;
             }
         }
     }
 
-    let base_point_nums = partitioned_points
+    let base_point_nums: Vec<usize> = partitioned_points
         .iter()
         .map(|points| points.len())
         .collect();

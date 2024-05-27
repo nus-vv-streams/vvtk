@@ -78,7 +78,7 @@ mod test {
 
     #[test]
     fn test_read() {
-        let path = Path::new("8i_dataset/bin/000000.bin");
+        let path = Path::new("test_files/velodyne/000001.bin");
         let data = read_velodyn_bin_file(path).unwrap();
         print!("{:?}", data);
         println!("1 point: {:?}", data.data()[0]);

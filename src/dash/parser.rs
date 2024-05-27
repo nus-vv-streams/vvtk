@@ -47,7 +47,7 @@ impl MPDParser {
             .base_urls
             .as_ref()
             .unwrap()
-            .get(0)
+            .first()
             .expect("no base url found")
             .base
             .clone();
@@ -213,7 +213,7 @@ impl MPDParser {
     /// Get a vector of (geometry_qp, attribute_qp) tuples for all representations in the MPD.
     /// It is assumed that the data is the same for all representations and periods.
     pub fn get_qp(&self) -> Vec<(Option<u64>, Option<u64>)> {
-        let period = self.mpd.periods.get(0).unwrap();
+        let period = self.mpd.periods.first().unwrap();
         let adaptation_set = &period.adaptations.as_ref().unwrap()[0];
         adaptation_set
             .representations
