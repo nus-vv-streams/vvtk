@@ -8,6 +8,7 @@ pub mod dash;
 pub mod downsample;
 pub mod estimatethroughput;
 pub mod formats;
+pub mod lodify;
 pub mod metrics;
 pub mod pcd;
 pub mod pipeline;
