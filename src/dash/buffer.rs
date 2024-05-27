@@ -190,6 +190,6 @@ impl Buffer {
         {
             return true;
         }
-        return false;
+        false
     }
 }

@@ -180,7 +180,7 @@ impl Info {
                     let format_key = format!("{}_{}", ext, storage_type);
                     let dir_info = dir_infos.entry(format_key).or_insert(DirInfo {
                         extension: ext,
-                        storage_type: storage_type,
+                        storage_type,
                         num_of_frames: 0,
                         avg_num_of_points: 0f64,
                     });

@@ -63,7 +63,7 @@ where
     }
 
     /// Segments the point cloud based on the given offsets and bounds
-    pub fn self_segment(&mut self, offsets: &Vec<usize>, bounds: &Vec<Bounds>) {
+    pub fn self_segment(&mut self, offsets: &[usize], bounds: &Vec<Bounds>) {
         let mut segments = Vec::with_capacity(offsets.len());
         let mut start = 0;
 
@@ -83,9 +83,9 @@ where
 
     pub fn self_segment_with_bound_indices(
         &mut self,
-        offsets: &Vec<usize>,
-        bound_indices: &Vec<usize>,
-        bounds: &Vec<Bounds>,
+        offsets: &[usize],
+        bound_indices: &[usize],
+        bounds: &[Bounds],
     ) {
         // create segments first
         let mut segments = Vec::with_capacity(offsets.len());

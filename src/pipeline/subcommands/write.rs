@@ -292,10 +292,8 @@ impl Subcommand for Write {
                                 if let Err(e) = write_pcd_file(&pcd, pcd_data_type, &output_file) {
                                     println!("Failed to write {:?}\n{e}", output_file);
                                 }
-                            } else {
-                                if let Err(e) = write_pcd_data(&pcd, pcd_data_type, &output_file) {
-                                    println!("Failed to write {:?}\n{e}", output_file);
-                                }
+                            } else if let Err(e) = write_pcd_data(&pcd, pcd_data_type, &output_file) {
+                                println!("Failed to write {:?}\n{e}", output_file);
                             }
                         }
                         "ply" => {
@@ -316,7 +314,7 @@ impl Subcommand for Write {
                     partitions,
                 ) => {
                     if self.metadata.is_none() {
-                        self.metadata = Some(MetaData::default());
+                        self.metadata = Some(MetaData::new_with_default());
                     }
                     self.metadata.as_mut().unwrap().next(
                         bound.clone(),
