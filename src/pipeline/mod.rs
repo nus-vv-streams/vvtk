@@ -17,10 +17,9 @@ use self::{
     executor::ExecutorBuilder,
     subcommands::extension::SubcommandObject,
     subcommands::{
-        convert, dash, downsample, extension, info, lodify, metrics, 
-        normal_estimation, read, render, upsample, write, Convert, Dash, 
-        Downsampler, Extension, Info, Lodifier, MetricsCalculator,
-        NormalEstimation, Read, Render, Subcommand, Upsampler, Write,
+        convert, dash, downsample, extension, info, lodify, metrics, normal_estimation, read,
+        render, upsample, write, Convert, Dash, Downsampler, Extension, Info, Lodifier,
+        MetricsCalculator, NormalEstimation, Read, Render, Subcommand, Upsampler, Write,
     },
 };
 

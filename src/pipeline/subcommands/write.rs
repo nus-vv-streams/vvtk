@@ -251,7 +251,7 @@ impl Subcommand for Write {
                             continue;
                         }
                     }
-                }                
+                }
                 PipelineMessage::MetaData(
                     bound,
                     base_point_num,

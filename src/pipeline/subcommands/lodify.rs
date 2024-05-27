@@ -92,7 +92,7 @@ impl Subcommand for Lodifier {
                 | PipelineMessage::IndexedPointCloudNormal(_, _)
                 | PipelineMessage::MetaData(_, _, _, _)
                 | PipelineMessage::DummyForIncrement => {}
-                | PipelineMessage::SubcommandMessage(_, _) =>  {}
+                PipelineMessage::SubcommandMessage(_, _) => {}
                 PipelineMessage::End => {
                     channel.send(message);
                 }
