@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 use crate::pcd::PointCloudData;
@@ -12,14 +12,15 @@ pub mod metadata;
 pub mod pointxyzrgba;
 pub mod pointxyzrgbanormal;
 
-#[derive(Clone)]
+// Possible change: put index number here (motivation: PipelineMessage IndexedPointCloud)
+#[derive(Clone, Deserialize, Serialize)]
 pub struct PointCloud<T> {
     pub number_of_points: usize,
     pub segments: Option<Vec<PointCloudSegment>>,
     pub points: Vec<T>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct PointCloudSegment {
     pub point_indices: Vec<usize>,
     pub bounds: Bounds,
