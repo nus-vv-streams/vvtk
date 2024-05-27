@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 use vivotk::abr::quetra::{Quetra, QuetraMultiview};
 use vivotk::abr::{RateAdapter, MCKP};
-use vivotk::codec::decoder::{DracoDecoder, NoopDecoder, Tmc2rsDecoder};
+use vivotk::codec::decoder::{DracoDecoder, NoopDecoder};
 use vivotk::codec::Decoder;
 use vivotk::dash::fetcher::{FetchResult, Fetcher};
 use vivotk::dash::{ThroughputPrediction, ViewportPrediction};
@@ -18,6 +18,7 @@ use vivotk::render::wgpu::{
     reader::PcdAsyncReader,
     renderer::Renderer,
 };
+
 use vivotk::utils::{
     get_cosines, predict_quality, ExponentialMovingAverage, LastValue, SimpleRunningAverage, GAEMA,
     LPEMA,
@@ -32,6 +33,9 @@ use vivotk::vvplay_async_prefetch::enums::ViewportPredictionType;
 use vivotk::vvplay_async_prefetch::fetch_request::FetchRequest;
 use vivotk::vvplay_async_prefetch::network_trace::NetworkTrace;
 use vivotk::{BufMsg, PCMetadata};
+
+#[cfg(feature = "with-tmc2-rs-decoder")]
+use vivotk::codec::decoder::Tmc2rsDecoder;
 
 /// Plays a folder of pcd files in lexicographical order
 
@@ -317,6 +321,7 @@ fn main() {
                                         .as_os_str(),
                                     paths[0].take().unwrap().as_os_str(),
                                 )) },
+                                #[cfg(feature = "with-tmc2-rs-decoder")]
                                 DecoderType::Tmc2rs => {
                                     let paths = paths.into_iter().flatten().collect::<Vec<_>>();
                                     Box::new(Tmc2rsDecoder::new(&paths))

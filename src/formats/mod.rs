@@ -4,6 +4,7 @@ use std::fmt::Debug;
 use crate::pcd::PointCloudData;
 use crate::velodyne::{VelodynPoint, VelodyneBinData};
 
+#[cfg(feature = "with-tmc2-rs-decoder")]
 use self::pointxyzrgba::PointXyzRgba;
 
 pub mod pointxyzrgba;
@@ -19,6 +20,7 @@ impl<T> PointCloud<T>
 where
     T: Clone + Serialize,
 {
+#[cfg(feature = "with-tmc2-rs-decoder")]
     pub(crate) fn combine(&mut self, other: &Self) {
         self.points.extend_from_slice(&other.points);
         self.number_of_points += other.number_of_points;
@@ -68,6 +70,7 @@ impl<T> From<PointCloudData> for PointCloud<T> {
     }
 }
 
+#[cfg(feature = "with-tmc2-rs-decoder")]
 impl From<tmc2rs::codec::PointSet3> for PointCloud<PointXyzRgba> {
     fn from(point_set: tmc2rs::codec::PointSet3) -> Self {
         let number_of_points = point_set.len();
