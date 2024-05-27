@@ -3,6 +3,8 @@ use crate::{
     utils::get_pc_bound,
 };
 
+// import the const DELTA found crate::bounds
+use crate::formats::bounds::DELTA;
 use rayon::prelude::*;
 
 pub fn downsample(
@@ -48,19 +50,12 @@ pub fn downsample(
         PointCloud {
             number_of_points: points.len(),
             points,
+            segments: None,
         }
     }
 }
 
-struct Bounds {
-    min_x: f32,
-    max_x: f32,
-    min_y: f32,
-    max_y: f32,
-    min_z: f32,
-    max_z: f32,
-}
-
+/*
 impl Bounds {
     fn new(min_x: f32, max_x: f32, min_y: f32, max_y: f32, min_z: f32, max_z: f32) -> Self {
         Self {
@@ -136,6 +131,7 @@ impl Bounds {
             && point.z <= self.max_z
     }
 }
+*/
 
 fn octree_downsample(
     points: Vec<PointXyzRgba>,

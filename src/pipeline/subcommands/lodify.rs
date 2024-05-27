@@ -90,6 +90,7 @@ impl Subcommand for Lodifier {
                 PipelineMessage::Metrics(_)
                 | PipelineMessage::IndexedPointCloudWithName(_, _, _, _)
                 | PipelineMessage::IndexedPointCloudNormal(_, _)
+                | PipelineMessage::IndexedPointCloudWithTriangleFaces(_, _, _)
                 | PipelineMessage::MetaData(_, _, _, _)
                 | PipelineMessage::DummyForIncrement => {}
                 PipelineMessage::SubcommandMessage(_, _) => {}

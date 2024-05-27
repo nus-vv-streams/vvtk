@@ -34,6 +34,7 @@ pub fn reconstruct(
         PointCloud::<PointXyzRgba> {
             number_of_points: num_of_points,
             points: surface,
+            segments: None,
         },
         triangle_faces,
     )

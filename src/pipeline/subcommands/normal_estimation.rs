@@ -26,38 +26,6 @@ pub struct NormalEstimation {
     args: Args,
 }
 
-impl NormalEstimation {
-    pub fn from_args(args: Vec<String>) -> Box<dyn Subcommand> {
-        Box::from(NormalEstimation {
-            args: Args::parse_from(args),
-        })
-    }
-}
-
-impl Subcommand for NormalEstimation {
-    fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
-        // Perform normal estimation for each point cloud in the messages
-        for message in messages {
-            match message {
-                PipelineMessage::IndexedPointCloud(pc, i) => {
-                    let normal_estimation_result = perform_normal_estimation(&pc, self.args.k);
-                    channel.send(PipelineMessage::IndexedPointCloudNormal(
-                        normal_estimation_result,
-                        i,
-                    ));
-                }
-                PipelineMessage::Metrics(_)
-                | PipelineMessage::IndexedPointCloudNormal(_, _)
-                | PipelineMessage::DummyForIncrement
-                | PipelineMessage::IndexedPointCloudWithTriangleFaces(_, _, _) => {}
-                PipelineMessage::End => {
-                    channel.send(message);
-                }
-            }
-        }
-    }
-}
-
 fn perform_normal_estimation(
     pc: &PointCloud<PointXyzRgba>,
     k: usize,
@@ -100,6 +68,7 @@ fn perform_normal_estimation(
                 }
             })
             .collect(),
+        segments: None
     };
 
     // Assign Normal Vector
@@ -222,6 +191,7 @@ impl Subcommand for NormalEstimation {
                 }
                 PipelineMessage::Metrics(_)
                 | PipelineMessage::IndexedPointCloudNormal(_, _)
+                | PipelineMessage::IndexedPointCloudWithTriangleFaces(_, _, _)
                 | PipelineMessage::IndexedPointCloudWithName(_, _, _, _)
                 | PipelineMessage::MetaData(_, _, _, _)
                 | PipelineMessage::DummyForIncrement => {}
@@ -233,85 +203,6 @@ impl Subcommand for NormalEstimation {
     }
 }
 
-fn perform_normal_estimation(
-    pc: &PointCloud<PointXyzRgba>,
-    k: usize,
-) -> PointCloud<PointXyzRgbaNormal> {
-    // Select Neighboring Points
-    let neighbors = select_neighbors(pc, k);
-
-    // Compute Covariance Matrix
-    let covariance_matrices = compute_covariance_matrices(&pc, &neighbors);
-
-    // Compute Eigenvalues and Eigenvectors
-    let eigen_results = compute_eigenvalues_eigenvectors(&covariance_matrices);
-
-    // Convert PointCloud<PointXyzRgba> to PointCloud<PointXyzRgbaNormal>
-    let mut pc_normal: PointCloud<PointXyzRgbaNormal> = PointCloud {
-        number_of_points: pc.number_of_points,
-        points: pc
-            .points
-            .iter()
-            .map(|p| {
-                PointXyzRgbaNormal {
-                    x: p.x,
-                    y: p.y,
-                    z: p.z,
-                    r: p.r,
-                    g: p.g,
-                    b: p.b,
-                    a: p.a,
-                    nx: 0.0, // Uninitialized normal values
-                    ny: 0.0,
-                    nz: 0.0,
-                }
-            })
-            .collect(),
-        segments: None,
-    };
-
-    assign_normal_vectors(&mut pc_normal, &eigen_results);
-
-    propagate_normal_orientation(&mut pc_normal, &neighbors);
-
-    pc_normal
-}
-
-fn build_kd_tree(points: &[PointXyzRgba]) -> KdTree<f64, usize, PointType> {
-    let mut kdtree = KdTree::new(3);
-    for (i, point) in points.iter().enumerate() {
-        kdtree
-            .add([point.x as f64, point.y as f64, point.z as f64], i)
-            .unwrap();
-    }
-    kdtree
-}
-
-fn select_neighbors(pc: &PointCloud<PointXyzRgba>, k: usize) -> Vec<Vec<usize>> {
-    let kdtree = build_kd_tree(&pc.points);
-    pc.points
-        .par_iter() // Parallel iterator
-        .enumerate()
-        .map(|(i, point)| {
-            // Ask for k+1 neighbors to account for the point itself
-            let ret = kdtree
-                .nearest(
-                    &[point.x as f64, point.y as f64, point.z as f64],
-                    k + 1,
-                    &squared_euclidean,
-                )
-                .unwrap();
-            let mut neighbor_indices = Vec::new();
-            for &(_dist, &index) in ret.iter() {
-                // Exclude the point itself
-                if index != i {
-                    neighbor_indices.push(index);
-                }
-            }
-            neighbor_indices
-        })
-        .collect()
-}
 
 fn compute_covariance_matrices(
     pc: &PointCloud<PointXyzRgba>,
@@ -401,12 +292,6 @@ fn compute_covariance_matrices(
     }
 
     covariance_matrices
-}
-
-#[derive(Debug)]
-struct EigenData {
-    eigenvectors: Matrix3<f32>,
-    eigenvalues: Vector3<f32>,
 }
 
 fn compute_eigenvalues_eigenvectors(covariance_matrices: &[CovarianceMatrix]) -> Vec<EigenData> {
