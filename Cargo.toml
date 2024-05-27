@@ -31,9 +31,6 @@ path = "src/lib.rs"
 [dependencies]
 ply-rs = { git = "https://github.com/hungkhoaitay/ply-rs", version = "0.1.3" }
 
-tmc2rs = { git = "https://github.com/nus-vv-streams/tmc2-rs", branch = "main" }
-# use local tmc2rs
-# tmc2rs = { path = "../tmc2-rs" }
 
 # clap = { version = "3.0.14", features = ["derive"] }
 clap = { version = "4.2.7", features = ["derive", "cargo"] }
@@ -41,7 +38,7 @@ clap = { version = "4.2.7", features = ["derive", "cargo"] }
 image = "0.24.3"
 nalgebra = "0.32.3"
 approx = "0.5.1"
-clipboard = "0.5.0"
+# clipboard = "0.5.0"
 thiserror = "1.0"
 byteorder = "1.4.3"
 bytemuck = { version = "1.7.3", features = [ "derive" ] }
@@ -50,7 +47,7 @@ pollster = "0.3.0"
 rayon = "1.5.1"
 kdam = "0.3"
 anyhow = "1.0"
-roxmltree = "0.15"
+# roxmltree = "0.15"
 kiddo = "0.2.4"
 bincode = "1.3.3"
 log = "0.4.17"
@@ -75,7 +72,11 @@ kdtree = "0.7.0"
 num-traits = "0.2"
 float-ord = "0.3"
 color_space = "0.5"
-#ffmpeg-next = "6"
+
+ffmpeg-next = { version = "6", optional = true }
+tmc2rs = { git = "https://github.com/nus-vv-streams/tmc2-rs", branch = "main", optional = true }
+# use local tmc2rs
+# tmc2rs = { path = "../tmc2-rs" }
 
 [dev-dependencies]
 criterion = "0.4"
@@ -95,7 +96,8 @@ name = "vvplay_async"
 required-features = ["render", "dash"]
 
 [features]
-default = ["render", "dash"]
+default = ["render", "dash", "with-tmc2-rs-decoder"]
+with-tmc2-rs-decoder = ["dep:tmc2rs", "dep:ffmpeg-next"]
 render = ["dep:winit", "dep:wgpu", "dep:wgpu_glyph", "dep:egui", "dep:egui_winit_platform", "dep:egui_wgpu_backend", "dep:epi"]
 dash = ["dep:reqwest", "dep:regex", "dep:tempfile", "dep:quick-xml", "serde", "async"]
 async = ["dep:tokio", "dep:futures"]
