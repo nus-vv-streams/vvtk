@@ -3,22 +3,12 @@ use kiddo::{distance::squared_euclidean, KdTree};
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 use crate::{
-    formats::{
-        bounds::Bounds, 
-        pointxyzrgba::PointXyzRgba, 
-        PointCloud
-    },
+    formats::{bounds::Bounds, pointxyzrgba::PointXyzRgba, PointCloud},
     utils::get_pc_bound,
 };
-use std::{
-    cmp::min,
-    collections::HashSet,
-};
+use std::{cmp::min, collections::HashSet};
 
-use super::{
-    camera::CameraState, 
-    renderable::Renderable
-};
+use super::{camera::CameraState, renderable::Renderable};
 
 pub struct Upsampler {}
 
