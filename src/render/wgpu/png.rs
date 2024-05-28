@@ -1,9 +1,7 @@
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
 use crate::render::wgpu::camera::{Camera, CameraState};
-use crate::render::wgpu::renderer::{
-    parse_wgpu_color, 
-    PointCloudRenderer};
+use crate::render::wgpu::renderer::{parse_wgpu_color, PointCloudRenderer};
 // use color_space::Rgb;
 use std::ffi::OsString;
 use std::num::NonZeroU32;

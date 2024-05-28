@@ -67,10 +67,10 @@ pub fn parse_wgpu_color(color_str: &str) -> Result<wgpu::Color, &str> {
             .map(|s| s.parse::<u8>().unwrap())
             .collect::<Vec<_>>();
         Ok(wgpu::Color {
-            r: rgb[0] as f64, 
+            r: rgb[0] as f64,
             g: rgb[1] as f64,
-            b: rgb[2] as f64, 
-            a: 1.0
+            b: rgb[2] as f64,
+            a: 1.0,
         })
     } else if color_str.starts_with("#") {
         let hex_num = u32::from_str_radix(&color_str[1..], 16);
@@ -79,16 +79,15 @@ pub fn parse_wgpu_color(color_str: &str) -> Result<wgpu::Color, &str> {
         }
         let rgb = color_space::Rgb::from_hex(hex_num.unwrap());
         Ok(wgpu::Color {
-            r: rgb.r as f64, 
+            r: rgb.r as f64,
             g: rgb.g as f64,
-            b: rgb.b as f64, 
-            a: 1.0
+            b: rgb.b as f64,
+            a: 1.0,
         })
     } else {
         return Err("Invalid background color format, expected rgb(r,g,b) or #rrggbb such as rgb(122,31,212) or #7a1fd4");
     }
 }
-
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum PlaybackState {
@@ -518,7 +517,7 @@ where
         initial_render: &T,
         initial_size: PhysicalSize<u32>,
         camera_state: &CameraState,
-        bg_color: wgpu::Color
+        bg_color: wgpu::Color,
     ) -> Self {
         let (camera_buffer, camera_bind_group_layout, camera_bind_group) =
             camera_state.create_buffer(device);

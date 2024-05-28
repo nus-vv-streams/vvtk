@@ -16,8 +16,7 @@ pub struct Fetcher {
     enable_optimizations: bool,
 }
 
-#[derive(Debug)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct FetchResult {
     pub paths: [Option<PathBuf>; 6],
     pub throughput: f64,

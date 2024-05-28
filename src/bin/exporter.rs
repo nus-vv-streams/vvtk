@@ -35,9 +35,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use vivotk::codec::{decoder::Tmc2rsDecoder, Decoder};
 use vivotk::dash::fetcher::Fetcher;
-use vivotk::render::wgpu::png::{
-    PngWriter,
-    RenderFormat};
+use vivotk::render::wgpu::png::{PngWriter, RenderFormat};
 use vivotk::simulation::CameraTrace;
 use vivotk::utils::read_file_to_point_cloud;
 
@@ -111,10 +109,10 @@ async fn main() {
         args.width,
         args.height,
         "#000000",
-        RenderFormat::Png
+        RenderFormat::Png,
     );
     png_writer.set_background_color(wgpu::Color::WHITE);
-    
+
     let camera_trace = CameraTrace::new(&args.camera_trace, false);
 
     if let Some(quality) = args.quality {
