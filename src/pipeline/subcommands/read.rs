@@ -1,6 +1,5 @@
-use std::ffi::OsString;
-
 use clap::Parser;
+use std::ffi::OsString;
 
 use super::Subcommand;
 use crate::pipeline::channel::Channel;
@@ -8,18 +7,27 @@ use crate::pipeline::PipelineMessage;
 use crate::utils::{find_all_files, read_file_to_point_cloud};
 
 #[derive(clap::ValueEnum, Clone, Copy)]
-enum FileType {
+pub enum FileType {
     All,
     Ply,
     Pcd,
+    Bin,
 }
 
 #[derive(Parser)]
-struct Args {
+#[clap(
+    about = "Reads in one of our supported file formats. \nFiles can be of the type .pcd .ply. \nThe path can be a file path or a directory path contains these files.",
+    override_usage = format!("\x1B[1m{}\x1B[0m [OPTIONS] <FILES>... +output=plys", "read")
+)]
+pub struct Args {
     #[clap(short = 't', long, value_enum, default_value_t = FileType::All)]
     filetype: FileType,
     /// Files, glob patterns, directories
     files: Vec<OsString>,
+
+    #[clap(short, long)]
+    /// read previous n files after sorting lexicalgraphically
+    num: Option<usize>,
 }
 
 pub struct Read {
@@ -39,7 +47,13 @@ impl Subcommand for Read {
         if messages.is_empty() {
             let mut files = find_all_files(&self.args.files);
             files.sort();
-            for file in files {
+            if let Some(num) = self.args.num {
+                if num < files.len() {
+                    files = files.into_iter().take(num).collect();
+                }
+            }
+
+            for (i, file) in files.iter().enumerate() {
                 match &self.args.filetype {
                     FileType::All => {}
                     FileType::Pcd => {
@@ -52,11 +66,16 @@ impl Subcommand for Read {
                             continue;
                         }
                     }
+                    FileType::Bin => {
+                        if file.extension().and_then(|ext| ext.to_str()) != Some("bin") {
+                            continue;
+                        }
+                    }
                 }
 
-                let point_cloud = read_file_to_point_cloud(&file);
+                let point_cloud = read_file_to_point_cloud(file);
                 if let Some(pc) = point_cloud {
-                    channel.send(PipelineMessage::PointCloud(pc));
+                    channel.send(PipelineMessage::IndexedPointCloud(pc, i as u32));
                 }
             }
             channel.send(PipelineMessage::End);

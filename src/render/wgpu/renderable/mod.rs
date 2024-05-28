@@ -162,9 +162,9 @@ impl Renderable for PointCloud<PointXyzRgba> {
             max = 1.0
         }
         AntiAlias {
-            x: (max_x - min_x) / 2.0,
-            y: (max_y - min_y) / 2.0,
-            z: (max_z - min_z) / 2.0,
+            x: (max_x + min_x) / 2.0,
+            y: (max_y + min_y) / 2.0,
+            z: (max_z + min_z) / 2.0,
             scale: max,
         }
     }

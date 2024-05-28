@@ -3,7 +3,7 @@ use crate::render::wgpu::builder::{
 };
 use crate::render::wgpu::camera::{Camera, CameraState, CameraUniform};
 use crate::render::wgpu::gpu::WindowGpu;
-use crate::render::wgpu::reader::RenderReader;
+use crate::render::wgpu::render_manager::RenderManager;
 use log::debug;
 use std::iter;
 use std::marker::PhantomData;
@@ -23,6 +23,73 @@ use winit::window::{Window, WindowBuilder, WindowId};
 use super::metrics_reader::MetricsReader;
 use super::renderable::Renderable;
 
+use color_space::Rgb;
+use regex::bytes::Regex;
+
+pub fn parse_bg_color(bg_color_str: &str) -> Result<Rgb, &str> {
+    if bg_color_str.starts_with("rgb") {
+        let pattern = Regex::new(r"^rgb\((\d{1,3}),(\d{1,3}),(\d{1,3})\)$").unwrap();
+        // check if bg_color_str match this regex pattern
+        if !pattern.is_match(bg_color_str.as_bytes()) {
+            return Err(
+                "Invalid background rgb color format, expected rgb(r,g,b) such as rgb(122,31,212)",
+            );
+        }
+
+        let rgb = bg_color_str[4..bg_color_str.len() - 1]
+            .split(',')
+            .map(|s| s.parse::<u8>().unwrap())
+            .collect::<Vec<_>>();
+        return Ok(Rgb::new(rgb[0] as f64, rgb[1] as f64, rgb[2] as f64));
+    } else if bg_color_str.starts_with("#") {
+        let hex_num = u32::from_str_radix(&bg_color_str[1..], 16);
+        if bg_color_str.len() != 7 || hex_num.is_err() {
+            return Err("Invalid background hex color format, expected #rrggbb such as #7a1fd4");
+        }
+        return Ok(Rgb::from_hex(hex_num.unwrap()));
+    } else {
+        return Err("Invalid background color format, expected rgb(r,g,b) or #rrggbb such as rgb(122,31,212) or #7a1fd4");
+    }
+}
+
+pub fn parse_wgpu_color(color_str: &str) -> Result<wgpu::Color, &str> {
+    if color_str.starts_with("rgb") {
+        let pattern = Regex::new(r"^rgb\((\d{1,3}),(\d{1,3}),(\d{1,3})\)$").unwrap();
+        // check if bg_color_str match this regex pattern
+        if !pattern.is_match(color_str.as_bytes()) {
+            return Err(
+                "Invalid background rgb color format, expected rgb(r,g,b) such as rgb(122,31,212)",
+            );
+        }
+
+        let rgb = color_str[4..color_str.len() - 1]
+            .split(',')
+            .map(|s| s.parse::<u8>().unwrap())
+            .collect::<Vec<_>>();
+        Ok(wgpu::Color {
+            r: rgb[0] as f64, 
+            g: rgb[1] as f64,
+            b: rgb[2] as f64, 
+            a: 1.0
+        })
+    } else if color_str.starts_with("#") {
+        let hex_num = u32::from_str_radix(&color_str[1..], 16);
+        if color_str.len() != 7 || hex_num.is_err() {
+            return Err("Invalid background hex color format, expected #rrggbb such as #7a1fd4");
+        }
+        let rgb = color_space::Rgb::from_hex(hex_num.unwrap());
+        Ok(wgpu::Color {
+            r: rgb.r as f64, 
+            g: rgb.g as f64,
+            b: rgb.b as f64, 
+            a: 1.0
+        })
+    } else {
+        return Err("Invalid background color format, expected rgb(r,g,b) or #rrggbb such as rgb(122,31,212) or #7a1fd4");
+    }
+}
+
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum PlaybackState {
     Paused,
@@ -31,7 +98,7 @@ pub enum PlaybackState {
 
 pub struct Renderer<T, U>
 where
-    T: RenderReader<U>,
+    T: RenderManager<U>,
     U: Renderable,
 {
     fps: f32,
@@ -40,11 +107,12 @@ where
     reader: T,
     metrics_reader: Option<MetricsReader>,
     _data: PhantomData<U>,
+    bg_color: wgpu::Color,
 }
 
 impl<T, U> Renderer<T, U>
 where
-    T: RenderReader<U>,
+    T: RenderManager<U>,
     U: Renderable,
 {
     pub fn new(
@@ -53,6 +121,7 @@ where
         camera: Camera,
         (width, height): (u32, u32),
         metrics_reader: Option<MetricsReader>,
+        bg_color_str: &str,
     ) -> Self {
         Self {
             reader,
@@ -61,13 +130,14 @@ where
             size: PhysicalSize { width, height },
             metrics_reader,
             _data: PhantomData::default(),
+            bg_color: parse_wgpu_color(bg_color_str).unwrap(),
         }
     }
 }
 
 impl<T, U> Attachable for Renderer<T, U>
 where
-    T: RenderReader<U>,
+    T: RenderManager<U>,
     U: Renderable,
 {
     type Output = State<T, U>;
@@ -76,7 +146,10 @@ where
         let window = WindowBuilder::new()
             .with_title("Point Cloud Renderer")
             .with_position(PhysicalPosition { x: 0, y: 0 })
-            .with_inner_size(self.size)
+            .with_resizable(true)
+            .with_min_inner_size(self.size)
+            .with_max_inner_size(PhysicalSize::new(2048, 2048))
+            // .with_inner_size(self.size)
             .build(event_loop)
             .unwrap();
 
@@ -88,6 +161,7 @@ where
             self.fps,
             self.camera_state,
             self.metrics_reader,
+            self.bg_color,
         );
         (state, window)
     }
@@ -96,7 +170,7 @@ where
 /// Renderer's state
 pub struct State<T, U>
 where
-    T: RenderReader<U>,
+    T: RenderManager<U>,
     U: Renderable,
 {
     // Windowing
@@ -126,7 +200,7 @@ where
 
 impl<T, U> Windowed for State<T, U>
 where
-    T: RenderReader<U>,
+    T: RenderManager<U>,
     U: Renderable,
 {
     fn add_output(&mut self, window_id: WindowId) {
@@ -185,7 +259,7 @@ where
 
 impl<T, U> State<T, U>
 where
-    T: RenderReader<U>,
+    T: RenderManager<U>,
     U: Renderable,
 {
     fn new(
@@ -195,10 +269,10 @@ where
         fps: f32,
         camera_state: CameraState,
         metrics_reader: Option<MetricsReader>,
+        bg_color: wgpu::Color,
     ) -> Self {
         let initial_render = reader
             .start()
-            .1
             .expect("There should be at least one point cloud to render!");
         let pcd_renderer = PointCloudRenderer::new(
             &gpu.device,
@@ -206,6 +280,7 @@ where
             &initial_render,
             gpu.size,
             &camera_state,
+            bg_color,
         );
 
         let metrics_renderer = MetricsRenderer::new(gpu.size, &gpu.device);
@@ -256,6 +331,10 @@ where
         self.state = PlaybackState::Paused;
     }
 
+    fn redisplay(&mut self) {
+        self.move_to(self.current_position)
+    }
+
     fn move_to(&mut self, position: usize) {
         if position >= self.reader.len() {
             return;
@@ -270,6 +349,10 @@ where
         // FIXME: avg_fps might not be accurately when a frame fails to render. but it's not a big deal
         let time_taken = now.elapsed();
         debug!("move_to {} takes: {} µs", position, time_taken.as_micros());
+        // println!(
+        //     "time taken: {}",
+        //     time_taken.max(self.time_to_advance).as_secs_f32()
+        // );
         self.fps =
             0.9 * self.fps + 0.1 * (1.0 / time_taken.max(self.time_to_advance).as_secs_f32());
     }
@@ -315,6 +398,8 @@ where
 
     fn redraw(&mut self, dt: Duration) -> Result<(), SurfaceError> {
         self.camera_state.update(dt);
+        self.reader
+            .set_camera_state(Some(self.camera_state.clone())); // TODO might be expensive
         self.pcd_renderer
             .update_camera(&self.gpu.queue, self.camera_state.camera_uniform);
 
@@ -324,7 +409,9 @@ where
                 self.advance();
                 self.time_since_last_update = Duration::from_secs(0);
             }
-        };
+        } else if self.reader.should_redraw(&self.camera_state) {
+            self.redisplay();
+        }
 
         let info = RenderInformation {
             camera: self.camera_state.camera,
@@ -343,7 +430,11 @@ where
         self.render()
     }
 
+    // temporary fix: remove this function because CameraPosition is not yet compatible with the rest of the code
+    // use the original update_vertices function for now
+
     /// Update the vertices and optionally updates camera position
+    /*
     fn update_vertices(&mut self) -> bool {
         if let (camera_pos, Some(data)) = self
             .reader
@@ -354,6 +445,16 @@ where
             if let Some(pos) = camera_pos {
                 *self.camera_state.camera = pos;
             }
+            return true;
+        }
+        false
+    }
+    */
+
+    fn update_vertices(&mut self) -> bool {
+        if let Some(data) = self.reader.get_at(self.current_position) {
+            self.pcd_renderer
+                .update_vertices(&self.gpu.device, &self.gpu.queue, &data);
             return true;
         }
         false
@@ -404,6 +505,7 @@ pub struct PointCloudRenderer<T: Renderable> {
     /// 0.025 -> 44, 0.05 -> 63, 0.1 -> 89, 0.2 -> 124, 0.3 -> 149, 0.4 -> 170, 0.5 -> 188, 0.6 -> 203, 0.7 -> 218, 0.8 -> 231, 0.9 -> 243, 1 -> 255
     background_color: wgpu::Color,
     _data: PhantomData<T>,
+    // bg_color: Rgb,
 }
 
 impl<T> PointCloudRenderer<T>
@@ -416,6 +518,7 @@ where
         initial_render: &T,
         initial_size: PhysicalSize<u32>,
         camera_state: &CameraState,
+        bg_color: wgpu::Color
     ) -> Self {
         let (camera_buffer, camera_bind_group_layout, camera_bind_group) =
             camera_state.create_buffer(device);
@@ -445,13 +548,7 @@ where
             render_pipeline,
             vertex_buffer,
             num_vertices,
-            // bluish color
-            background_color: wgpu::Color {
-                r: 0.1,
-                g: 0.2,
-                b: 0.3,
-                a: 1.0,
-            },
+            background_color: bg_color,
             _data: PhantomData::default(),
         }
     }
@@ -480,9 +577,12 @@ where
     pub fn update_vertices(&mut self, device: &Device, queue: &Queue, data: &T) {
         let vertices = data.num_vertices();
         if vertices > self.num_vertices {
+            // print!("creating new device");
+
             self.vertex_buffer.destroy();
             self.vertex_buffer = data.create_buffer(device);
         } else {
+            // print!("writing to buffer length: {}", data.bytes().len());
             queue.write_buffer(&self.vertex_buffer, 0, data.bytes());
         }
         self.num_vertices = vertices;
@@ -502,6 +602,13 @@ where
                     // `load` field tells wgpu how to handle colors stored from the previous frame.
                     // This will clear the screen with our background color.
                     load: wgpu::LoadOp::Clear(self.background_color),
+                    // This will clear the screen with a bluish color.
+                    // load: wgpu::LoadOp::Clear(wgpu::Color {
+                    //     r: self.bg_color.r / 255.0,
+                    //    g: self.bg_color.g / 255.0,
+                    //   b: self.bg_color.b / 255.0,
+                    //  a: 1.0,
+                    // }),
                     // true if we want to store the rendered results to the Texture behind our TextureView (in this case it's the SurfaceTexture).
                     store: true,
                 },
@@ -571,5 +678,36 @@ impl MetricsRenderer {
                 self.size.height,
             )
             .expect("Draw queued");
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_parse_bg_color() {
+        assert_eq!(
+            parse_bg_color("rgb(255,122,11)").unwrap(),
+            Rgb::new(255f64, 122f64, 11f64)
+        );
+        assert_eq!(
+            parse_bg_color("#9ef244").unwrap(),
+            Rgb::new(158f64, 242f64, 68f64)
+        );
+        assert_eq!(
+            parse_bg_color("#9EF24A").unwrap(),
+            Rgb::new(158f64, 242f64, 74f64)
+        );
+
+        assert!(parse_bg_color("rgb(255,122,11, 0.5)").is_err());
+        assert!(parse_bg_color("rgb(255,122)").is_err());
+        assert!(parse_bg_color("rgb(255,122,11, 0.5)").is_err());
+        assert!(parse_bg_color("(255,122,11, 0.5)").is_err());
+
+        assert!(parse_bg_color("#9ef24").is_err());
+        assert!(parse_bg_color("#9ef2444").is_err());
+        assert!(parse_bg_color("9ef244").is_err());
+        assert!(parse_bg_color("#9IJ444").is_err());
     }
 }

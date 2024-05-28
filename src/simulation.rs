@@ -52,6 +52,7 @@ impl CameraTrace {
                             position,
                             pitch,
                             yaw,
+                            up: cgmath::Vector3::unit_y(), // todo: trace has up vector?
                         }
                     })
                     .collect();

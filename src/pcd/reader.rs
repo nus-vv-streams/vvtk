@@ -1,8 +1,9 @@
-use crate::pcd::data_types::{PCDField, PCDFieldDataType, PCDHeader, PCDVersion, PointCloudData};
+use crate::pcd::data_types::{
+    PCDDataType, PCDField, PCDFieldDataType, PCDHeader, PCDVersion, PointCloudData,
+};
 use std::convert::TryInto;
 use std::fmt::Debug;
 
-use crate::pcd::PCDDataType;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
@@ -16,6 +17,29 @@ pub fn read_pcd_file<P: AsRef<Path>>(p: P) -> Result<PointCloudData> {
     let file = File::open(p).map_err(PCDReadError::IOError)?;
     let reader = BufReader::new(file);
     Parser::new(reader).parse()
+}
+
+/// Reads [PointCloudData] directly from a base file and additional files if needed
+pub fn read_pcd_with_additional<P: AsRef<Path>>(
+    p: P,
+    additional_files: &Vec<P>,
+    additional_points: &Vec<usize>,
+) -> Result<PointCloudData> {
+    let file = File::open(p).map_err(PCDReadError::IOError)?;
+    let reader = BufReader::new(file);
+    let additional_readers = additional_files
+        .iter()
+        .map(|p| BufReader::new(File::open(p).map_err(PCDReadError::IOError).unwrap()))
+        .collect::<Vec<BufReader<File>>>();
+    Parser::new_with_additional_readers(reader, additional_readers)
+        .parse_multiple(additional_points)
+}
+
+/// Reads [PCDHeader] directly from a file given the path
+pub fn read_pcd_header<P: AsRef<Path>>(p: P) -> Result<PCDHeader> {
+    let file = File::open(p).map_err(PCDReadError::IOError)?;
+    let reader = BufReader::new(file);
+    Parser::new(reader).parse_header()
 }
 
 /// Parses a [PointCloudData] from the reader
@@ -58,6 +82,7 @@ pub enum PCDReadError {
 
 struct Parser<R: BufRead> {
     reader: R,
+    additional_readers: Option<Vec<R>>,
     line: String,
 }
 
@@ -65,6 +90,15 @@ impl<R: BufRead> Parser<R> {
     fn new(reader: R) -> Self {
         Self {
             reader,
+            additional_readers: None,
+            line: String::new(),
+        }
+    }
+
+    fn new_with_additional_readers(reader: R, additional_readers: Vec<R>) -> Self {
+        Self {
+            reader,
+            additional_readers: Some(additional_readers),
             line: String::new(),
         }
     }
@@ -74,15 +108,32 @@ impl<R: BufRead> Parser<R> {
         self.parse_data(header)
     }
 
+    fn parse_multiple(mut self, additional_points: &Vec<usize>) -> Result<PointCloudData> {
+        if self.additional_readers.is_none() {
+            return Err(self.header_err("DATA", "No additional readers provided".to_string()));
+        }
+
+        let header = self.parse_header()?;
+        self.parse_multiple_data(header, additional_points)
+    }
+
     fn parse_header(&mut self) -> Result<PCDHeader> {
         let version = self.parse_header_version()?;
         let fields = self.parse_fields()?;
         let (width, height) = self.parse_width_and_height()?;
         let viewpoint = self.parse_viewpoint()?;
         let points = self.parse_points()?;
+        let data_type = self.parse_data_type()?;
 
-        PCDHeader::new(version, fields, width, height, viewpoint, points)
+        PCDHeader::new(version, fields, width, height, viewpoint, points, data_type)
             .map_err(|s| self.header_err("", s))
+    }
+
+    fn parse_data_type(&mut self) -> Result<PCDDataType> {
+        self.next_line()?;
+        self.strip_line_prefix("DATA")?
+            .parse::<PCDDataType>()
+            .map_err(|e| self.header_err("DATA", e))
     }
 
     fn parse_header_version(&mut self) -> Result<PCDVersion> {
@@ -180,11 +231,8 @@ impl<R: BufRead> Parser<R> {
             .map_err(|e| self.header_err("POINTS", e.to_string()))
     }
 
-    fn parse_data(mut self, header: PCDHeader) -> Result<PointCloudData> {
-        self.next_line()?;
-        let data_type_str = self.strip_line_prefix("DATA")?;
-        let data_type =
-            PCDDataType::from_str(data_type_str).map_err(|s| self.header_err("DATA", s))?;
+    fn parse_data(self, header: PCDHeader) -> Result<PointCloudData> {
+        let data_type = header.data_type();
 
         match data_type {
             PCDDataType::Ascii => self.parse_ascii_data(header),
@@ -192,6 +240,19 @@ impl<R: BufRead> Parser<R> {
             PCDDataType::CompressedBinary => {
                 Err(self.header_err("DATA", "Compressed binary type not supported".to_string()))
             }
+        }
+    }
+
+    fn parse_multiple_data(
+        self,
+        header: PCDHeader,
+        additional_points: &Vec<usize>,
+    ) -> Result<PointCloudData> {
+        let data_type = header.data_type();
+
+        match data_type {
+            PCDDataType::Binary => self.parse_multiple_binary_data(header, additional_points),
+            _ => Err(self.header_err("DATA", "Only binary type is supported for now.".to_string())),
         }
     }
 
@@ -204,6 +265,10 @@ impl<R: BufRead> Parser<R> {
         let data_per_line = header.data_per_line();
 
         for line in self.reader.lines() {
+            // Should only read the number of points specified in the header
+            if buffer.len() >= buffer.capacity() {
+                break;
+            }
             let line = line.map_err(PCDReadError::IOError)?;
             let data = line.split_whitespace().collect::<Vec<&str>>();
             if data.len() as u64 != data_per_line {
@@ -272,11 +337,43 @@ impl<R: BufRead> Parser<R> {
     }
 
     fn parse_binary_data(mut self, header: PCDHeader) -> Result<PointCloudData> {
-        let mut buffer = vec![];
+        let mut buffer = vec![0; header.buffer_size() as usize];
         self.reader
-            .read_to_end(&mut buffer)
+            .read_exact(&mut buffer)
             .map_err(PCDReadError::IOError)?;
         PointCloudData::new(header, buffer).map_err(PCDReadError::InvalidData)
+    }
+
+    fn parse_multiple_binary_data(
+        mut self,
+        header: PCDHeader,
+        additional_points: &Vec<usize>,
+    ) -> Result<PointCloudData> {
+        let total_points = header.points() + additional_points.iter().sum::<usize>() as u64;
+        let mut buffer = vec![0; header.buffer_size_for_points(total_points) as usize];
+        let base_size = header.buffer_size() as usize;
+
+        self.reader
+            .read_exact(&mut buffer[0..base_size])
+            .map_err(PCDReadError::IOError)?;
+
+        let mut current_offset = base_size;
+
+        for (index, reader) in self.additional_readers.unwrap().iter_mut().enumerate() {
+            let points = additional_points[index] as u64;
+            let size = header.buffer_size_for_points(points) as usize;
+
+            reader
+                .read_exact(&mut buffer[current_offset..current_offset + size])
+                .map_err(PCDReadError::IOError)?;
+
+            current_offset += size;
+        }
+
+        let mut new_header = header.clone();
+        new_header.set_points(total_points);
+
+        PointCloudData::new(new_header, buffer).map_err(PCDReadError::InvalidData)
     }
 
     fn strip_line_prefix(&mut self, prefix: &str) -> Result<&str> {
@@ -337,6 +434,7 @@ mod tests {
             1,
             [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
             213,
+            crate::pcd::PCDDataType::Ascii,
         )
         .unwrap()
     }
@@ -600,6 +698,7 @@ mod tests {
                HEIGHT 1 \n\
                VIEWPOINT 0 0 0 1 0 0 0 \n\
                POINTS 213 \n\
+               DATA ascii \n\
         ";
 
         let mut parser = Parser::new(BufReader::new(header_str.as_bytes()));
@@ -628,6 +727,8 @@ mod tests {
                VIEWPOINT 0 0 0 1 0 0 0 \n\
                # I am another comment\n\
                POINTS 213 \n\
+               # I am another comment\n\
+               DATA ascii \n\
                # I am another comment\n\
         ";
 

@@ -1,10 +1,11 @@
-use crossbeam_channel::{unbounded, Receiver};
-
 use super::{
     channel::Channel, subcommands::Subcommand, PipelineMessage, Progress, SubcommandCreator,
 };
+use crossbeam_channel::{unbounded, Receiver};
+use std::collections::HashSet;
 
 pub struct Executor {
+    // Subcommand name
     name: String,
     input_stream_names: Vec<String>,
     output_name: String,
@@ -13,16 +14,121 @@ pub struct Executor {
     handler: Box<dyn Subcommand>,
 }
 
+pub struct ExecutorBuilder {
+    output_stream_names: HashSet<String>,
+}
+
+impl ExecutorBuilder {
+    pub fn new() -> Self {
+        ExecutorBuilder {
+            output_stream_names: HashSet::new(),
+        }
+    }
+
+    // This function will identify what to do with the all the vv commands and args passed in
+    // then create a Executor that has a channel inside it to track the progress
+    pub fn create(
+        &mut self,
+        args: Vec<String>,
+        creator: SubcommandCreator,
+    ) -> Result<(Executor, Receiver<Progress>), String> {
+        let name = match args.first() {
+            Some(command_name) => command_name.clone(),
+            None => return Err("Should have command name".to_string()),
+        };
+
+        let mut inner_args = Vec::new();
+        let mut input_stream_names = Vec::new();
+        let mut output_name = "".to_string();
+
+        let cmd = args[0].clone();
+
+        let mut has_input = false;
+        let mut has_help = false;
+        // println!("args: {:?}", args);
+        for arg in args {
+            if arg.eq("--help") || arg.eq("-h") {
+                has_help = true;
+            }
+
+            if arg.starts_with("+input") || arg.starts_with("+in") {
+                let input_streams = match arg.split("=").nth(1) {
+                    Some(input_streams) => input_streams,
+                    None => return Err("Expected name of input stream".to_string()),
+                };
+
+                for input_name in input_streams.split(',') {
+                    // check if input stream name is in the set, panic if not
+                    if !self.output_stream_names.contains(input_name) {
+                        // get the existing output stream names, concat them with ", "
+                        let existing_output_stream_names = self
+                            .output_stream_names
+                            .iter()
+                            .map(|s| format!("`{}`", s))
+                            .collect::<Vec<String>>()
+                            .join(", ");
+
+                        return Err(format!(
+                            "No output stream with name `{}` found, existing outputs are {}",
+                            input_streams, existing_output_stream_names
+                        ));
+                    } else {
+                        input_stream_names.push(input_name.to_string());
+                    }
+                }
+                has_input = true;
+            } else if arg.starts_with("+output") || arg.starts_with("+out") {
+                output_name = match arg.split('=').nth(1) {
+                    Some(output_name) => output_name.to_string(),
+                    None => return Err("Expected name of output stream".to_string()),
+                };
+
+                self.output_stream_names.insert(output_name.clone());
+            } else {
+                inner_args.push(arg);
+            }
+        }
+        if has_input
+            || cmd.as_str() == "read"
+            || cmd.as_str() == "convert"
+            || cmd.as_str() == "info"
+            || cmd.as_str() == "dash"
+            || cmd.as_str() == "extend"
+            || has_help
+        {
+        } else {
+            return Err(format!(
+                "`{}` needs to consume an input, but no named input is found, specify it using `+input=input_name`",
+                cmd.as_str()
+            ));
+        }
+        let handler = creator(inner_args);
+
+        let (progress_tx, progress_rx) = unbounded();
+        let channel = Channel::new(progress_tx);
+        let executor = Executor {
+            name,
+            input_stream_names,
+            output_name,
+            inputs: vec![],
+            channel,
+            handler,
+        };
+        Ok((executor, progress_rx))
+    }
+}
+
 unsafe impl Send for Executor {}
 
 impl Executor {
+    #[allow(dead_code)]
     pub fn create(args: Vec<String>, creator: SubcommandCreator) -> (Self, Receiver<Progress>) {
         let name = args.first().expect("Should have command name").clone();
         let mut inner_args = Vec::new();
         let mut input_stream_names = Vec::new();
         let mut output_name = "".to_string();
         for arg in args {
-            if arg.starts_with("+input") {
+            if arg.starts_with("+input") || arg.starts_with("+in") {
                 let input_streams = arg
                     .split('=')
                     .nth(1)
@@ -30,7 +136,7 @@ impl Executor {
                 for input_name in input_streams.split(',') {
                     input_stream_names.push(input_name.to_string());
                 }
-            } else if arg.starts_with("+output") {
+            } else if arg.starts_with("+output") || arg.starts_with("+out") {
                 output_name = arg
                     .split('=')
                     .nth(1)
@@ -90,6 +196,7 @@ impl Executor {
             .map(|recv| recv.recv())
             .collect::<Result<Vec<PipelineMessage>, _>>()
         {
+            // If one of the provider sent the end message, this process will end
             let should_break = messages.iter().any(|message| {
                 if let PipelineMessage::End = message {
                     true

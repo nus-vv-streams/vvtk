@@ -17,6 +17,7 @@ impl Channel {
         }
     }
 
+    // Set the state of progress_tx, and send the message to all the subscribers
     pub fn send(&self, message: PipelineMessage) -> Vec<()> {
         match &message {
             PipelineMessage::End => self.progress_tx.send(Progress::Completed),
@@ -24,6 +25,7 @@ impl Channel {
         }
         .expect("Should be able to send progress");
 
+        // Send pipeline message to all the listeners
         self.listeners
             .iter()
             .map(|sender| {

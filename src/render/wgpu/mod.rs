@@ -6,5 +6,8 @@ mod gpu;
 pub mod metrics_reader;
 pub mod png;
 pub mod reader;
+pub mod render_manager;
 pub mod renderable;
 pub mod renderer;
+pub mod resolution_controller;
+pub mod upsampler;

@@ -35,7 +35,9 @@ use std::path::Path;
 use std::path::PathBuf;
 use vivotk::codec::{decoder::Tmc2rsDecoder, Decoder};
 use vivotk::dash::fetcher::Fetcher;
-use vivotk::render::wgpu::png::PngWriter;
+use vivotk::render::wgpu::png::{
+    PngWriter,
+    RenderFormat};
 use vivotk::simulation::CameraTrace;
 use vivotk::utils::read_file_to_point_cloud;
 
@@ -108,13 +110,11 @@ async fn main() {
         cgmath::Deg(0.0).into(),
         args.width,
         args.height,
+        "#000000",
+        RenderFormat::Png
     );
-    png_writer.set_background_color(wgpu::Color {
-        r: 0.0,
-        g: 0.44,
-        b: 0.09,
-        a: 1.0,
-    });
+    png_writer.set_background_color(wgpu::Color::WHITE);
+    
     let camera_trace = CameraTrace::new(&args.camera_trace, false);
 
     if let Some(quality) = args.quality {
@@ -140,11 +140,11 @@ async fn main() {
             let paths = res.paths.into_iter().flatten().collect::<Vec<_>>();
             let mut decoder = Tmc2rsDecoder::new(&paths);
             decoder.start().unwrap();
-            for _ in 0..args.segment_size {
+            for i in 0..args.segment_size {
                 let cam_pos = camera_trace.next();
                 png_writer.update_camera_pos(cam_pos);
                 let pc = decoder.poll().unwrap();
-                png_writer.write_to_png(&pc);
+                png_writer.write_to_png(&pc, &(i + frame_number as usize).to_string());
             }
             frame_number += 30;
         }
@@ -167,7 +167,7 @@ async fn main() {
             let pc =
                 read_file_to_point_cloud(ply_files.get(frame_number % args.frame_count).unwrap())
                     .unwrap();
-            png_writer.write_to_png(&pc);
+            png_writer.write_to_png(&pc, &frame_number.to_string());
         }
     } else {
         unreachable!("Either quality or ply_folder must be specified")

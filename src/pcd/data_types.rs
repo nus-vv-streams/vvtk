@@ -57,6 +57,7 @@ where
             1,
             [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
             point_cloud.number_of_points as u64,
+            PCDDataType::Binary,
         )
         .unwrap();
         // bincode makes use of serde to serialize the data into bytes
@@ -89,6 +90,7 @@ pub struct PCDHeader {
     height: u64,
     viewpoint: [f32; 7],
     points: u64,
+    data_type: PCDDataType,
 }
 
 impl PCDHeader {
@@ -99,6 +101,7 @@ impl PCDHeader {
         height: u64,
         viewpoint: [f32; 7],
         points: u64,
+        data_type: PCDDataType,
     ) -> Result<Self, String> {
         if width.saturating_mul(height) != points {
             return Err(format!("Width * Height must be equal to number of points. Width: {width} Height: {height} Points: {points}"));
@@ -111,6 +114,7 @@ impl PCDHeader {
             height,
             viewpoint,
             points,
+            data_type,
         })
     }
 
@@ -138,16 +142,30 @@ impl PCDHeader {
         self.points
     }
 
+    pub fn data_type(&self) -> PCDDataType {
+        self.data_type
+    }
+
     /// Calculates the number of bytes that should be present in the
     /// data portion of the point cloud.
     pub fn buffer_size(&self) -> u64 {
+        self.buffer_size_for_points(self.points)
+    }
+
+    /// Calculate the number of bytes needed given the point num
+    pub fn buffer_size_for_points(&self, point_num: u64) -> u64 {
         let mut size_per_point = 0;
         for field in &self.fields {
             let field_size = field.size() as u64;
             size_per_point += field_size * field.count;
         }
 
-        size_per_point * self.points
+        size_per_point * point_num
+    }
+
+    /// Update the point number of the header
+    pub fn set_points(&mut self, point_num: u64) {
+        self.points = point_num;
     }
 
     /// Calculates the number of data points that should be present per line

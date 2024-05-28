@@ -8,14 +8,18 @@ pub mod dash;
 pub mod downsample;
 pub mod estimatethroughput;
 pub mod formats;
+pub mod lodify;
 pub mod metrics;
 pub mod pcd;
 pub mod pipeline;
 pub mod ply;
+pub mod reconstruct;
 pub mod render;
 pub mod simulation;
 pub mod upsample;
 pub mod utils;
+pub mod velodyne;
+pub mod vvplay_async_prefetch;
 
 use dash::fetcher::FetchResult;
 use formats::{pointxyzrgba::PointXyzRgba, PointCloud};
@@ -23,12 +27,8 @@ use formats::{pointxyzrgba::PointXyzRgba, PointCloud};
 #[cfg(feature = "render")]
 use render::wgpu::reader::FrameRequest;
 
-/// Message types sent to the Buffer Manager of ply_play
 #[derive(Debug)]
 pub enum BufMsg {
-    /// Point cloud message.
-    ///
-    /// Contains the point cloud and the metadata info for the point cloud.
     PointCloud(
         (
             PCMetadata,
@@ -37,14 +37,12 @@ pub enum BufMsg {
     ),
     /// Fetch result from the fetcher
     FetchDone((FrameRequest, FetchResult)),
+    // FetchDone(FrameRequest),
     #[cfg(feature = "render")]
-    /// Frame request message.
     FrameRequest(FrameRequest),
 }
 
 /// Metadata for point cloud. Used in BufMsg.
-///
-/// Includes statistics for the point cloud
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PCMetadata {
     pub object_id: u8,

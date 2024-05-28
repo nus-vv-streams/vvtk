@@ -12,17 +12,17 @@ pub struct Quetra {
     /// playback speed: how many seconds of video is consumed and played in 1 second
     p: f64,
     /// how often is the bitrate adaptation done (selected as 1s for now)
-    segment_frequency: u32,
+    _segment_frequency: u32,
     /// segment size param for granularity of each buffer (selected as 1 for now)
-    segment_size: u32,
+    _segment_size: u32,
 }
 
 impl Quetra {
     pub fn new(buffer_capacity: u64, fps: f32) -> Self {
         Quetra {
             k: buffer_capacity,
-            segment_frequency: 1,
-            segment_size: 1,
+            _segment_frequency: 1,
+            _segment_size: 1,
             p: fps as f64 / 30.0,
         }
     }

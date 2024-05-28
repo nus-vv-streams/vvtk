@@ -7,8 +7,9 @@ use crate::{
 
 use super::Subcommand;
 
+/// Downsample a pointcloud from the stream.
 #[derive(Parser)]
-struct Args {
+pub struct Args {
     #[clap(short, long)]
     points_per_voxel: usize,
 }
@@ -30,11 +31,25 @@ impl Subcommand for Downsampler {
     fn handle(&mut self, messages: Vec<PipelineMessage>, channel: &Channel) {
         for message in messages {
             match message {
-                PipelineMessage::PointCloud(pc) => {
+                PipelineMessage::IndexedPointCloud(pc, i) => {
                     let downsampled_pc = downsample(pc, self.points_per_voxel);
-                    channel.send(PipelineMessage::PointCloud(downsampled_pc));
+                    channel.send(PipelineMessage::IndexedPointCloud(downsampled_pc, i));
                 }
-                PipelineMessage::Metrics(_) => {}
+                PipelineMessage::SubcommandMessage(subcommand_object, i) => {
+                    // Only vv extend will send SubcommandMessage, other subcommand will send IndexedPointCloud to make sure the other command will
+                    // continue to be compatible by receiving IndexedPointCloud
+                    let downsampled_pc = downsample(
+                        subcommand_object.get_content().clone(),
+                        self.points_per_voxel,
+                    );
+                    channel.send(PipelineMessage::IndexedPointCloud(downsampled_pc, i));
+                }
+                PipelineMessage::Metrics(_)
+                | PipelineMessage::IndexedPointCloudWithTriangleFaces(_, _, _)
+                | PipelineMessage::IndexedPointCloudNormal(_, _)
+                | PipelineMessage::IndexedPointCloudWithName(_, _, _, _)
+                | PipelineMessage::MetaData(_, _, _, _)
+                | PipelineMessage::DummyForIncrement => {}
                 PipelineMessage::End => {
                     channel.send(message);
                 }

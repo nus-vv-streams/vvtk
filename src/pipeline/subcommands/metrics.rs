@@ -1,21 +1,31 @@
 use clap::Parser;
 
 use crate::{
-    metrics::calculate_metrics,
+    metrics::{calculate_metrics, SupoportedMetrics},
     pipeline::{channel::Channel, PipelineMessage},
 };
 
 use super::Subcommand;
 
 #[derive(Parser)]
-struct Args {}
+#[clap(
+    about = "Calculates the metrics given two input streams.\nFirst input stream is the original.\nSecond is the reconstructed.\nThen uses write command to write the metrics into a text file.",
+    override_usage = format!("\x1B[1m{}\x1B[0m [OPTIONS] +input=original,reconstructure +output=metrics", "metrics")
+)]
+pub struct Args {
+    #[clap(short, long, num_args = 1.., value_delimiter = ',', default_value = "all")]
+    metrics: Vec<SupoportedMetrics>,
+}
 
-pub struct MetricsCalculator;
+pub struct MetricsCalculator {
+    metrics: Vec<SupoportedMetrics>,
+}
 
 impl MetricsCalculator {
     pub fn from_args(args: Vec<String>) -> Box<dyn Subcommand> {
-        let _args: Args = Args::parse_from(args);
-        Box::new(MetricsCalculator {})
+        let args: Args = Args::parse_from(args);
+        let metrics = args.metrics;
+        Box::new(MetricsCalculator { metrics })
     }
 }
 
@@ -29,9 +39,38 @@ impl Subcommand for MetricsCalculator {
             .next()
             .expect("Expecting two input streams for metrics");
 
+        // If either one or both is from SubcommandMessage, MetricsCalculator still able to handle
         match (&message_one, &message_two) {
-            (PipelineMessage::PointCloud(original), PipelineMessage::PointCloud(reconstructed)) => {
-                let metrics = calculate_metrics(original, reconstructed);
+            (
+                PipelineMessage::IndexedPointCloud(original, _),
+                PipelineMessage::IndexedPointCloud(reconstructed, _),
+            ) => {
+                let metrics = calculate_metrics(original, reconstructed, &self.metrics);
+                channel.send(PipelineMessage::Metrics(metrics));
+            }
+            (
+                PipelineMessage::SubcommandMessage(subcommand_object, _),
+                PipelineMessage::IndexedPointCloud(reconstructed, _),
+            ) => {
+                let original = subcommand_object.get_content();
+                let metrics = calculate_metrics(original, reconstructed, &self.metrics);
+                channel.send(PipelineMessage::Metrics(metrics));
+            }
+            (
+                PipelineMessage::IndexedPointCloud(original, _),
+                PipelineMessage::SubcommandMessage(subcommand_object, _),
+            ) => {
+                let reconstructed = subcommand_object.get_content();
+                let metrics = calculate_metrics(original, reconstructed, &self.metrics);
+                channel.send(PipelineMessage::Metrics(metrics));
+            }
+            (
+                PipelineMessage::SubcommandMessage(subcommand_object_original, _),
+                PipelineMessage::SubcommandMessage(subcommand_object_reconstructed, _),
+            ) => {
+                let reconstructed = subcommand_object_reconstructed.get_content();
+                let original = subcommand_object_original.get_content();
+                let metrics = calculate_metrics(original, reconstructed, &self.metrics);
                 channel.send(PipelineMessage::Metrics(metrics));
             }
             (PipelineMessage::End, _) | (_, PipelineMessage::End) => {

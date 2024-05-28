@@ -1,8 +1,9 @@
-use crate::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
+use crate::{
+    formats::{bounds::Bounds, pointxyzrgba::PointXyzRgba, PointCloud},
+    // utils::get_pc_bound,
+};
 
-use std::iter::zip;
-
-const DELTA: f32 = 1e-4;
+use rayon::prelude::*;
 
 pub fn downsample(
     points: PointCloud<PointXyzRgba>,
@@ -11,6 +12,9 @@ pub fn downsample(
     if points.points.is_empty() {
         points
     } else {
+        // let bound = get_pc_bound(&points);
+        // let points = octree_downsample(points.points, bound, points_per_voxel);
+        // PointCloud::new(points.len(), points)
         let first_point = points.points[0];
         let mut min_x = first_point.x;
         let mut max_x = first_point.x;
@@ -40,23 +44,16 @@ pub fn downsample(
             },
             points_per_voxel,
         );
-
+        println!("len {}", points.len());
         PointCloud {
             number_of_points: points.len(),
             points,
+            segments: None,
         }
     }
 }
 
-struct Bounds {
-    min_x: f32,
-    max_x: f32,
-    min_y: f32,
-    max_y: f32,
-    min_z: f32,
-    max_z: f32,
-}
-
+/*
 impl Bounds {
     fn new(min_x: f32, max_x: f32, min_y: f32, max_y: f32, min_z: f32, max_z: f32) -> Self {
         Self {
@@ -132,6 +129,7 @@ impl Bounds {
             && point.z <= self.max_z
     }
 }
+*/
 
 fn octree_downsample(
     points: Vec<PointXyzRgba>,
@@ -157,8 +155,9 @@ fn octree_downsample(
         }
     }
 
-    zip(voxels, split_bounds)
-        .into_iter()
+    voxels
+        .into_par_iter()
+        .zip(split_bounds.into_par_iter())
         .flat_map(|(p, b)| octree_downsample(p, b, points_per_voxel))
         .collect()
 }
@@ -191,5 +190,29 @@ fn centroid(points: Vec<PointXyzRgba>) -> PointXyzRgba {
         g: (g / size) as u8,
         b: (b / size) as u8,
         a: (a / size) as u8,
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::{
+        pcd::{create_pcd, write_pcd_file},
+        utils::read_file_to_point_cloud,
+    };
+
+    use std::path::PathBuf;
+    #[test]
+    fn test_downsample() {
+        let pcd_path =
+            PathBuf::from("./test_files/pcd_ascii/longdress_vox10_1213_short_upsampled.pcd");
+        let pcd = read_file_to_point_cloud(&pcd_path).unwrap();
+        println!("before: {:?}", pcd);
+        let downsampled = downsample(pcd, 2);
+        println!("Downsampled: {:?}", downsampled);
+        let pcd = create_pcd(&downsampled);
+        let outpath =
+            PathBuf::from("./test_files/pcd_ascii/longdress_vox10_1213_short_up_downsampled.pcd");
+        write_pcd_file(&pcd, crate::pcd::PCDDataType::Ascii, &outpath).unwrap();
     }
 }
