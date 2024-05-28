@@ -54,13 +54,6 @@ log = "0.4.17"
 env_logger = { version = "0.10.0", default-features = false }
 futures = { version = "0.3", optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
-winit = { version = "0.27.3", optional = true }
-wgpu = { version = "0.13.1", optional = true }
-wgpu_glyph = { version = "0.17.0", optional = true }
-egui = { version = "0.19.0", optional = true }
-egui_winit_platform = { version = "0.16.0", optional = true } 
-egui_wgpu_backend = { version = "0.19.0", optional = true }
-epi = { version = "0.17.0", optional = true }
 regex = { version = "1.6.0", optional = true }
 reqwest = { version = "0.11", features = ["gzip"], optional = true }
 tempfile = { version = "3", optional = true }
@@ -68,6 +61,15 @@ serde = { version = "1", features = ["derive"], optional = true }
 serde_with = { version = "3.0.0", optional = true }
 quick-xml = { version = "0.25", features = ["serialize"], optional = true }
 crossbeam-channel = "0.5.6"
+
+# For GUI Rendering
+winit = { version = "0.27.3" }
+wgpu = { version = "0.13.1" }
+wgpu_glyph = { version = "0.17.0" }
+egui = { version = "0.19.0" }
+egui_winit_platform = { version = "0.16.0" }
+egui_wgpu_backend = { version = "0.19.0" }
+epi = { version = "0.17.0" }
 
 # ffmpeg-next = "6"
 ffmpeg-next = { version = "6", optional = true }
@@ -91,7 +93,7 @@ criterion = "0.5"
 
 [[bin]]
 name = "vvplay"
-required-features = ["render", "dash"]
+required-features = ["dash"]
 
 # [[bin]]
 # name = "vvdash"
@@ -101,15 +103,15 @@ name = "vv"
 
 [[bin]]
 name = "vvplay_async"
-required-features = ["render", "dash"]
+required-features = ["dash"]
 
 [[bin]]
 name = "exporter"
 
 [features]
-default = ["render", "dash", "with-tmc2-rs-decoder"]
+default = ["dash", "with-tmc2-rs-decoder"]
 with-tmc2-rs-decoder = ["dep:tmc2rs", "dep:ffmpeg-next"]
-render = ["dep:winit", "dep:wgpu", "dep:wgpu_glyph", "dep:egui", "dep:egui_winit_platform", "dep:egui_wgpu_backend", "dep:epi"]
+# render = ["dep:winit", "dep:wgpu", "dep:wgpu_glyph", "dep:egui", "dep:egui_winit_platform", "dep:egui_wgpu_backend", "dep:epi"]
 dash = ["dep:reqwest", "dep:regex", "dep:tempfile", "dep:quick-xml", "serde", "async"]
 async = ["dep:tokio", "dep:futures"]
 serde = ["dep:serde", "dep:serde_with"]

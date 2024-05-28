@@ -1,7 +1,6 @@
-#[cfg(feature = "render")]
 pub mod wgpu;
 
-#[cfg(not(feature = "render"))]
+/*
 pub mod wgpu {
     pub mod png {
         use std::{ffi::OsString, marker::PhantomData};
@@ -22,13 +21,15 @@ pub mod wgpu {
                 camera_pitch: f32,
                 width: u32,
                 height: u32,
+                background_color: &str,
+                format: super::renderer::Renderer::RenderFormat
             ) -> Self {
                 Self {
                     data: PhantomData::default(),
                 }
             }
 
-            pub fn write_to_png(&mut self, pc: &PointCloud<PointXyzRgba>) {}
+            pub fn write_to_png(&mut self, pc: &PointCloud<PointXyzRgba>, filename: &str) {}
         }
     }
 
@@ -120,6 +121,7 @@ pub mod wgpu {
                 camera: Camera,
                 (width, height): (u32, u32),
                 metrics_reader: Option<MetricsReader>,
+                background_color: &str,
             ) -> Self {
                 Self
             }
@@ -128,3 +130,4 @@ pub mod wgpu {
         impl Windowable for Renderer {}
     }
 }
+*/

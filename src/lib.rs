@@ -24,7 +24,6 @@ pub mod vvplay_async_prefetch;
 use dash::fetcher::FetchResult;
 use formats::{pointxyzrgba::PointXyzRgba, PointCloud};
 
-#[cfg(feature = "render")]
 use render::wgpu::reader::FrameRequest;
 
 #[derive(Debug)]
@@ -38,7 +37,6 @@ pub enum BufMsg {
     /// Fetch result from the fetcher
     FetchDone((FrameRequest, FetchResult)),
     // FetchDone(FrameRequest),
-    #[cfg(feature = "render")]
     FrameRequest(FrameRequest),
 }
 
@@ -49,7 +47,6 @@ pub struct PCMetadata {
     pub frame_offset: u64,
 }
 
-#[cfg(feature = "render")]
 impl From<PCMetadata> for FrameRequest {
     fn from(val: PCMetadata) -> Self {
         FrameRequest {
