@@ -54,12 +54,13 @@ log = "0.4.17"
 env_logger = { version = "0.10.0", default-features = false }
 futures = { version = "0.3", optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
-regex = { version = "1.6.0", optional = true }
-reqwest = { version = "0.11", features = ["gzip"], optional = true }
-tempfile = { version = "3", optional = true }
-serde = { version = "1", features = ["derive"], optional = true }
-serde_with = { version = "3.0.0", optional = true }
-quick-xml = { version = "0.25", features = ["serialize"], optional = true }
+regex = { version = "1.6.0" }
+
+reqwest = { version = "0.11", features = ["gzip"] }
+tempfile = { version = "3" }
+serde = { version = "1", features = ["derive"] }
+quick-xml = { version = "0.25", features = ["serialize"] }
+serde_with = { version = "3.0.0" }
 crossbeam-channel = "0.5.6"
 
 # For GUI Rendering
@@ -93,7 +94,7 @@ criterion = "0.5"
 
 [[bin]]
 name = "vvplay"
-required-features = ["dash"]
+# required-features = ["dash"]
 
 # [[bin]]
 # name = "vvdash"
@@ -103,18 +104,17 @@ name = "vv"
 
 [[bin]]
 name = "vvplay_async"
-required-features = ["dash"]
+# required-features = ["dash"]
 
 [[bin]]
 name = "exporter"
 
 [features]
-default = ["dash", "with-tmc2-rs-decoder"]
+default = ["with-tmc2-rs-decoder", "async" ]
 with-tmc2-rs-decoder = ["dep:tmc2rs", "dep:ffmpeg-next"]
 # render = ["dep:winit", "dep:wgpu", "dep:wgpu_glyph", "dep:egui", "dep:egui_winit_platform", "dep:egui_wgpu_backend", "dep:epi"]
-dash = ["dep:reqwest", "dep:regex", "dep:tempfile", "dep:quick-xml", "serde", "async"]
+# dash = ["dep:reqwest", "dep:regex", "dep:tempfile", "dep:quick-xml", "serde", "async"]
 async = ["dep:tokio", "dep:futures"]
-serde = ["dep:serde", "dep:serde_with"]
 # use this feature to support resizing to a screen size larger than 2048x2048 (depending on your gpu support)
 fullscreen = []
 
