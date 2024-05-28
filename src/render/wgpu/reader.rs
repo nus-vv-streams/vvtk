@@ -296,7 +296,6 @@ impl RenderReader<PointCloud<PointXyzRgba>> for LODFileReader {
     fn set_len(&mut self, _len: usize) {}
 }
 
-#[cfg(feature = "dash")]
 pub struct PcdAsyncReader {
     total_frames: u64,
     rx: Receiver<(FrameRequest, PointCloud<PointXyzRgba>)>,
@@ -306,7 +305,6 @@ pub struct PcdAsyncReader {
     tx: UnboundedSender<BufMsg>,
 }
 
-#[cfg(feature = "dash")]
 #[derive(Debug, Clone, Copy)]
 /// A request to the player backend for a frame to be displayed by the renderer.
 pub struct FrameRequest {
@@ -325,7 +323,6 @@ impl PartialEq for FrameRequest {
     }
 }
 
-#[cfg(feature = "dash")]
 impl PcdAsyncReader {
     pub fn new(
         rx: Receiver<(FrameRequest, PointCloud<PointXyzRgba>)>,
@@ -344,7 +341,6 @@ impl PcdAsyncReader {
     }
 }
 
-#[cfg(feature = "dash")]
 impl RenderReaderCameraPos<PointCloud<PointXyzRgba>> for PcdAsyncReader {
     fn start(&mut self) -> (Option<CameraPosition>, Option<PointCloud<PointXyzRgba>>) {
         RenderReaderCameraPos::get_at(self, 0, Some(CameraPosition::default()))
