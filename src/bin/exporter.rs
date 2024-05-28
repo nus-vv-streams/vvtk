@@ -144,7 +144,7 @@ async fn main() {
                 let pc = decoder.poll().unwrap();
                 png_writer.write_to_png(&pc, &(i + frame_number as usize).to_string());
             }
-            frame_number += 30;
+            frame_number += args.segment_size as u64;
         }
     } else if let Some(ply_folder) = args.ply_folder {
         let mut ply_files: Vec<PathBuf> = vec![];
