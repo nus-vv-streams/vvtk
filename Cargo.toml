@@ -103,6 +103,9 @@ name = "vv"
 name = "vvplay_async"
 required-features = ["render", "dash"]
 
+[[bin]]
+name = "exporter"
+
 [features]
 default = ["render", "dash", "with-tmc2-rs-decoder"]
 with-tmc2-rs-decoder = ["dep:tmc2rs", "dep:ffmpeg-next"]

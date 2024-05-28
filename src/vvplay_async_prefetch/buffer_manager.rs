@@ -223,7 +223,7 @@ impl BufferManager {
                                 self.buffer.add(renderer_req);
                             }
                         }
-                        BufMsg::FetchDone(req) => {
+                        BufMsg::FetchDone((req, _result)) => {
                             // upon receiving fetch result, immediately schedule the next fetch request
                             //println!{"---------------------------"};
                             //println!("the current buffer message is fetch done for {:?}", req);

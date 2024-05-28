@@ -89,6 +89,13 @@ impl CameraState {
             .update_view_proj(&self.camera, &self.projection);
     }
 
+    /// Update camera position
+    pub fn update_camera_pos(&mut self, camera_pos: CameraPosition) {
+        self.camera.current = camera_pos;
+        self.camera_uniform
+            .update_view_proj(&self.camera, &self.projection);
+    }
+
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
             self.projection.resize(new_size.width, new_size.height);

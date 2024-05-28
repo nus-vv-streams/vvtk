@@ -1,8 +1,8 @@
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
 use crate::render::wgpu::camera::{Camera, CameraState};
-use crate::render::wgpu::renderer::{parse_bg_color, PointCloudRenderer};
-use color_space::Rgb;
+use crate::render::wgpu::renderer::{parse_wgpu_color, PointCloudRenderer};
+// use color_space::Rgb;
 use std::ffi::OsString;
 use std::num::NonZeroU32;
 use std::path::Path;
@@ -10,6 +10,7 @@ use std::str::FromStr;
 use wgpu::{Buffer, Device, Queue, Texture, TextureDescriptor, TextureView};
 use winit::dpi::PhysicalSize;
 
+use super::camera::CameraPosition;
 use std::process::{Command, Stdio};
 
 #[derive(clap::ValueEnum, Debug, Copy, Clone, Eq, PartialEq)]
@@ -51,7 +52,9 @@ pub struct PngWriter<'a> {
     output_buffer: Buffer,
     camera_state: CameraState,
     point_renderer: Option<PointCloudRenderer<PointCloud<PointXyzRgba>>>,
-    bg_color: Rgb,
+    background_color: Option<wgpu::Color>,
+    // count: usize,
+    // bg_color: Rgb,
     render_format: RenderFormat,
 }
 
@@ -61,8 +64,8 @@ impl<'a> PngWriter<'a> {
         camera_x: f32,
         camera_y: f32,
         camera_z: f32,
-        camera_yaw: f32,
-        camera_pitch: f32,
+        camera_yaw: cgmath::Rad<f32>,
+        camera_pitch: cgmath::Rad<f32>,
         width: u32,
         height: u32,
         bg_color: &str,
@@ -111,11 +114,7 @@ impl<'a> PngWriter<'a> {
         };
         let output_buffer = device.create_buffer(&output_buffer_desc);
 
-        let camera = Camera::new(
-            (camera_x, camera_y, camera_z),
-            cgmath::Deg(camera_yaw),
-            cgmath::Deg(camera_pitch),
-        );
+        let camera = Camera::new((camera_x, camera_y, camera_z), camera_yaw, camera_pitch);
         let camera_state = CameraState::new(camera, size.width, size.height);
         Self {
             output_dir,
@@ -129,25 +128,48 @@ impl<'a> PngWriter<'a> {
             output_buffer,
             camera_state,
             point_renderer: None,
-            bg_color: parse_bg_color(bg_color).unwrap(),
+            // background_color: None,
+            background_color: parse_wgpu_color(bg_color).ok(),
+            // bg_color: parse_bg_color(bg_color).unwrap(),
+            // count: 0,
             render_format,
         }
+    }
+
+    /// Set the background color. Call this function before the first [`write_to_png`] call
+    ///
+    /// [`write_to_png`]: #method.write_to_png
+    pub fn set_background_color(&mut self, color: wgpu::Color) {
+        self.background_color = Some(color);
     }
 
     pub fn render_format(&self) -> RenderFormat {
         self.render_format
     }
 
+    /// Update the camera position
+    pub fn update_camera_pos(&mut self, pos: CameraPosition) {
+        self.camera_state.update_camera_pos(pos);
+        if let Some(ref mut renderer) = self.point_renderer {
+            renderer.update_camera(&self.queue, self.camera_state.camera_uniform);
+        }
+    }
+
     pub fn write_to_png(&mut self, pc: &PointCloud<PointXyzRgba>, filename: &str) {
         if self.point_renderer.is_none() {
-            self.point_renderer = Some(PointCloudRenderer::new(
+            let renderer = PointCloudRenderer::new(
                 &self.device,
                 self.texture_desc.format,
                 pc,
                 self.size,
                 &self.camera_state,
-                self.bg_color,
-            ));
+                self.background_color.unwrap_or(wgpu::Color::BLACK),
+            );
+            self.point_renderer = Some(if let Some(color) = self.background_color {
+                renderer.with_background_color(color)
+            } else {
+                renderer
+            })
         }
 
         let point_renderer = self.point_renderer.as_mut().unwrap();

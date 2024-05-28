@@ -15,11 +15,13 @@ pub mod pipeline;
 pub mod ply;
 pub mod reconstruct;
 pub mod render;
+pub mod simulation;
 pub mod upsample;
 pub mod utils;
 pub mod velodyne;
 pub mod vvplay_async_prefetch;
 
+use dash::fetcher::FetchResult;
 use formats::{pointxyzrgba::PointXyzRgba, PointCloud};
 
 #[cfg(feature = "render")]
@@ -33,7 +35,9 @@ pub enum BufMsg {
             tokio::sync::mpsc::UnboundedReceiver<PointCloud<PointXyzRgba>>,
         ),
     ),
-    FetchDone(FrameRequest),
+    /// Fetch result from the fetcher
+    FetchDone((FrameRequest, FetchResult)),
+    // FetchDone(FrameRequest),
     #[cfg(feature = "render")]
     FrameRequest(FrameRequest),
 }

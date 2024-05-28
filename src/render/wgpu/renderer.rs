@@ -52,6 +52,43 @@ pub fn parse_bg_color(bg_color_str: &str) -> Result<Rgb, &str> {
     }
 }
 
+pub fn parse_wgpu_color(color_str: &str) -> Result<wgpu::Color, &str> {
+    if color_str.starts_with("rgb") {
+        let pattern = Regex::new(r"^rgb\((\d{1,3}),(\d{1,3}),(\d{1,3})\)$").unwrap();
+        // check if bg_color_str match this regex pattern
+        if !pattern.is_match(color_str.as_bytes()) {
+            return Err(
+                "Invalid background rgb color format, expected rgb(r,g,b) such as rgb(122,31,212)",
+            );
+        }
+
+        let rgb = color_str[4..color_str.len() - 1]
+            .split(',')
+            .map(|s| s.parse::<u8>().unwrap())
+            .collect::<Vec<_>>();
+        Ok(wgpu::Color {
+            r: rgb[0] as f64,
+            g: rgb[1] as f64,
+            b: rgb[2] as f64,
+            a: 1.0,
+        })
+    } else if color_str.starts_with("#") {
+        let hex_num = u32::from_str_radix(&color_str[1..], 16);
+        if color_str.len() != 7 || hex_num.is_err() {
+            return Err("Invalid background hex color format, expected #rrggbb such as #7a1fd4");
+        }
+        let rgb = color_space::Rgb::from_hex(hex_num.unwrap());
+        Ok(wgpu::Color {
+            r: rgb.r as f64,
+            g: rgb.g as f64,
+            b: rgb.b as f64,
+            a: 1.0,
+        })
+    } else {
+        return Err("Invalid background color format, expected rgb(r,g,b) or #rrggbb such as rgb(122,31,212) or #7a1fd4");
+    }
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum PlaybackState {
     Paused,
@@ -69,7 +106,7 @@ where
     reader: T,
     metrics_reader: Option<MetricsReader>,
     _data: PhantomData<U>,
-    bg_color: Rgb,
+    bg_color: wgpu::Color,
 }
 
 impl<T, U> Renderer<T, U>
@@ -92,7 +129,7 @@ where
             size: PhysicalSize { width, height },
             metrics_reader,
             _data: PhantomData::default(),
-            bg_color: parse_bg_color(bg_color_str).unwrap(),
+            bg_color: parse_wgpu_color(bg_color_str).unwrap(),
         }
     }
 }
@@ -231,7 +268,7 @@ where
         fps: f32,
         camera_state: CameraState,
         metrics_reader: Option<MetricsReader>,
-        bg_color: Rgb,
+        bg_color: wgpu::Color,
     ) -> Self {
         let initial_render = reader
             .start()
@@ -369,7 +406,7 @@ where
             self.time_since_last_update += dt;
             if self.time_since_last_update >= self.time_to_advance {
                 self.advance();
-                self.time_since_last_update -= self.time_to_advance;
+                self.time_since_last_update = Duration::from_secs(0);
             }
         } else if self.reader.should_redraw(&self.camera_state) {
             self.redisplay();
@@ -461,8 +498,13 @@ pub struct PointCloudRenderer<T: Renderable> {
     render_pipeline: RenderPipeline,
     vertex_buffer: Buffer,
     num_vertices: usize,
+    /// Background color of the window
+    ///
+    /// wgpu color scheme is super weird:
+    /// 0.025 -> 44, 0.05 -> 63, 0.1 -> 89, 0.2 -> 124, 0.3 -> 149, 0.4 -> 170, 0.5 -> 188, 0.6 -> 203, 0.7 -> 218, 0.8 -> 231, 0.9 -> 243, 1 -> 255
+    background_color: wgpu::Color,
     _data: PhantomData<T>,
-    bg_color: Rgb,
+    // bg_color: Rgb,
 }
 
 impl<T> PointCloudRenderer<T>
@@ -475,7 +517,7 @@ where
         initial_render: &T,
         initial_size: PhysicalSize<u32>,
         camera_state: &CameraState,
-        bg_color: Rgb,
+        bg_color: wgpu::Color,
     ) -> Self {
         let (camera_buffer, camera_bind_group_layout, camera_bind_group) =
             camera_state.create_buffer(device);
@@ -505,9 +547,14 @@ where
             render_pipeline,
             vertex_buffer,
             num_vertices,
+            background_color: bg_color,
             _data: PhantomData::default(),
-            bg_color,
         }
+    }
+
+    pub fn with_background_color(mut self, color: wgpu::Color) -> Self {
+        self.background_color = color;
+        self
     }
 
     pub fn resize(&mut self, new_size: PhysicalSize<u32>, device: &Device) {
@@ -518,7 +565,7 @@ where
         }
     }
 
-    fn update_camera(&self, queue: &Queue, camera_uniform: CameraUniform) {
+    pub(super) fn update_camera(&self, queue: &Queue, camera_uniform: CameraUniform) {
         queue.write_buffer(
             &self.camera_buffer,
             0,
@@ -552,13 +599,15 @@ where
                 resolve_target: None,
                 ops: wgpu::Operations {
                     // `load` field tells wgpu how to handle colors stored from the previous frame.
+                    // This will clear the screen with our background color.
+                    load: wgpu::LoadOp::Clear(self.background_color),
                     // This will clear the screen with a bluish color.
-                    load: wgpu::LoadOp::Clear(wgpu::Color {
-                        r: self.bg_color.r / 255.0,
-                        g: self.bg_color.g / 255.0,
-                        b: self.bg_color.b / 255.0,
-                        a: 1.0,
-                    }),
+                    // load: wgpu::LoadOp::Clear(wgpu::Color {
+                    //     r: self.bg_color.r / 255.0,
+                    //    g: self.bg_color.g / 255.0,
+                    //   b: self.bg_color.b / 255.0,
+                    //  a: 1.0,
+                    // }),
                     // true if we want to store the rendered results to the Texture behind our TextureView (in this case it's the SurfaceTexture).
                     store: true,
                 },

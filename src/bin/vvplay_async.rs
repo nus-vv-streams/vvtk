@@ -236,9 +236,9 @@ fn main() {
                                         // update throughput prediction
                                         throughput_predictor.add(res.throughput);
                                         // send the response to the decoder
-                                        _ = in_dec_sx.send((req, res));
+                                        _ = in_dec_sx.send((req.into(), res.clone()));
                                         // let buffer know that we are done fetching
-                                        _ = to_buf_sx.send(BufMsg::FetchDone(req.into()));
+                                        _ = to_buf_sx.send(BufMsg::FetchDone((req.into(), res.clone())));
                                         break;
                                     }
                                     Err(e) => {
@@ -283,9 +283,12 @@ fn main() {
                             _ = in_dec_sx.send((req, FetchResult {
                                 paths: [ply_files.get(req.frame_offset as usize).map(|p| p.to_path_buf()), None, None, None, None, None],
                                 throughput: 0.0,
-                            }));
+                            })); // Use the cloned 'res' value
                             // let buffer know that we are done fetching
-                            _ = to_buf_sx.send(BufMsg::FetchDone(req.into()));
+                            _ = to_buf_sx.send(BufMsg::FetchDone((req.into(), FetchResult {
+                                paths: [None, None, None, None, None, None], // todo
+                                throughput: 0.0,
+                            }))); // Use the original 'res' value
                         }
                         else => break,
                     }
