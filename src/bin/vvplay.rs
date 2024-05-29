@@ -57,8 +57,8 @@ struct Args {
     #[clap(short = 'H', long, default_value_t = 900)]
     height: u32,
 
-    #[clap(long = "controls", default_value_t = true)]
-    show_controls: bool,
+    #[clap(long = "hide-control-panel", default_value_t = false)]
+    hide_controls: bool,
 
     #[clap(short, long)]
     buffer_size: Option<u8>,
@@ -108,7 +108,7 @@ fn main() {
         args.bg_color.to_str().unwrap(),
     ));
 
-    if args.show_controls {
+    if !args.hide_controls {
         let controls = builder.add_window(Controller { slider_end });
         builder
             .get_windowed_mut(render)
