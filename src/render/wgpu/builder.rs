@@ -1,7 +1,7 @@
 use crate::render::wgpu::camera::Camera;
 use std::collections::HashMap;
 use winit::dpi::PhysicalSize;
-use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
+use winit::event::{ElementState, Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowId};
 
@@ -102,6 +102,7 @@ impl RenderBuilder {
     }
 
     pub fn run(mut self) {
+        // The main event loop of vvplay
         self.event_loop.run(move |new_event, _, control_flow| {
             *control_flow = ControlFlow::Poll;
             match &new_event {
@@ -128,6 +129,7 @@ impl RenderBuilder {
                             WindowEvent::CloseRequested
                             | WindowEvent::Destroyed
                             | WindowEvent::KeyboardInput {
+                                // ESC quits vvplay
                                 input:
                                     KeyboardInput {
                                         state: ElementState::Pressed,
@@ -139,21 +141,34 @@ impl RenderBuilder {
                                 *control_flow = ControlFlow::Exit;
                             }
                             WindowEvent::Resized(physical_size) => {
-                                #[cfg(target_os = "macos")]
-                                if physical_size.width == u32::MAX
-                                    || physical_size.height == u32::MAX
-                                {
-                                    // HACK to fix a bug on Macos 14
-                                    // https://github.com/rust-windowing/winit/issues/2876
-                                    return;
-                                }
                                 windowed_object.object.resize(*physical_size);
+                                if windowed_object.focused {
+                                    windowed_object
+                                        .object
+                                        .handle_event(&new_event, &windowed_object.window)
+                                }
                             }
                             WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                                 windowed_object.object.resize(**new_inner_size);
                             }
-                            WindowEvent::Focused(focus) => windowed_object.focused = *focus,
+                            WindowEvent::Focused(focus) => {
+                                windowed_object.focused = *focus;
+                            }
+                            WindowEvent::MouseInput {
+                                button: MouseButton::Left,
+                                ..
+                            } => {
+                                // self.mouse_pressed = *state == ElementState::Pressed;
+                                // true
+                                if windowed_object.focused {
+                                    windowed_object
+                                        .object
+                                        .handle_event(&new_event, &windowed_object.window)
+                                }
+                            }
                             _ => {
+                                // For all other events, we pass them to the focused window
+                                // Continue in renderer.rs
                                 if windowed_object.focused {
                                     windowed_object
                                         .object

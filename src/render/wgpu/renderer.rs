@@ -5,6 +5,7 @@ use crate::render::wgpu::camera::{Camera, CameraState, CameraUniform};
 use crate::render::wgpu::gpu::WindowGpu;
 use crate::render::wgpu::render_manager::RenderManager;
 use log::debug;
+// use std::f16::consts::E;
 use std::iter;
 use std::marker::PhantomData;
 use std::time::{Duration, Instant};
@@ -15,8 +16,11 @@ use wgpu::{
     TextureView,
 };
 use wgpu_glyph::{ab_glyph, GlyphBrush, GlyphBrushBuilder, Section, Text};
-use winit::dpi::{PhysicalPosition, PhysicalSize};
-use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
+// use winit::dpi::{PhysicalPosition, PhysicalSize};
+use winit::dpi::PhysicalSize;
+use winit::event::{
+    DeviceEvent, ElementState, Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent,
+};
 use winit::event_loop::{EventLoop, EventLoopProxy};
 use winit::window::{Window, WindowBuilder, WindowId};
 
@@ -143,12 +147,13 @@ where
 
     fn attach(self, event_loop: &EventLoop<RenderEvent>) -> (Self::Output, Window) {
         let window = WindowBuilder::new()
-            .with_title("Point Cloud Renderer")
-            .with_position(PhysicalPosition { x: 0, y: 0 })
+            .with_title("vvplay")
+            // .with_position(PhysicalPosition { x: 0, y: 0 })
             .with_resizable(true)
-            .with_min_inner_size(self.size)
+            // .with_min_inner_size(self.size)
             .with_max_inner_size(PhysicalSize::new(2048, 2048))
-            // .with_inner_size(self.size)
+            .with_inner_size(self.size)
+            .with_active(true)
             .build(event_loop)
             .unwrap();
 
@@ -176,6 +181,9 @@ where
     event_proxy: EventLoopProxy<RenderEvent>,
     last_render_time: Option<Instant>,
     listeners: Vec<WindowId>,
+    mouse_in_window: bool,
+    mouse_pressed: bool,
+    resizing: bool,
 
     // GPU variables
     gpu: WindowGpu,
@@ -208,17 +216,70 @@ where
 
     fn handle_event(&mut self, event: &Event<RenderEvent>, window: &Window) {
         match event {
-            Event::DeviceEvent { ref event, .. } => {
-                if let winit::event::DeviceEvent::Key(_) = event {
-                    return;
+            Event::DeviceEvent { ref event, .. } => match event {
+                DeviceEvent::MouseWheel { .. } => {
+                    self.camera_state.handle_mouse_input(event);
                 }
-                self.handle_device_event(event);
-            }
+                DeviceEvent::Key { .. } => {
+                    self.camera_state.handle_keyboard_input(event);
+                    self.handle_keyboard_input(event);
+                }
+                _ => {
+                    if self.mouse_in_window && !self.resizing && self.mouse_pressed {
+                        self.camera_state.handle_mouse_input(event);
+                    }
+                }
+            },
             Event::WindowEvent {
                 event: WindowEvent::KeyboardInput { input, .. },
                 window_id,
             } if *window_id == window.id() => {
-                self.handle_device_event(&DeviceEvent::Key(*input));
+                self.camera_state
+                    .handle_keyboard_input(&DeviceEvent::Key(*input));
+                self.handle_keyboard_input(&DeviceEvent::Key(*input));
+            }
+            Event::WindowEvent { event, window_id } if *window_id == window.id() => {
+                match event {
+                    WindowEvent::CursorEntered { .. } => {
+                        self.mouse_in_window = true;
+                    }
+                    WindowEvent::CursorLeft { .. } => {
+                        self.mouse_in_window = false;
+                    }
+                    // we need to keep track of mouse click/drag that is related to
+                    // resizing the window.  We can tell if the user is resizing when
+                    // we received the resizing message and the mouse button is pressed.
+                    WindowEvent::Resized { .. } => {
+                        if self.mouse_pressed {
+                            // Resize event is received when the window is first created, so need to
+                            // cross check with mouse button pressed to determine if the user is resizing.
+                            self.resizing = true;
+                        }
+                    }
+                    WindowEvent::MouseInput { state, button, .. } => {
+                        if *state == ElementState::Released && *button == MouseButton::Left {
+                            self.mouse_pressed = false;
+                        } else if *state == ElementState::Pressed && *button == MouseButton::Left {
+                            self.mouse_pressed = true;
+                        }
+                        // mouse must be in window since we received the mouse event
+                        self.mouse_in_window = true;
+                        // Assuming that users only resize with mouse drag, when user release the button,
+                        // resizing is done.
+                        if self.resizing && !self.mouse_pressed {
+                            self.resizing = false;
+                            // not passing this mouse button release to camera control since this is the
+                            // last of a resize operation
+                        } else {
+                            // pass the rest to camera control
+                            self.camera_state.handle_mouse_input(&DeviceEvent::Button {
+                                button: 1,
+                                state: *state,
+                            });
+                        }
+                    }
+                    _ => {}
+                }
             }
             Event::RedrawRequested(window_id) if *window_id == window.id() => {
                 if self.last_render_time.is_none() {
@@ -288,6 +349,9 @@ where
             event_proxy,
             listeners: Vec::new(),
             last_render_time: None,
+            mouse_in_window: false,
+            mouse_pressed: false,
+            resizing: false,
 
             gpu,
             pcd_renderer,
@@ -370,8 +434,7 @@ where
         }
     }
 
-    fn handle_device_event(&mut self, event: &DeviceEvent) {
-        self.camera_state.process_input(event);
+    fn handle_keyboard_input(&mut self, event: &DeviceEvent) {
         if let DeviceEvent::Key(KeyboardInput {
             virtual_keycode: Some(key),
             state,
@@ -576,8 +639,6 @@ where
     pub fn update_vertices(&mut self, device: &Device, queue: &Queue, data: &T) {
         let vertices = data.num_vertices();
         if vertices > self.num_vertices {
-            // print!("creating new device");
-
             self.vertex_buffer.destroy();
             self.vertex_buffer = data.create_buffer(device);
         } else {

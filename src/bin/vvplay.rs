@@ -14,10 +14,13 @@ struct Args {
     /// 1. Directory with all the pcd files in lexicographical order
     /// 2. location of the mpd file
     src: String,
-    #[clap(short = 'q', long, default_value_t = 0)]
+
+    #[clap(short, long, default_value_t = 0)]
     quality: u8,
+
     #[clap(short, long, default_value_t = 30.0)]
     fps: f32,
+
     #[clap(
         short = 'x',
         long,
@@ -25,6 +28,7 @@ struct Args {
         allow_negative_numbers = true
     )]
     camera_x: f32,
+
     #[clap(
         short = 'y',
         long,
@@ -32,6 +36,7 @@ struct Args {
         allow_negative_numbers = true
     )]
     camera_y: f32,
+
     #[clap(
         short = 'z',
         long,
@@ -39,26 +44,37 @@ struct Args {
         allow_negative_numbers = true
     )]
     camera_z: f32,
+
     #[clap(long = "yaw", default_value_t = -90.0, allow_negative_numbers = true)]
     camera_yaw: f32,
+
     #[clap(long = "pitch", default_value_t = 0.0, allow_negative_numbers = true)]
     camera_pitch: f32,
+
     #[clap(short = 'W', long, default_value_t = 1600)]
     width: u32,
+
     #[clap(short = 'H', long, default_value_t = 900)]
     height: u32,
+
     #[clap(long = "controls", default_value_t = true)]
     show_controls: bool,
+
     #[clap(short, long)]
     buffer_size: Option<u8>,
+
     #[clap(short, long)]
     metrics: Option<OsString>,
+
     #[clap(long = "decoder", value_enum, default_value_t = DecoderType::Noop)]
     decoder_type: DecoderType,
+
     #[clap(long)]
     decoder_path: Option<OsString>,
+
     #[clap(long, default_value = "rgb(255,255,255)")]
     bg_color: OsString,
+
     #[clap(long, default_value = "false")]
     adaptive_upsampling: bool,
 }

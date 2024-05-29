@@ -31,10 +31,7 @@ impl BuildHasher for DeterministicState {
 
 /// A grid based on spacial hashing.
 #[derive(PartialEq, Debug, Clone)]
-#[cfg_attr(
-    feature = "serde-serialize",
-    derive(serde::Serialize, serde::Deserialize)
-)]
+// #[cfg_attr(derive(serde::Serialize, serde::Deserialize),)]
 pub struct HGrid<T> {
     cells: HashMap<Point3<i64>, Vec<T>, DeterministicState>,
     origin: Point3<Real>,

@@ -54,7 +54,7 @@ impl Attachable for Controller {
 
         let gpu = pollster::block_on(WindowGpu::new(&window));
 
-        let surface_format = gpu.surface.get_supported_formats(&gpu.adapter)[0];
+        let surface_format = gpu.surface.get_capabilities(&gpu.adapter).formats[0];
 
         let event_proxy = Arc::new(EventProxy(
             std::sync::Mutex::new(event_loop.create_proxy()),

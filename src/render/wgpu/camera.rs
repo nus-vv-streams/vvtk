@@ -103,13 +103,19 @@ impl CameraState {
         }
     }
 
-    pub fn process_input(&mut self, event: &DeviceEvent) -> bool {
+    pub fn handle_keyboard_input(&mut self, event: &DeviceEvent) -> bool {
         match event {
             DeviceEvent::Key(KeyboardInput {
                 virtual_keycode: Some(key),
                 state,
                 ..
             }) => self.camera_controller.process_keyboard(*key, *state),
+            _ => false,
+        }
+    }
+
+    pub fn handle_mouse_input(&mut self, event: &DeviceEvent) -> bool {
+        match event {
             DeviceEvent::MouseWheel { delta, .. } => {
                 self.camera_controller.process_scroll(delta);
                 true
