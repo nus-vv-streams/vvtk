@@ -14,7 +14,7 @@ struct Args {
     /// 1. Directory with all the pcd files in lexicographical order
     /// 2. location of the mpd file
     src: String,
-    
+
     #[clap(short, long, default_value_t = 0)]
     quality: u8,
 

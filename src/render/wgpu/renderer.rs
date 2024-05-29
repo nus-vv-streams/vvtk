@@ -19,13 +19,7 @@ use wgpu_glyph::{ab_glyph, GlyphBrush, GlyphBrushBuilder, Section, Text};
 // use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::dpi::PhysicalSize;
 use winit::event::{
-    DeviceEvent, 
-    ElementState, 
-    Event, 
-    KeyboardInput, 
-    MouseButton,
-    VirtualKeyCode, 
-    WindowEvent
+    DeviceEvent, ElementState, Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent,
 };
 use winit::event_loop::{EventLoop, EventLoopProxy};
 use winit::window::{Window, WindowBuilder, WindowId};
@@ -189,7 +183,7 @@ where
     listeners: Vec<WindowId>,
     mouse_in_window: bool,
     mouse_pressed: bool,
-    resizing: bool, 
+    resizing: bool,
 
     // GPU variables
     gpu: WindowGpu,
@@ -222,33 +216,29 @@ where
 
     fn handle_event(&mut self, event: &Event<RenderEvent>, window: &Window) {
         match event {
-            Event::DeviceEvent { ref event, .. } => {
-                match event {
-                    DeviceEvent::MouseWheel { .. } => {
+            Event::DeviceEvent { ref event, .. } => match event {
+                DeviceEvent::MouseWheel { .. } => {
+                    self.camera_state.handle_mouse_input(event);
+                }
+                DeviceEvent::Key { .. } => {
+                    self.camera_state.handle_keyboard_input(event);
+                    self.handle_keyboard_input(event);
+                }
+                _ => {
+                    if self.mouse_in_window && !self.resizing && self.mouse_pressed {
                         self.camera_state.handle_mouse_input(event);
                     }
-                    DeviceEvent::Key { .. } => {
-                        self.camera_state.handle_keyboard_input(event);
-                        self.handle_keyboard_input(event);
-                    }
-                    _ => {
-                        if self.mouse_in_window && ! self.resizing && self.mouse_pressed {
-                            self.camera_state.handle_mouse_input(event);
-                        } 
-                    }
                 }
-            }
+            },
             Event::WindowEvent {
                 event: WindowEvent::KeyboardInput { input, .. },
                 window_id,
             } if *window_id == window.id() => {
-                self.camera_state.handle_keyboard_input(&DeviceEvent::Key(*input));
+                self.camera_state
+                    .handle_keyboard_input(&DeviceEvent::Key(*input));
                 self.handle_keyboard_input(&DeviceEvent::Key(*input));
             }
-            Event::WindowEvent {
-                event,
-                window_id,
-            } if *window_id == window.id() => {
+            Event::WindowEvent { event, window_id } if *window_id == window.id() => {
                 match event {
                     WindowEvent::CursorEntered { .. } => {
                         self.mouse_in_window = true;
@@ -256,7 +246,7 @@ where
                     WindowEvent::CursorLeft { .. } => {
                         self.mouse_in_window = false;
                     }
-                    // we need to keep track of mouse click/drag that is related to 
+                    // we need to keep track of mouse click/drag that is related to
                     // resizing the window.  We can tell if the user is resizing when
                     // we received the resizing message and the mouse button is pressed.
                     WindowEvent::Resized { .. } => {
@@ -267,9 +257,9 @@ where
                         }
                     }
                     WindowEvent::MouseInput { state, button, .. } => {
-                        if *state ==  ElementState::Released && *button == MouseButton::Left {
+                        if *state == ElementState::Released && *button == MouseButton::Left {
                             self.mouse_pressed = false;
-                        } else if *state ==  ElementState::Pressed && *button == MouseButton::Left { 
+                        } else if *state == ElementState::Pressed && *button == MouseButton::Left {
                             self.mouse_pressed = true;
                         }
                         // mouse must be in window since we received the mouse event
@@ -282,11 +272,13 @@ where
                             // last of a resize operation
                         } else {
                             // pass the rest to camera control
-                            self.camera_state.handle_mouse_input(&DeviceEvent::Button { 
-                                button: 1, state: *state });
+                            self.camera_state.handle_mouse_input(&DeviceEvent::Button {
+                                button: 1,
+                                state: *state,
+                            });
                         }
                     }
-                    _ => { }
+                    _ => {}
                 }
             }
             Event::RedrawRequested(window_id) if *window_id == window.id() => {

@@ -1,7 +1,7 @@
 use crate::render::wgpu::camera::Camera;
 use std::collections::HashMap;
 use winit::dpi::PhysicalSize;
-use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, MouseButton, WindowEvent};
+use winit::event::{ElementState, Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowId};
 
@@ -146,7 +146,7 @@ impl RenderBuilder {
                                     windowed_object
                                         .object
                                         .handle_event(&new_event, &windowed_object.window)
-                                } 
+                                }
                             }
                             WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                                 windowed_object.object.resize(**new_inner_size);
@@ -164,7 +164,7 @@ impl RenderBuilder {
                                     windowed_object
                                         .object
                                         .handle_event(&new_event, &windowed_object.window)
-                                } 
+                                }
                             }
                             _ => {
                                 // For all other events, we pass them to the focused window
@@ -173,7 +173,7 @@ impl RenderBuilder {
                                     windowed_object
                                         .object
                                         .handle_event(&new_event, &windowed_object.window)
-                                } 
+                                }
                             }
                         }
                     }
