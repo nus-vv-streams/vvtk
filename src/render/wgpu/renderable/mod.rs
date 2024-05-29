@@ -34,6 +34,7 @@ pub trait Renderable: Clone {
             sample_count: 1,
             dimension: TextureDimension::D2,
             format: TextureFormat::Depth32Float,
+            view_formats: &[],
             usage: TextureUsages::RENDER_ATTACHMENT,
         });
 
@@ -192,6 +193,7 @@ impl Renderable for PointCloud<PointXyzRgba> {
             sample_count: 1,
             dimension: TextureDimension::D2,
             format: TextureFormat::Depth32Float,
+            view_formats: &[],
             usage: TextureUsages::RENDER_ATTACHMENT,
         });
 

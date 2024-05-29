@@ -64,13 +64,14 @@ serde_with = { version = "3.0.0" }
 crossbeam-channel = "0.5.6"
 
 # For GUI Rendering
-winit = { version = "0.27.3" }
-wgpu = { version = "0.13.1" }
-wgpu_glyph = { version = "0.17.0" }
-egui = { version = "0.19.0" }
-egui_winit_platform = { version = "0.16.0" }
-egui_wgpu_backend = { version = "0.19.0" }
-epi = { version = "0.17.0" }
+winit = { version = "0.28" } # Need this for fix Sonoma bug with window size
+wgpu = { version = "0.15" } # Need by egui_wgpu_backend 0.22
+wgpu_glyph = { version = "0.19" } # Need this for wgpu 0.15
+egui = { version = "0.21" } # Need this for egui_winit_platform 0.18
+egui_winit_platform = { version = "^0.18" } # Need this for winit 0.28 onwards
+egui_wgpu_backend = { version = "0.22" } # Need this for egui 0.21
+epi = { version = "0.17" }
+web-sys = { version = "0.3.64" }
 
 # ffmpeg-next = "6"
 ffmpeg-next = { version = "6", optional = true }
@@ -99,15 +100,15 @@ name = "vvplay"
 # [[bin]]
 # name = "vvdash"
 
-[[bin]]
-name = "vv"
+#[[bin]]
+#name = "vv"
 
-[[bin]]
-name = "vvplay_async"
+#[[bin]]
+#name = "vvplay_async"
 # required-features = ["dash"]
 
-[[bin]]
-name = "exporter"
+#[[bin]]
+#name = "exporter"
 
 [features]
 default = ["with-tmc2-rs-decoder", "async" ]

@@ -7,7 +7,7 @@ use std::ffi::OsString;
 use std::num::NonZeroU32;
 use std::path::Path;
 use std::str::FromStr;
-use wgpu::{Buffer, Device, Queue, Texture, TextureDescriptor, TextureView};
+use wgpu::{Buffer, Device, InstanceDescriptor, Queue, Texture, TextureDescriptor, TextureView};
 use winit::dpi::PhysicalSize;
 
 use super::camera::CameraPosition;
@@ -76,7 +76,7 @@ impl<'a> PngWriter<'a> {
         std::fs::create_dir_all(output_path).expect("Failed to create output directory");
 
         let size = PhysicalSize::new(width, height);
-        let instance = wgpu::Instance::new(wgpu::Backends::all());
+        let instance = wgpu::Instance::new(InstanceDescriptor::default());
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::default(),
             compatible_surface: None,
@@ -97,6 +97,7 @@ impl<'a> PngWriter<'a> {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            view_formats: &[],
             usage: wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::RENDER_ATTACHMENT,
             label: None,
         };
