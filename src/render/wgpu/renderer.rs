@@ -723,26 +723,26 @@ mod test {
     #[test]
     fn test_parse_bg_color() {
         assert_eq!(
-            parse_bg_color("rgb(255,122,11)").unwrap(),
+            parse_color("rgb(255,122,11)").unwrap(),
             Rgb::new(255f64, 122f64, 11f64)
         );
         assert_eq!(
-            parse_bg_color("#9ef244").unwrap(),
+            parse_color("#9ef244").unwrap(),
             Rgb::new(158f64, 242f64, 68f64)
         );
         assert_eq!(
-            parse_bg_color("#9EF24A").unwrap(),
+            parse_color("#9EF24A").unwrap(),
             Rgb::new(158f64, 242f64, 74f64)
         );
 
-        assert!(parse_bg_color("rgb(255,122,11, 0.5)").is_err());
-        assert!(parse_bg_color("rgb(255,122)").is_err());
-        assert!(parse_bg_color("rgb(255,122,11, 0.5)").is_err());
-        assert!(parse_bg_color("(255,122,11, 0.5)").is_err());
+        assert!(parse_color("rgb(255,122,11, 0.5)").is_err());
+        assert!(parse_color("rgb(255,122)").is_err());
+        assert!(parse_color("rgb(255,122,11, 0.5)").is_err());
+        assert!(parse_color("(255,122,11, 0.5)").is_err());
 
-        assert!(parse_bg_color("#9ef24").is_err());
-        assert!(parse_bg_color("#9ef2444").is_err());
-        assert!(parse_bg_color("9ef244").is_err());
-        assert!(parse_bg_color("#9IJ444").is_err());
+        assert!(parse_color("#9ef24").is_err());
+        assert!(parse_color("#9ef2444").is_err());
+        assert!(parse_color("9ef244").is_err());
+        assert!(parse_color("#9IJ444").is_err());
     }
 }
