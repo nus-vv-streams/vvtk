@@ -30,36 +30,10 @@ use super::renderable::Renderable;
 use color_space::Rgb;
 use regex::bytes::Regex;
 
-pub fn parse_bg_color(bg_color_str: &str) -> Result<Rgb, &str> {
-    if bg_color_str.starts_with("rgb") {
-        let pattern = Regex::new(r"^rgb\((\d{1,3}),(\d{1,3}),(\d{1,3})\)$").unwrap();
-        // check if bg_color_str match this regex pattern
-        if !pattern.is_match(bg_color_str.as_bytes()) {
-            return Err(
-                "Invalid background rgb color format, expected rgb(r,g,b) such as rgb(122,31,212)",
-            );
-        }
-
-        let rgb = bg_color_str[4..bg_color_str.len() - 1]
-            .split(',')
-            .map(|s| s.parse::<u8>().unwrap())
-            .collect::<Vec<_>>();
-        return Ok(Rgb::new(rgb[0] as f64, rgb[1] as f64, rgb[2] as f64));
-    } else if bg_color_str.starts_with("#") {
-        let hex_num = u32::from_str_radix(&bg_color_str[1..], 16);
-        if bg_color_str.len() != 7 || hex_num.is_err() {
-            return Err("Invalid background hex color format, expected #rrggbb such as #7a1fd4");
-        }
-        return Ok(Rgb::from_hex(hex_num.unwrap()));
-    } else {
-        return Err("Invalid background color format, expected rgb(r,g,b) or #rrggbb such as rgb(122,31,212) or #7a1fd4");
-    }
-}
-
-pub fn parse_wgpu_color(color_str: &str) -> Result<wgpu::Color, &str> {
+pub fn parse_color(color_str: &str) -> Result<Rgb, &str> {
     if color_str.starts_with("rgb") {
         let pattern = Regex::new(r"^rgb\((\d{1,3}),(\d{1,3}),(\d{1,3})\)$").unwrap();
-        // check if bg_color_str match this regex pattern
+        // check if color_str match this regex pattern
         if !pattern.is_match(color_str.as_bytes()) {
             return Err(
                 "Invalid background rgb color format, expected rgb(r,g,b) such as rgb(122,31,212)",
@@ -70,27 +44,28 @@ pub fn parse_wgpu_color(color_str: &str) -> Result<wgpu::Color, &str> {
             .split(',')
             .map(|s| s.parse::<u8>().unwrap())
             .collect::<Vec<_>>();
-        Ok(wgpu::Color {
-            r: rgb[0] as f64,
-            g: rgb[1] as f64,
-            b: rgb[2] as f64,
-            a: 1.0,
-        })
+        println!("{:?}", rgb);
+        return Ok(Rgb::new(rgb[0] as f64, rgb[1] as f64, rgb[2] as f64));
     } else if color_str.starts_with("#") {
         let hex_num = u32::from_str_radix(&color_str[1..], 16);
         if color_str.len() != 7 || hex_num.is_err() {
             return Err("Invalid background hex color format, expected #rrggbb such as #7a1fd4");
         }
-        let rgb = color_space::Rgb::from_hex(hex_num.unwrap());
-        Ok(wgpu::Color {
-            r: rgb.r as f64,
-            g: rgb.g as f64,
-            b: rgb.b as f64,
-            a: 1.0,
-        })
+        return Ok(Rgb::from_hex(hex_num.unwrap()));
     } else {
         return Err("Invalid background color format, expected rgb(r,g,b) or #rrggbb such as rgb(122,31,212) or #7a1fd4");
     }
+}
+
+pub fn parse_wgpu_color(color_str: &str) -> Result<wgpu::Color, &str> {
+    let c = parse_color(color_str).map(|rgb| wgpu::Color {
+        r: rgb.r / 255.0,
+        g: rgb.g / 255.0,
+        b: rgb.b / 255.0,
+        a: 1.0,
+    });
+    println!("{:?}", c);
+    c
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -565,7 +540,7 @@ pub struct PointCloudRenderer<T: Renderable> {
     ///
     /// wgpu color scheme is super weird:
     /// 0.025 -> 44, 0.05 -> 63, 0.1 -> 89, 0.2 -> 124, 0.3 -> 149, 0.4 -> 170, 0.5 -> 188, 0.6 -> 203, 0.7 -> 218, 0.8 -> 231, 0.9 -> 243, 1 -> 255
-    background_color: wgpu::Color,
+    bg_color: wgpu::Color,
     _data: PhantomData<T>,
     // bg_color: Rgb,
 }
@@ -610,13 +585,13 @@ where
             render_pipeline,
             vertex_buffer,
             num_vertices,
-            background_color: bg_color,
+            bg_color,
             _data: PhantomData::default(),
         }
     }
 
     pub fn with_background_color(mut self, color: wgpu::Color) -> Self {
-        self.background_color = color;
+        self.bg_color = color;
         self
     }
 
@@ -661,7 +636,7 @@ where
                 ops: wgpu::Operations {
                     // `load` field tells wgpu how to handle colors stored from the previous frame.
                     // This will clear the screen with our background color.
-                    load: wgpu::LoadOp::Clear(self.background_color),
+                    load: wgpu::LoadOp::Clear(self.bg_color),
                     // This will clear the screen with a bluish color.
                     // load: wgpu::LoadOp::Clear(wgpu::Color {
                     //     r: self.bg_color.r / 255.0,
