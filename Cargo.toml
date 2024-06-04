@@ -95,17 +95,22 @@ criterion = "0.5"
 
 [[bin]]
 name = "vvplay"
-# required-features = ["dash"]
-
-# [[bin]]
-# name = "vvdash"
+#required-features = ["dash"]
 
 #[[bin]]
-#name = "vv"
+#name = "vvdash"
+
+[[bin]]
+name = "vv"
+
+[[bin]]
+name = "vvplay_async"
+#required-features = ["dash"]
 
 #[[bin]]
-#name = "vvplay_async"
-# required-features = ["dash"]
+#name = "ply_play"
+#required-features = ["dash"]
+
 
 #[[bin]]
 #name = "exporter"

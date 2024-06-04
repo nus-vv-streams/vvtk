@@ -93,6 +93,9 @@ impl RenderBuilder {
         self.window_objects.get_mut(&id).map(|obj| &mut obj.object)
     }
 
+    //
+    // These two methods might be needed later.
+
     pub fn get_proxy(&self) -> winit::event_loop::EventLoopProxy<RenderEvent> {
         self.event_loop.create_proxy()
     }

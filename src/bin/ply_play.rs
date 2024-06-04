@@ -18,12 +18,12 @@ use vivotk::dash::{
     ThroughputPrediction, ViewportPrediction,
 };
 use vivotk::formats::{pointxyzrgba::PointXyzRgba, PointCloud};
-use vivotk::render::wgpu::{
+use vivotk::render::wgpu::camera::{Camera, CameraPosition};
+use vivotk::render::wgpu::reader::PcdAsyncReader;
+use vivotk::player::{
     builder::{EventType, RenderBuilder, RenderEvent},
-    camera::{Camera, CameraPosition},
     controls::Controller,
     metrics_reader::MetricsReader,
-    reader::{FrameRequest, PcdAsyncReader, RenderReader},
     renderer::Renderer,
 };
 use vivotk::simulation::{CameraTrace, NetworkTrace};
@@ -102,6 +102,9 @@ struct Args {
     /// 1. Not fetching when file has been previously downloaded.
     #[clap(long, action = clap::ArgAction::SetTrue)]
     enable_fetcher_optimizations: bool,
+    #[clap(long, default_value = "rgb(255,255,255)")]
+    bg_color: OsString,
+
 }
 
 #[derive(clap::ValueEnum, Clone, Copy)]
@@ -130,6 +133,18 @@ enum ThroughputPredictionType {
     Gaema,
     /// Low Pass Exponential Moving Average
     Lpema,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct FrameRequest {
+    pub object_id: u8,
+    /// Frame offset from the start of the video.
+    ///
+    /// To get the frame number, add the offset to the frame number of the first frame in the video.
+    pub frame_offset: u64,
+    /// The camera position when the frame was requested.
+    pub camera_pos: Option<CameraPosition>,
+    buffer_occupancy: usize,
 }
 
 #[derive(clap::ValueEnum, Clone, Copy)]
@@ -215,15 +230,17 @@ impl BufferManager {
     }
 
     /// Get next frame request assuming playback is continuous
-    fn get_next_frame_req(&self, req: &FrameRequest) -> FrameRequest {
+    pub fn get_next_frame_req(&self, req: &FrameRequest) -> FrameRequest {
         FrameRequest {
             object_id: req.object_id,
             frame_offset: (req.frame_offset + self.segment_size) % self.total_frames as u64,
             camera_pos: req.camera_pos,
+            buffer_occupancy: 0,
         }
     }
 
-    fn prefetch_frame(&mut self, camera_pos: Option<CameraPosition>) {
+    //Send fetch request for the next frame and add it to the buffer
+    pub fn prefetch_frame(&mut self, camera_pos: Option<CameraPosition>) {
         assert!(camera_pos.is_some());
         let last_req = FrameRequest {
             camera_pos,
@@ -412,6 +429,7 @@ impl From<FetchRequest> for FrameRequest {
             object_id: val.object_id,
             frame_offset: val.frame_offset,
             camera_pos: val.camera_pos,
+            buffer_occupancy: 0,
         }
     }
 }
@@ -705,6 +723,7 @@ fn main() {
                     position: Point3::new(args.camera_x, args.camera_y, args.camera_z),
                     yaw: cgmath::Deg(args.camera_yaw).into(),
                     pitch: cgmath::Deg(args.camera_pitch).into(),
+                    up: Vector3::new(0.0, 0.0, 0.0)
                 },
                 simulated_camera_trace,
                 record_camera_trace,
@@ -745,6 +764,7 @@ fn main() {
             camera,
             (args.width, args.height),
             metrics,
+            args.bg_color.to_str().unwrap(),
         ));
     // };
     if args.show_controls {

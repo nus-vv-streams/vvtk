@@ -1,11 +1,12 @@
 use clap::Parser;
 use std::ffi::OsString;
 use std::path::Path;
-
-use vivotk::render::wgpu::{
-    builder::RenderBuilder, camera::Camera, controls::Controller, metrics_reader::MetricsReader,
-    render_manager::AdaptiveUpsamplingManager, renderer::Renderer,
-};
+use vivotk::player::builder::RenderBuilder;
+use vivotk::player::controls::Controller; 
+use vivotk::player::metrics_reader::MetricsReader;
+use vivotk::player::render_manager::AdaptiveUpsamplingManager; 
+use vivotk::player::renderer::Renderer;
+use vivotk::render::wgpu::camera::Camera; 
 
 /// Plays a folder of pcd files in lexicographical order
 #[derive(Parser)]
@@ -61,7 +62,7 @@ struct Args {
     hide_controls: bool,
 
     #[clap(short, long)]
-    buffer_size: Option<u8>,
+    // buffer_size: Option<u8>,
 
     #[clap(short, long)]
     metrics: Option<OsString>,

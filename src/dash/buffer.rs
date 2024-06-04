@@ -122,7 +122,7 @@ impl Buffer {
             .frames
             .iter()
             .position(|f| f.req == req)
-            .expect("Frame not found");
+            .expect(format!("Frame not found {:?}", req).as_str());
         if let FrameStatus::Ready(0, _) = state {
             self.frames.remove(idx);
             return;

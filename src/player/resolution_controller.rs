@@ -1,8 +1,8 @@
 use crate::formats::metadata::MetaData;
 use crate::formats::pointxyzrgba::PointXyzRgba;
 
-use super::antialias::AntiAlias;
-use super::camera::CameraState;
+use crate::render::wgpu::antialias::AntiAlias;
+use crate::render::wgpu::camera::CameraState;
 
 use kdtree::distance::squared_euclidean;
 use kdtree::KdTree;

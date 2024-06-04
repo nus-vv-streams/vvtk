@@ -14,9 +14,9 @@ const PROJECTION_ZFAR: f32 = 100.0;
 
 #[derive(Clone)]
 pub struct CameraState {
-    pub(super) camera: Camera,
+    pub camera: Camera,
     camera_controller: CameraController,
-    pub(super) camera_uniform: CameraUniform,
+    pub camera_uniform: CameraUniform,
     projection: Projection,
     mouse_pressed: bool,
     window_size: winit::dpi::PhysicalSize<u32>,
@@ -447,7 +447,7 @@ impl CameraController {
         };
     }
 
-    fn update_camera_rotation(&mut self, camera: &mut Camera, dt: Duration) {
+    pub fn update_camera_rotation(&mut self, camera: &mut Camera, dt: Duration) {
         let rotate_angle_speed = std::f32::consts::PI; // 90 degree per second
         let rotate_angle = Rad(rotate_angle_speed * dt.as_secs_f32());
         let clock_wise = match self.rotate_direction {

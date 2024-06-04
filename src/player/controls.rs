@@ -1,4 +1,4 @@
-use crate::render::wgpu::builder::{
+use super::builder::{
     Attachable, EventType, RenderEvent, RenderInformation, Windowed,
 };
 use crate::render::wgpu::gpu::WindowGpu;

@@ -1,22 +1,21 @@
-use crate::render::wgpu::builder::{
+use super::builder::{
     Attachable, EventType, RenderEvent, RenderInformation, Windowed,
 };
-use crate::render::wgpu::camera::{Camera, CameraState, CameraUniform};
-use crate::render::wgpu::gpu::WindowGpu;
-use crate::render::wgpu::render_manager::RenderManager;
-use log::debug;
+use super::metrics_reader::MetricsReader;
+use super::render_manager::RenderManager;
 // use std::f16::consts::E;
+// use winit::dpi::{PhysicalPosition, PhysicalSize};
+use log::debug;
 use std::iter;
 use std::marker::PhantomData;
 use std::time::{Duration, Instant};
+use crate::render::wgpu::camera::{Camera, CameraState};
+use crate::render::wgpu::color::parse_wgpu_color;
+use crate::render::wgpu::gpu::WindowGpu;
+use crate::render::wgpu::point_cloud_renderer::PointCloudRenderer;
+use crate::render::wgpu::renderable::Renderable;
 use wgpu::util::StagingBelt;
-use wgpu::{
-    BindGroup, Buffer, CommandEncoder, Device, LoadOp, Operations, Queue,
-    RenderPassDepthStencilAttachment, RenderPipeline, SurfaceError, Texture, TextureFormat,
-    TextureView,
-};
 use wgpu_glyph::{ab_glyph, GlyphBrush, GlyphBrushBuilder, Section, Text};
-// use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::dpi::PhysicalSize;
 use winit::event::{
     DeviceEvent, ElementState, Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent,
@@ -24,49 +23,7 @@ use winit::event::{
 use winit::event_loop::{EventLoop, EventLoopProxy};
 use winit::window::{Window, WindowBuilder, WindowId};
 
-use super::metrics_reader::MetricsReader;
-use super::renderable::Renderable;
 
-use color_space::Rgb;
-use regex::bytes::Regex;
-
-pub fn parse_color(color_str: &str) -> Result<Rgb, &str> {
-    if color_str.starts_with("rgb") {
-        let pattern = Regex::new(r"^rgb\((\d{1,3}),(\d{1,3}),(\d{1,3})\)$").unwrap();
-        // check if color_str match this regex pattern
-        if !pattern.is_match(color_str.as_bytes()) {
-            return Err(
-                "Invalid background rgb color format, expected rgb(r,g,b) such as rgb(122,31,212)",
-            );
-        }
-
-        let rgb = color_str[4..color_str.len() - 1]
-            .split(',')
-            .map(|s| s.parse::<u8>().unwrap())
-            .collect::<Vec<_>>();
-        println!("{:?}", rgb);
-        return Ok(Rgb::new(rgb[0] as f64, rgb[1] as f64, rgb[2] as f64));
-    } else if color_str.starts_with("#") {
-        let hex_num = u32::from_str_radix(&color_str[1..], 16);
-        if color_str.len() != 7 || hex_num.is_err() {
-            return Err("Invalid background hex color format, expected #rrggbb such as #7a1fd4");
-        }
-        return Ok(Rgb::from_hex(hex_num.unwrap()));
-    } else {
-        return Err("Invalid background color format, expected rgb(r,g,b) or #rrggbb such as rgb(122,31,212) or #7a1fd4");
-    }
-}
-
-pub fn parse_wgpu_color(color_str: &str) -> Result<wgpu::Color, &str> {
-    let c = parse_color(color_str).map(|rgb| wgpu::Color {
-        r: rgb.r / 255.0,
-        g: rgb.g / 255.0,
-        b: rgb.b / 255.0,
-        a: 1.0,
-    });
-    println!("{:?}", c);
-    c
-}
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum PlaybackState {
@@ -433,7 +390,7 @@ where
         }
     }
 
-    fn redraw(&mut self, dt: Duration) -> Result<(), SurfaceError> {
+    fn redraw(&mut self, dt: Duration) -> Result<(), wgpu::SurfaceError> {
         self.camera_state.update(dt);
         self.reader
             .set_camera_state(Some(self.camera_state.clone())); // TODO might be expensive
@@ -527,152 +484,13 @@ where
     }
 }
 
-pub struct PointCloudRenderer<T: Renderable> {
-    camera_buffer: Buffer,
-    camera_bind_group: BindGroup,
-    antialias_bind_group: BindGroup,
-    depth_texture: Texture,
-    depth_view: TextureView,
-    render_pipeline: RenderPipeline,
-    vertex_buffer: Buffer,
-    num_vertices: usize,
-    /// Background color of the window
-    ///
-    /// wgpu color scheme is super weird:
-    /// 0.025 -> 44, 0.05 -> 63, 0.1 -> 89, 0.2 -> 124, 0.3 -> 149, 0.4 -> 170, 0.5 -> 188, 0.6 -> 203, 0.7 -> 218, 0.8 -> 231, 0.9 -> 243, 1 -> 255
-    bg_color: wgpu::Color,
-    _data: PhantomData<T>,
-    // bg_color: Rgb,
-}
-
-impl<T> PointCloudRenderer<T>
-where
-    T: Renderable,
-{
-    pub fn new(
-        device: &Device,
-        format: TextureFormat,
-        initial_render: &T,
-        initial_size: PhysicalSize<u32>,
-        camera_state: &CameraState,
-        bg_color: wgpu::Color,
-    ) -> Self {
-        let (camera_buffer, camera_bind_group_layout, camera_bind_group) =
-            camera_state.create_buffer(device);
-        let (antialias_bind_group_layout, antialias_bind_group) =
-            initial_render.antialias().create_buffer(device);
-
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&camera_bind_group_layout, &antialias_bind_group_layout],
-                push_constant_ranges: &[],
-            });
-
-        let render_pipeline =
-            T::create_render_pipeline(device, format, Some(&render_pipeline_layout));
-        let (depth_texture, depth_view) = T::create_depth_texture(device, initial_size);
-
-        let vertex_buffer = initial_render.create_buffer(device);
-        let num_vertices = initial_render.num_vertices();
-
-        Self {
-            camera_buffer,
-            camera_bind_group,
-            antialias_bind_group,
-            depth_texture,
-            depth_view,
-            render_pipeline,
-            vertex_buffer,
-            num_vertices,
-            bg_color,
-            _data: PhantomData::default(),
-        }
-    }
-
-    pub fn with_background_color(mut self, color: wgpu::Color) -> Self {
-        self.bg_color = color;
-        self
-    }
-
-    pub fn resize(&mut self, new_size: PhysicalSize<u32>, device: &Device) {
-        if new_size.width > 0 && new_size.height > 0 {
-            let (depth_texture, depth_view) = T::create_depth_texture(device, new_size);
-            self.depth_texture = depth_texture;
-            self.depth_view = depth_view;
-        }
-    }
-
-    pub(super) fn update_camera(&self, queue: &Queue, camera_uniform: CameraUniform) {
-        queue.write_buffer(
-            &self.camera_buffer,
-            0,
-            bytemuck::cast_slice(&[camera_uniform]),
-        );
-    }
-
-    pub fn update_vertices(&mut self, device: &Device, queue: &Queue, data: &T) {
-        let vertices = data.num_vertices();
-        if vertices > self.num_vertices {
-            self.vertex_buffer.destroy();
-            self.vertex_buffer = data.create_buffer(device);
-        } else {
-            // print!("writing to buffer length: {}", data.bytes().len());
-            queue.write_buffer(&self.vertex_buffer, 0, data.bytes());
-        }
-        self.num_vertices = vertices;
-    }
-
-    /// Stores render commands into encoder, specifying which texture to save the colors to.
-    pub fn render(&mut self, encoder: &mut CommandEncoder, view: &TextureView) {
-        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Render Pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                // which texture to save the colors to
-                view,
-                // the texture that will receive the resolved output. Same as `view` unless multisampling is enabled.
-                // As we don't need to specify this, we leave it as None.
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    // `load` field tells wgpu how to handle colors stored from the previous frame.
-                    // This will clear the screen with our background color.
-                    load: wgpu::LoadOp::Clear(self.bg_color),
-                    // This will clear the screen with a bluish color.
-                    // load: wgpu::LoadOp::Clear(wgpu::Color {
-                    //     r: self.bg_color.r / 255.0,
-                    //    g: self.bg_color.g / 255.0,
-                    //   b: self.bg_color.b / 255.0,
-                    //  a: 1.0,
-                    // }),
-                    // true if we want to store the rendered results to the Texture behind our TextureView (in this case it's the SurfaceTexture).
-                    store: true,
-                },
-            })],
-            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: &self.depth_view,
-                depth_ops: Some(Operations {
-                    load: LoadOp::Clear(1.0),
-                    store: true,
-                }),
-                stencil_ops: None,
-            }),
-        });
-
-        render_pass.set_pipeline(&self.render_pipeline);
-        render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-        render_pass.set_bind_group(1, &self.antialias_bind_group, &[]);
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.draw(0..(self.num_vertices as u32), 0..1);
-    }
-}
-
 struct MetricsRenderer {
     size: PhysicalSize<u32>,
     glyph_brush: GlyphBrush<()>,
 }
 
 impl MetricsRenderer {
-    pub fn new(size: PhysicalSize<u32>, device: &Device) -> Self {
+    pub fn new(size: PhysicalSize<u32>, device: &wgpu::Device) -> Self {
         let font = ab_glyph::FontArc::try_from_slice(include_bytes!("Inconsolata-Regular.ttf"))
             .expect("Could not initialize font");
         let glyph_brush =
@@ -683,10 +501,10 @@ impl MetricsRenderer {
 
     pub fn draw(
         &mut self,
-        device: &Device,
+        device: &wgpu::Device,
         staging_belt: &mut StagingBelt,
-        encoder: &mut CommandEncoder,
-        view: &TextureView,
+        encoder: &mut wgpu::CommandEncoder,
+        view: &wgpu::TextureView,
         stats: &Vec<(String, String)>,
     ) {
         let x_offset = 30.0;
@@ -716,33 +534,3 @@ impl MetricsRenderer {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_parse_bg_color() {
-        assert_eq!(
-            parse_color("rgb(255,122,11)").unwrap(),
-            Rgb::new(255f64, 122f64, 11f64)
-        );
-        assert_eq!(
-            parse_color("#9ef244").unwrap(),
-            Rgb::new(158f64, 242f64, 68f64)
-        );
-        assert_eq!(
-            parse_color("#9EF24A").unwrap(),
-            Rgb::new(158f64, 242f64, 74f64)
-        );
-
-        assert!(parse_color("rgb(255,122,11, 0.5)").is_err());
-        assert!(parse_color("rgb(255,122)").is_err());
-        assert!(parse_color("rgb(255,122,11, 0.5)").is_err());
-        assert!(parse_color("(255,122,11, 0.5)").is_err());
-
-        assert!(parse_color("#9ef24").is_err());
-        assert!(parse_color("#9ef2444").is_err());
-        assert!(parse_color("9ef244").is_err());
-        assert!(parse_color("#9IJ444").is_err());
-    }
-}
