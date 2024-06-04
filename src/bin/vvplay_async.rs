@@ -9,16 +9,17 @@ use vivotk::codec::decoder::{DracoDecoder, NoopDecoder};
 use vivotk::codec::Decoder;
 use vivotk::dash::fetcher::{FetchResult, Fetcher};
 use vivotk::dash::{ThroughputPrediction, ViewportPrediction};
-use vivotk::render::wgpu::render_manager::{RenderManager, RenderReaderWrapper};
-use vivotk::render::wgpu::{
+use vivotk::player::{
     builder::{EventType, RenderBuilder, RenderEvent},
-    camera::{Camera, CameraPosition},
     controls::Controller,
     metrics_reader::MetricsReader,
-    reader::PcdAsyncReader,
+    render_manager::{RenderManager, RenderReaderWrapper},
     renderer::Renderer,
 };
-
+use vivotk::render::wgpu::{
+    camera::{Camera, CameraPosition},
+    reader::PcdAsyncReader,
+};
 use vivotk::utils::{
     get_cosines, predict_quality, ExponentialMovingAverage, LastValue, SimpleRunningAverage, GAEMA,
     LPEMA,

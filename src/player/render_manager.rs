@@ -1,15 +1,15 @@
-use crate::formats::metadata::MetaData;
-use crate::formats::pointxyzrgba::PointXyzRgba;
-use crate::formats::PointCloud;
 use std::marker::PhantomData;
 use std::path::Path;
 use std::process::exit;
 
-use super::camera::CameraState;
-use super::reader::{LODFileReader, PointCloudFileReader, RenderReader};
-use super::renderable::Renderable;
 use super::resolution_controller::ResolutionController;
-use super::upsampler::Upsampler;
+use crate::formats::metadata::MetaData;
+use crate::formats::pointxyzrgba::PointXyzRgba;
+use crate::formats::PointCloud;
+use crate::render::wgpu::camera::CameraState;
+use crate::render::wgpu::reader::{LODFileReader, PointCloudFileReader, RenderReader};
+use crate::render::wgpu::renderable::Renderable;
+use crate::render::wgpu::upsampler::Upsampler;
 
 pub trait RenderManager<T: Renderable> {
     fn start(&mut self) -> Option<T>;

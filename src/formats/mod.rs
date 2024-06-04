@@ -34,7 +34,7 @@ where
     T: Clone + Serialize,
 {
     #[cfg(feature = "with-tmc2-rs-decoder")]
-    pub(crate) fn combine(&mut self, other: &Self) {
+    pub fn combine(&mut self, other: &Self) {
         self.points.extend_from_slice(&other.points);
         self.number_of_points += other.number_of_points;
     }

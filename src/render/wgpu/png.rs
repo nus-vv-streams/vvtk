@@ -1,8 +1,8 @@
 use crate::formats::pointxyzrgba::PointXyzRgba;
 use crate::formats::PointCloud;
 use crate::render::wgpu::camera::{Camera, CameraState};
-use crate::render::wgpu::renderer::{parse_wgpu_color, PointCloudRenderer};
-// use color_space::Rgb;
+use crate::render::wgpu::color::parse_wgpu_color;
+use crate::render::wgpu::point_cloud_renderer::PointCloudRenderer;
 use std::ffi::OsString;
 use std::num::NonZeroU32;
 use std::path::Path;
@@ -53,8 +53,6 @@ pub struct PngWriter<'a> {
     camera_state: CameraState,
     point_renderer: Option<PointCloudRenderer<PointCloud<PointXyzRgba>>>,
     background_color: Option<wgpu::Color>,
-    // count: usize,
-    // bg_color: Rgb,
     render_format: RenderFormat,
 }
 

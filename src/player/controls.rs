@@ -1,6 +1,4 @@
-use crate::render::wgpu::builder::{
-    Attachable, EventType, RenderEvent, RenderInformation, Windowed,
-};
+use super::builder::{Attachable, EventType, RenderEvent, RenderInformation, Windowed};
 use crate::render::wgpu::gpu::WindowGpu;
 use egui::{Button, CentralPanel, Context, FontDefinitions, Label, Slider};
 use egui_wgpu_backend::{RenderPass, ScreenDescriptor};

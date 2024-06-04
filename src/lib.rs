@@ -11,6 +11,7 @@ pub mod lodify;
 pub mod metrics;
 pub mod pcd;
 pub mod pipeline;
+pub mod player;
 pub mod ply;
 pub mod reconstruct;
 pub mod render;

@@ -1,13 +1,9 @@
 pub mod antialias;
-pub mod builder;
 pub mod camera;
-pub mod controls;
-mod gpu;
-pub mod metrics_reader;
+pub mod color;
+pub mod gpu;
 pub mod png;
+pub mod point_cloud_renderer;
 pub mod reader;
-pub mod render_manager;
 pub mod renderable;
-pub mod renderer;
-pub mod resolution_controller;
 pub mod upsampler;
