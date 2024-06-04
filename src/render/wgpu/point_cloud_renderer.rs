@@ -1,12 +1,11 @@
+use super::renderable::Renderable;
 use crate::render::wgpu::camera::{CameraState, CameraUniform};
 use std::marker::PhantomData;
 use wgpu::{
     BindGroup, Buffer, CommandEncoder, Device, LoadOp, Operations, Queue,
-    RenderPassDepthStencilAttachment, RenderPipeline, Texture, TextureFormat,
-    TextureView,
+    RenderPassDepthStencilAttachment, RenderPipeline, Texture, TextureFormat, TextureView,
 };
 use winit::dpi::PhysicalSize;
-use super::renderable::Renderable;
 
 pub struct PointCloudRenderer<T: Renderable> {
     camera_buffer: Buffer,

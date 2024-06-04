@@ -12,9 +12,9 @@ use vivotk::dash::{ThroughputPrediction, ViewportPrediction};
 use vivotk::player::{
     builder::{EventType, RenderBuilder, RenderEvent},
     controls::Controller,
-    renderer::Renderer,
     metrics_reader::MetricsReader,
-    render_manager::{RenderManager, RenderReaderWrapper}
+    render_manager::{RenderManager, RenderReaderWrapper},
+    renderer::Renderer,
 };
 use vivotk::render::wgpu::{
     camera::{Camera, CameraPosition},

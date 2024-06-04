@@ -60,7 +60,7 @@ impl BufferManager {
             // buffer size is given in seconds. however our frames are only segment_size.0 / segment_size.1 seconds long.
             // buffer: Buffer::new(buffer_size as usize),
             buffer: Buffer::new((buffer_size * segment_size.1 / segment_size.0) as usize), // from
-                                                                                                     // ply_play
+                                                                                           // ply_play
         }
     }
 

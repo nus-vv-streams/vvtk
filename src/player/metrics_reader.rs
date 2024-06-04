@@ -3,10 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{
-    metrics::Metrics, 
-    utils::expand_directory
-};
+use crate::{metrics::Metrics, utils::expand_directory};
 
 pub struct MetricsReader {
     files: Vec<PathBuf>,

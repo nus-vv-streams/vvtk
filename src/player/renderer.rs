@@ -1,19 +1,17 @@
-use super::builder::{
-    Attachable, EventType, RenderEvent, RenderInformation, Windowed,
-};
+use super::builder::{Attachable, EventType, RenderEvent, RenderInformation, Windowed};
 use super::metrics_reader::MetricsReader;
 use super::render_manager::RenderManager;
 // use std::f16::consts::E;
 // use winit::dpi::{PhysicalPosition, PhysicalSize};
-use log::debug;
-use std::iter;
-use std::marker::PhantomData;
-use std::time::{Duration, Instant};
 use crate::render::wgpu::camera::{Camera, CameraState};
 use crate::render::wgpu::color::parse_wgpu_color;
 use crate::render::wgpu::gpu::WindowGpu;
 use crate::render::wgpu::point_cloud_renderer::PointCloudRenderer;
 use crate::render::wgpu::renderable::Renderable;
+use log::debug;
+use std::iter;
+use std::marker::PhantomData;
+use std::time::{Duration, Instant};
 use wgpu::util::StagingBelt;
 use wgpu_glyph::{ab_glyph, GlyphBrush, GlyphBrushBuilder, Section, Text};
 use winit::dpi::PhysicalSize;
@@ -22,8 +20,6 @@ use winit::event::{
 };
 use winit::event_loop::{EventLoop, EventLoopProxy};
 use winit::window::{Window, WindowBuilder, WindowId};
-
-
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum PlaybackState {
@@ -533,4 +529,3 @@ impl MetricsRenderer {
             .expect("Draw queued");
     }
 }
-
